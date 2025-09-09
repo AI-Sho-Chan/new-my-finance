@@ -286,25 +286,28 @@ const DEFAULT_ITEMS = [
       return(
         <div className="bg-gray-900 text-white min-h-screen font-sans antialiased">
           <div className="container mx-auto px-4 pb-24">
-            <header className="py-6"><h1 className="text-3xl font-bold text-gray-100">繝槭ロ繝ｼ繝槭ロ繝ｼ繧ｸ繝｣繝ｼ</h1><p className="text-md text-gray-400">縺ゅ↑縺溘・雉・肇縺ｨ逶ｸ蝣ｴ繧偵∵焔蜈・〒謚頑升縲・/p></header>
+                        <header className="py-6">
+              <h1 className="text-3xl font-bold text-gray-100">{J('%E3%83%9E%E3%83%8D%E3%83%BC%E3%83%9E%E3%83%8D%E3%83%BC%E3%82%B8%E3%83%A3%E3%83%BC')}</h1>
+              <p className="text-md text-gray-400">{J('%E3%81%82%E3%81%AA%E3%81%9F%E3%81%AE%E8%B3%87%E7%94%A3%E3%81%A8%E7%9B%B8%E5%A0%B4%E3%82%92%E3%80%81%E6%89%8B%E5%85%83%E3%81%A7%E6%8A%8A%E6%8F%A1%E3%80%82')}</p>
+            </header>
             <div className="flex items-center justify-between mb-3">
               <SearchAdd onPick={addSymbol}/>
               <div className="flex items-center space-x-2">
+                
                 <select value={sortMode} onChange={e=>{ const v=e.target.value; setSortMode(v); try{ localStorage.setItem('nmy.watch.sort',v); }catch(_){} }} className="bg-gray-800 text-gray-200 text-sm px-3 py-2 rounded">
-                  <option value="none">謇句虚鬆・/option>
-                  <option value="changeAsc">蟇ｾ蜑肴律豈・譏・・/option>
-                  <option value="changeDesc">蟇ｾ蜑肴律豈・髯埼・/option>
-                  <option value="trendUpFirst">荳頑・繝医Ξ繝ｳ繝牙━蜈・/option>
-                  <option value="trendDownFirst">荳矩剄繝医Ξ繝ｳ繝牙━蜈・/option>
-                  <option value="trendUpChangeAsc">荳頑・繝医Ξ繝ｳ繝牙・ 荳玖誠邇・・鬆・/option>
-                  <option value="trendDownChangeDesc">荳矩剄繝医Ξ繝ｳ繝牙・ 荳頑・邇・剄鬆・/option>
+                  <option value="none">{J('%E6%89%8B%E5%8B%95%E9%A0%86')}</option>
+                  <option value="changeAsc">{J('%E5%AF%BE%E5%89%8D%E6%97%A5%E6%AF%94%20%E6%98%87%E9%A0%86')}</option>
+                  <option value="changeDesc">{J('%E5%AF%BE%E5%89%8D%E6%97%A5%E6%AF%94%20%E9%99%8D%E9%A0%86')}</option>
+                  <option value="trendUpFirst">{J('%E4%B8%8A%E6%98%87%E3%83%88%E3%83%AC%E3%83%B3%E3%83%89%E5%84%AA%E5%85%88')}</option>
+                  <option value="trendDownFirst">{J('%E4%B8%8B%E9%99%8D%E3%83%88%E3%83%AC%E3%83%B3%E3%83%89%E5%84%AA%E5%85%88')}</option>
+                  <option value="trendUpChangeAsc">{J('%E4%B8%8A%E6%98%87%E3%83%88%E3%83%AC%E3%83%B3%E3%83%89%E5%86%85%20%E4%B8%8B%E8%90%BD%E7%8E%87%E6%98%87%E9%A0%86')}</option>
+                  <option value="trendDownChangeDesc">{J('%E4%B8%8B%E9%99%8D%E3%83%88%E3%83%AC%E3%83%B3%E3%83%89%E5%86%85%20%E4%B8%8A%E6%98%87%E7%8E%87%E9%99%8D%E9%A0%86')}</option>
                 </select>
-                <button onClick={()=>setSortMode('none')} className="px-3 py-2 bg-gray-700 rounded text-sm">蜈・↓謌ｻ縺・/button>
-              </div>
+                <button onClick={()=>setSortMode('none')} className="px-3 py-2 bg-gray-700 rounded text-sm">{J('%E5%85%83%E3%81%AB%E6%88%BB%E3%81%99')}</button>
             </div>
             <main>
               {isLoading
-                ? (<div className="flex justify-center items-center h-64"><Loader/><span className="ml-4 text-lg text-gray-400">蟶ょｴ繝・・繧ｿ繧貞叙蠕嶺ｸｭ...</span></div>)
+                ? (<div className="flex justify-center items-center h-64"><Loader/><span className="ml-4 text-lg text-gray-400">{J('%E5%B8%82%E5%A0%B4%E3%83%87%E3%83%BC%E3%82%BF%E3%82%92%E5%8F%96%E5%BE%97%E4%B8%AD...')}</span></div>)
                 : (<Dashboard watchlist={displayed} sortMode={sortMode} onRemove={removeSymbol} onReorder={moveItem} onCardClick={handleCardClick} />)
               }
             </main>
@@ -515,6 +518,7 @@ const DEFAULT_ITEMS = [
   </script>
 </body>
 </html>
+
 
 
 
