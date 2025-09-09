@@ -245,7 +245,7 @@ const DEFAULT_ITEMS = [
             setPortfolio(prev => prev.map(a=>{
               if(!a.details.symbol) return a;
               const d=market[a.details.symbol]; if(!d) return a;
-              if(a.type==='迴ｾ驥・&&a.details.currency==='USD') return {...a,details:{...a.details,rate:d.price}};
+              if(a.type==='CASH' && a.details.currency==='USD') return {...a,details:{...a.details,rate:d.price}};
               const current=(d.price??0)*(a.details.qty??0);
               const cost=(a.details.avgPrice??0)*(a.details.qty??0);
               const gl=cost>0?((current-cost)/cost)*100:0;
@@ -264,7 +264,7 @@ const DEFAULT_ITEMS = [
       },[portfolio]);
 
       const addSymbol = async (symbol, name) => { if (watchItems.some(w=>w.symbol===symbol)) return; persistItems([...watchItems, {id:symbol, symbol, name: name || NAME_MAP[symbol] || symbol }]); };
-      const removeSymbol = (symbol) => { if (!confirm(`${symbol} 繧貞炎髯､縺励∪縺吶°・歔)) return; persistItems(watchItems.filter(w=>w.symbol!==symbol)); };
+      const removeSymbol = (symbol) => { if (!confirm(`Delete ${symbol}?`)) return; persistItems(watchItems.filter(w=>w.symbol!==symbol)); };
       const moveItem = (fromIdx, toIdx) => { if (fromIdx===toIdx) return; const arr = [...watchItems]; const [m] = arr.splice(fromIdx,1); arr.splice(toIdx,0,m); persistItems(arr); };
 
       const handleCardClick=(stock)=>{setSelectedStock(stock);setIsModalOpen(true);};
@@ -515,5 +515,7 @@ const DEFAULT_ITEMS = [
   </script>
 </body>
 </html>
+
+
 
 
