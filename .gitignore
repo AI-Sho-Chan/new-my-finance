@@ -16,3 +16,7 @@ Thumbs.db
 # Build artifacts
 *.log
 *.tmp
+
+# Additional ignores
+node_modules/
+cf-worker/node_modules/
