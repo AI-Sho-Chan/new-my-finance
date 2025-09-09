@@ -35,45 +35,46 @@
     const SettingsIcon=()=> <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 0 2l-.15.08a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l-.22-.38a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1 0-2l-.15-.08a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15-.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>;
     const Loader=()=> <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-spin"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg>;
 
-    const DEFAULT_ITEMS = [
-      {id:'^N225', name:'譌･邨悟ｹｳ蝮・, symbol:'^N225'},
-      {id:'^GSPC', name:'S&P500', symbol:'^GSPC'},
-      {id:'7203.T', name:'繝医Κ繧ｿ閾ｪ蜍戊ｻ・, symbol:'7203.T'},
-      {id:'AAPL', name:'繧｢繝・・繝ｫ', symbol:'AAPL'},
-      {id:'JPY=X', name:'繝峨Ν蜀・, symbol:'JPY=X'},
-      {id:'^VIX', name:'VIX謖・焚', symbol:'^VIX'},
-      {id:'BTC-JPY', name:'繝薙ャ繝医さ繧､繝ｳ(蜀・', symbol:'BTC-JPY'},
-      {id:'^IXIC', name:'NASDAQ邱丞粋', symbol:'^IXIC'},
-      {id:'^RUT', name:'繝ｩ繝・そ繝ｫ2000', symbol:'^RUT'},
-      {id:'GC=F', name:'驥・, symbol:'GC=F'},
-      {id:'CL=F', name:'蜴滓ｲｹ', symbol:'CL=F'},
-      {id:'1343.T', name:'譚ｱ險ｼREIT', symbol:'1343.T'},
-      {id:'8306.T', name:'荳芽廠UFJFG', symbol:'8306.T'},
-      {id:'8316.T', name:'荳我ｺ穂ｽ丞暑FG', symbol:'8316.T'},
-      {id:'7011.T', name:'荳芽廠驥榊ｷ･', symbol:'7011.T'},
-      {id:'6501.T', name:'譌･遶・, symbol:'6501.T'},
-      {id:'6702.T', name:'蟇悟｣ｫ騾・, symbol:'6702.T'},
-      {id:'6920.T', name:'繝ｬ繝ｼ繧ｶ繝ｼ繝・ャ繧ｯ', symbol:'6920.T'},
-      {id:'8035.T', name:'譚ｱ莠ｬ繧ｨ繝ｬ繧ｯ繝医Ο繝ｳ', symbol:'8035.T'},
-      {id:'8584.T', name:'繧ｸ繝｣繝・け繧ｹ', symbol:'8584.T'},
-      {id:'7741.T', name:'HOYA', symbol:'7741.T'},
-      {id:'5401.T', name:'譌･譛ｬ陬ｽ驩・, symbol:'5401.T'},
-      {id:'NVDA', name:'NVIDIA', symbol:'NVDA'},
-      {id:'AVGO', name:'繝悶Ο繝ｼ繝峨さ繝', symbol:'AVGO'},
-      {id:'GOOGL', name:'Alphabet', symbol:'GOOGL'},
-      {id:'MSFT', name:'Microsoft', symbol:'MSFT'},
-      {id:'META', name:'Meta', symbol:'META'},
-    ];
+    const J = (s)=>decodeURIComponent(s);
+const DEFAULT_ITEMS = [
+  {id:'^N225',   name:J('%E6%97%A5%E7%B5%8C%E5%B9%B3%E5%9D%87'), symbol:'^N225'},
+  {id:'^GSPC',   name:'S&P500',                                   symbol:'^GSPC'},
+  {id:'7203.T',  name:J('%E3%83%88%E3%83%A8%E3%82%BF%E8%87%AA%E5%8B%95%E8%BB%8A'), symbol:'7203.T'},
+  {id:'AAPL',    name:J('%E3%82%A2%E3%83%83%E3%83%97%E3%83%AB'), symbol:'AAPL'},
+  {id:'JPY=X',   name:J('%E3%83%89%E3%83%AB%E5%86%86'),           symbol:'JPY=X'},
+  {id:'^VIX',    name:J('VIX%E6%8C%87%E6%95%B0'),                 symbol:'^VIX'},
+  {id:'BTC-JPY', name:J('%E3%83%93%E3%83%83%E3%83%88%E3%82%B3%E3%82%A4%E3%83%B3(%E5%86%86)'), symbol:'BTC-JPY'},
+  {id:'^IXIC',   name:J('NASDAQ%E7%B7%8F%E5%90%88'),             symbol:'^IXIC'},
+  {id:'^RUT',    name:J('%E3%83%A9%E3%83%83%E3%82%BB%E3%83%AB2000'), symbol:'^RUT'},
+  {id:'GC=F',    name:J('%E9%87%91'),                             symbol:'GC=F'},
+  {id:'CL=F',    name:J('%E5%8E%9F%E6%B2%B9'),                     symbol:'CL=F'},
+  {id:'1343.T',  name:J('%E6%9D%B1%E8%A8%BCREIT'),                 symbol:'1343.T'},
+  {id:'8306.T',  name:J('%E4%B8%89%E8%8F%B1UFJFG'),               symbol:'8306.T'},
+  {id:'8316.T',  name:J('%E4%B8%89%E4%BA%95%E4%BD%8F%E5%8F%8BFG'), symbol:'8316.T'},
+  {id:'7011.T',  name:J('%E4%B8%89%E8%8F%B1%E9%87%8D%E5%B7%A5'),   symbol:'7011.T'},
+  {id:'6501.T',  name:J('%E6%97%A5%E7%AB%8B'),                     symbol:'6501.T'},
+  {id:'6702.T',  name:J('%E5%AF%8C%E5%A3%AB%E9%80%9A'),             symbol:'6702.T'},
+  {id:'6920.T',  name:J('%E3%83%AC%E3%83%BC%E3%82%B6%E3%83%BC%E3%83%86%E3%83%83%E3%82%AF'), symbol:'6920.T'},
+  {id:'8035.T',  name:J('%E6%9D%B1%E4%BA%AC%E3%82%A8%E3%83%AC%E3%82%AF%E3%83%88%E3%83%AD%E3%83%B3'), symbol:'8035.T'},
+  {id:'8584.T',  name:J('%E3%82%B8%E3%83%A3%E3%83%83%E3%82%AF%E3%82%B9'), symbol:'8584.T'},
+  {id:'7741.T',  name:'HOYA',                                     symbol:'7741.T'},
+  {id:'5401.T',  name:J('%E6%97%A5%E6%9C%AC%E8%A3%BD%E9%89%84'),   symbol:'5401.T'},
+  {id:'NVDA',    name:'NVIDIA',                                   symbol:'NVDA'},
+  {id:'AVGO',    name:J('%E3%83%96%E3%83%AD%E3%83%BC%E3%83%89%E3%82%B3%E3%83%A0'), symbol:'AVGO'},
+  {id:'GOOGL',   name:'Alphabet',                                 symbol:'GOOGL'},
+  {id:'MSFT',    name:'Microsoft',                                symbol:'MSFT'},
+  {id:'META',    name:'Meta',                                     symbol:'META'},
+];
     const NAME_MAP = Object.fromEntries(DEFAULT_ITEMS.map(x=>[x.symbol,x.name]));
 
     const initialPortfolioData=[
-      {id:'bank1',type:'迴ｾ驥・,name:'A蜿｣蠎ｧ (JPY)',value:1500000,details:{currency:'JPY'}},
-      {id:'bank2',type:'迴ｾ驥・,name:'B蜿｣蠎ｧ (USD)',value:10000,details:{currency:'USD',symbol:'JPY=X'}},
-      {id:'stock1',type:'譌･譛ｬ譬ｪ',name:'繧ｽ繝九・繧ｰ繝ｫ繝ｼ繝・,value:0,details:{symbol:'6758.T',qty:100,avgPrice:12500}},
-      {id:'stock2',type:'邀ｳ蝗ｽ譬ｪ',name:'NVIDIA Corp',value:0,details:{symbol:'NVDA',qty:10,avgPrice:600}},
-      {id:'crypto1',type:'證怜捷雉・肇',name:'Bitcoin (JPY)',value:0,details:{symbol:'BTC-JPY',avgPrice:8000000,qty:0.125}},
-    ];
 
+      {id:'bank1',type:'CASH',name:'Account A (JPY)',value:1500000,details:{currency:'JPY'}},
+      {id:'bank2',type:'CASH',name:'Account B (USD)',value:10000,details:{currency:'USD',symbol:'JPY=X'}},
+      {id:'stock1',type:'JP_EQUITY',name:'Sony Group',value:0,details:{symbol:'6758.T',qty:100,avgPrice:12500}},
+      {id:'stock2',type:'US_EQUITY',name:'NVIDIA Corp',value:0,details:{symbol:'NVDA',qty:10,avgPrice:600}},
+      {id:'crypto1',type:'CRYPTO',name:'Bitcoin (JPY)',value:0,details:{symbol:'BTC-JPY',avgPrice:8000000,qty:0.125}},
+    ];
     const yfGetJSON = window.yfGetJSON;
     const searchSymbols = async (q) => {
       if (!q || !q.trim()) return [];
@@ -514,4 +515,5 @@
   </script>
 </body>
 </html>
+
 
