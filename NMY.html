@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>資産マネージャー</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .animate-spin{animation:spin 1s linear infinite}@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+    .switch{position:relative;display:inline-block;width:60px;height:34px}
+    .switch input{opacity:0;width:0;height:0}
+    .slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#ccc;transition:.4s;border-radius:34px}
+    .slider:before{position:absolute;content:"";height:26px;width:26px;left:4px;bottom:4px;background:#fff;transition:.4s;border-radius:50%}
+    input:checked + .slider{background:#4f46e5}
+    input:checked + .slider:before{transform:translateX(26px)}
+  </style>
+</head>
+<body class="bg-gray-900">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const {useState,useEffect,useMemo,useRef}=React;
+
+    /* Lightweight Charts loader */
+    const LWC_URL='https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js';
+    let __lwcPromise=null;
+    const ensureLightweightCharts=()=>{
+      if(window.LightweightCharts?.createChart) return Promise.resolve(window.LightweightCharts);
+      if(__lwcPromise) return __lwcPromise;
+      __lwcPromise=new Promise((resolve,reject)=>{
+        const id='lightweight-charts-standalone';
+        const existing=document.getElementById(id);
+        const onReady=()=>{
+          try{
+            const L=window.LightweightCharts;
+            if(!L?.createChart) throw new Error('LightweightCharts missing createChart');
+            const testDiv=document.createElement('div');
+            testDiv.style.cssText='position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;';
+            document.body.appendChild(testDiv);
+            const tmp=L.createChart(testDiv,{width:1,height:1});
+            const ok=typeof tmp.addCandlestickSeries==='function';
+            tmp.remove(); document.body.removeChild(testDiv);
+            if(!ok) throw new Error('LightweightCharts API incomplete');
+            resolve(L);
+          }catch(e){reject(e)}
+        };
+        if(existing){
+          existing.addEventListener('load',onReady,{once:true});
+          existing.addEventListener('error',()=>reject(new Error('LWC script error')),{once:true});
+          if(window.LightweightCharts?.createChart) onReady();
+          return;
+        }
+        const s=document.createElement('script');
+        s.id=id; s.src=LWC_URL; s.async=true; s.crossOrigin='anonymous';
+        s.addEventListener('load',onReady,{once:true});
+        s.addEventListener('error',()=>reject(new Error('Failed to load Lightweight Charts')),{once:true});
+        document.head.appendChild(s);
+      });
+      return __lwcPromise;
+    };
+
+    /* Icons */
+    const TrendingUp=()=> <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>;
+    const TrendingDown=()=> <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>;
+    const PlusCircle=()=> <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>;
+    const SettingsIcon=()=> <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 0 2l-.15.08a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l-.22-.38a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1 0-2l-.15-.08a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15-.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>;
+    const HomeIcon=()=> <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>;
+    const PieChartIcon=()=> <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>;
+    const Loader=()=> <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-spin"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg>;
+
+    /* 初期データ */
+    const initialWatchlistData=[
+      {id:1,name:'日経平均株価',symbol:'^N225'},
+      {id:2,name:'S&P 500',symbol:'^GSPC'},
+      {id:3,name:'トヨタ自動車',symbol:'7203.T'},
+      {id:4,name:'Apple Inc.',symbol:'AAPL'},
+      {id:5,name:'USD/JPY',symbol:'JPY=X'},
+      {id:6,name:'S&P 500 VIX',symbol:'^VIX'},
+    ];
+    const initialPortfolioData=[
+      {id:'bank1',type:'現金',name:'A銀行 (JPY)',value:1500000,details:{currency:'JPY'}},
+      {id:'bank2',type:'現金',name:'B銀行 (USD)',value:10000,details:{currency:'USD',symbol:'JPY=X'}},
+      {id:'stock1',type:'日本株',name:'ソニーグループ',value:0,details:{symbol:'6758.T',qty:100,avgPrice:12500}},
+      {id:'stock2',type:'米国株',name:'NVIDIA Corp',value:0,details:{symbol:'NVDA',qty:10,avgPrice:600}},
+      {id:'crypto1',type:'暗号資産',name:'Bitcoin (JPY)',value:0,details:{symbol:'BTC-JPY',avgPrice:8000000,qty:0.125}},
+    ];
+
+   const PROXIES = [
+  u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+  u => `https://corsproxy.io/?${encodeURIComponent(u)}`
+];
+let proxyIdx = 0;
+const fetchWithProxy = async (url, tries = PROXIES.length) => {
+  // キャッシュ回避
+  const urlNoCache = url + (url.includes('?') ? '&' : '?') + 'ts=' + Date.now();
+  for (let t = 0; t < tries; t++) {
+    const proxied = PROXIES[proxyIdx](urlNoCache);
+    try {
+      const res = await fetch(proxied, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const body = await res.text();           // text/plain対策
+      return JSON.parse(body);
+    } catch (e) {
+      proxyIdx = (proxyIdx + 1) % PROXIES.length;
+      if (t === tries - 1) throw e;
+    }
+  }
+};
+
+    // 専用Yahoo Financeプロキシ（Cloudflare Workersなど）を使用
+    // <head> に次を追加して有効化: <script>window.__YF_PROXY__='http://127.0.0.1:8787/api/yf'</script>
+    const YF_BASE = (typeof window !== 'undefined' && window.__YF_PROXY__) ? window.__YF_PROXY__ : null;
+    const yfGetJSON = async (pathWithQuery) => {
+      if (!YF_BASE) throw new Error("YF proxy not set. Add <script>window.__YF_PROXY__='https://.../api/yf'</script> in <head>.");
+      const u = `${YF_BASE}${pathWithQuery}${pathWithQuery.includes('?') ? '&' : '?'}ts=${Date.now()}`;
+      const res = await fetch(u, { cache: 'no-store', headers: { 'Accept': 'application/json' } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    };
+
+    /// 既存の fetchMarketData を丸ごと置換
+const fetchMarketData = async (symbols) => {
+  const num = (x) => (typeof x === 'number' && Number.isFinite(x)) ? x : undefined;
+
+  try {
+    const data = await yfGetJSON(`/quote?symbols=${encodeURIComponent(symbols.join(','))}`);
+    const list = data?.quoteResponse?.result || [];
+    if (!Array.isArray(list)) throw new Error('bad quote payload');
+
+    const want = new Set(symbols);           // 返却ノイズ除去（完全一致のみ採用）
+    const out = {};
+
+    for (const q of list) {
+      if (!want.has(q.symbol)) continue;
+
+      const type = String(q.quoteType || '').toUpperCase();
+      const isEquity = (type === 'EQUITY');  // 株式のみ指標を表示。他(CURRENCY/INDEX/ETF 等)は非表示
+
+      const price = num(q.regularMarketPrice) ?? num(q.postMarketPrice) ?? num(q.preMarketPrice);
+      const prev  = num(q.regularMarketPreviousClose) ?? num(q.previousClose) ?? num(q.chartPreviousClose);
+      const change = (price != null && prev != null) ? price - prev : (num(q.regularMarketChange) ?? 0);
+      // UIは小数→%表示なので 0.0065 形式で返す
+      const changePercent = (price != null && prev != null && prev > 0)
+        ? (price - prev) / prev
+        : (typeof q.regularMarketChangePercent === 'number' ? q.regularMarketChangePercent / 100 : 0);
+
+      out[q.symbol] = {
+        price,
+        change,
+        changePercent,
+        trend: (change ?? 0) >= 0 ? 'up' : 'down',
+        name: q.longName || q.shortName || q.symbol,
+
+        // 指標系は株式のみ出す
+        per: isEquity && num(q.trailingPE) != null ? q.trailingPE : undefined,
+        pbr: isEquity && num(q.priceToBook) != null ? q.priceToBook : undefined,
+        dividendYield: isEquity
+          ? (typeof q.trailingAnnualDividendYield === 'number'
+              ? q.trailingAnnualDividendYield
+              : (num(q.trailingAnnualDividendRate) != null && price > 0
+                  ? q.trailingAnnualDividendRate / price
+                  : undefined))
+          : undefined,
+        marketCap: isEquity && num(q.marketCap) != null ? q.marketCap : undefined,
+      };
+    }
+
+    // 返って来なかった銘柄は安全な既定値で埋める
+    for (const s of symbols) {
+      if (!out[s]) out[s] = { price: 0, change: 0, changePercent: 0, trend: 'up', name: s };
+    }
+    return out;
+  } catch (e) {
+    console.error('fetchMarketData failed:', e);
+    // フォールバック（簡易）
+    return symbols.reduce((acc, s) => {
+      acc[s] = { price: 0, change: 0, changePercent: 0, trend: 'up', name: s };
+      return acc;
+    }, {});
+  }
+};
+
+
+
+    // ③ ヒストリカル: パス部の symbol を必ず encodeURIComponent
+const fetchHistoricalData = async (symbol, timeframe) => {
+  try {
+    const tf = timeframe === 'W' ? { interval: '1wk', range: '2y' }
+             : timeframe === 'M' ? { interval: '1mo', range: '5y' }
+             :                      { interval: '1d',  range: '1y' };
+    const data = await yfGetJSON(`/history?symbol=${encodeURIComponent(symbol)}&interval=${tf.interval}&range=${tf.range}`);
+
+    const result = data?.chart?.result?.[0];
+    const ts = result?.timestamp || [];
+    const qt = result?.indicators?.quote?.[0] || {};
+    const open = qt.open || [], high = qt.high || [], low = qt.low || [], close = qt.close || [], volume = qt.volume || [];
+
+    const out = [];
+    for (let i = 0; i < ts.length; i++) {
+      const o = open[i], h = high[i], l = low[i], c = close[i], v = volume[i];
+      if ([o,h,l,c].some(x => x == null || !isFinite(x))) continue;
+      out.push({
+        time: ts[i],
+        open: o, high: h, low: l, close: c,
+        value: isFinite(v) ? v : 0,
+        color: c >= o ? 'rgba(0,150,136,0.2)' : 'rgba(255,82,82,0.2)',
+      });
+    }
+    if (out.length === 0) throw new Error('empty history');
+    return out;
+  } catch (e) {
+    console.error('fetchHistoricalData failed:', e);
+    // 既存ダミーにフォールバック（そのままで可）
+    const out=[]; const base=100; const now=Date.now();
+    const days = timeframe==='W'?104: timeframe==='M'?60: 252;
+    for(let i=days;i>=0;i--){
+      const t=Math.floor((now-i*86400000)/1000);
+      const p=base+Math.sin(i/10)*20+(Math.random()-0.5)*10;
+      const o=p+(Math.random()-0.5)*5, c=p+(Math.random()-0.5)*5;
+      const h=Math.max(o,c)+Math.random()*3, l=Math.min(o,c)-Math.random()*3;
+      out.push({ time:t, open:o, high:h, low:l, close:c, value:Math.floor(Math.random()*1e6), color:c>=o?'rgba(0,150,136,0.2)':'rgba(255,82,82,0.2)' });
+    }
+    return out;
+  }
+};
+
+
+    /* App */
+    const App=()=>{
+      const [activeTab,setActiveTab]=useState('dashboard');
+      const [watchlist,setWatchlist]=useState([]);
+      const [portfolio,setPortfolio]=useState([]);
+      const [isLoading,setIsLoading]=useState(true);
+      const [isModalOpen,setIsModalOpen]=useState(false);
+      const [selectedStock,setSelectedStock]=useState(null);
+
+      useEffect(()=>{
+        const run=async()=>{
+          setIsLoading(true);
+          const watchSyms=initialWatchlistData.map(i=>i.symbol);
+          const portSyms=initialPortfolioData.filter(i=>i.details.symbol).map(i=>i.details.symbol);
+          const all=[...new Set([...watchSyms,...portSyms])];
+          try{
+            const market=await fetchMarketData(all);
+            setWatchlist(initialWatchlistData.map(i=>{const d=market[i.symbol]||{};return {...i,...d,name:d.name||i.name};}));
+            setPortfolio(initialPortfolioData.map(a=>{
+              if(!a.details.symbol) return a;
+              const d=market[a.details.symbol]; if(!d) return a;
+              if(a.type==='現金'&&a.details.currency==='USD') return {...a,details:{...a.details,rate:d.price}};
+              const current=(d.price??0)*(a.details.qty??0);
+              const cost=(a.details.avgPrice??0)*(a.details.qty??0);
+              const gl=cost>0?((current-cost)/cost)*100:0;
+              return {...a,value:current,gainLossPercent:gl};
+            }));
+          }catch(e){
+            console.error(e);
+            setWatchlist(initialWatchlistData);
+            setPortfolio(initialPortfolioData);
+          }finally{ setIsLoading(false); }
+        };
+        run();
+      },[]);
+
+      const handleCardClick=(stock)=>{setSelectedStock(stock);setIsModalOpen(true);};
+      const closeModal=()=>{setIsModalOpen(false);setSelectedStock(null);};
+
+      const renderContent=()=>{
+        if(isLoading){
+          return(<div className="flex justify-center items-center h-64"><Loader/><span className="ml-4 text-lg text-gray-400">市場データを取得中...</span></div>);
+        }
+        switch(activeTab){
+          case 'dashboard': return <Dashboard watchlist={watchlist} onCardClick={handleCardClick}/>;
+          case 'portfolio': return <Portfolio portfolio={portfolio}/>;
+          case 'settings': return <Settings/>;
+          default: return <Dashboard watchlist={watchlist} onCardClick={handleCardClick}/>;
+        }
+      };
+
+      return(
+        <div className="bg-gray-900 text-white min-h-screen font-sans antialiased">
+          <div className="container mx-auto px-4 pb-20">
+            <Header/>
+            <main>{renderContent()}</main>
+          </div>
+          <BottomNav activeTab={activeTab} setActiveTab={setActiveTab}/>
+          {isModalOpen && <StockChartModal stock={selectedStock} onClose={closeModal}/>}
+        </div>
+      );
+    };
+
+    const Header=()=>(
+      <header className="py-6">
+        <h1 className="text-3xl font-bold text-gray-100">資産マネージャー</h1>
+        <p className="text-md text-gray-400">あなたの資産と市場を、ここに集約。</p>
+      </header>
+    );
+
+    const Dashboard=({watchlist,onCardClick})=>(
+      <div>
+        <h2 className="text-2xl font-semibold mb-4 text-gray-200">ダッシュボード</h2>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-4">
+          {watchlist.map(item=>(
+            <StockCard key={item.id} item={item} onClick={()=>onCardClick(item)}/>
+          ))}
+        </div>
+      </div>
+    );
+
+    const TrendingIcon=({trend})=> trend==='up'?<TrendingUp/>:<TrendingDown/>;
+
+    const StockCard=({item,onClick})=>{
+      const changeAbs=Math.abs(item.changePercent??0);
+      const isPos=(item.changePercent??0)>=0;
+      const isVolatile=(changeAbs*100)>=5;
+      const cardStyle=`
+        bg-gray-800 rounded-lg p-3 shadow-lg transform hover:scale-105 transition-transform duration-300 cursor-pointer
+        flex flex-col justify-between h-full aspect-[4/5]
+        ${isVolatile?'ring-2 ring-yellow-400 shadow-yellow-400/20':''}
+      `;
+      return(
+        <div className={cardStyle} onClick={onClick}>
+          <div className="flex justify-between items-start">
+            <div className="w-4/5">
+              <h3 className="text-sm font-bold text-gray-100 truncate">{item.name}</h3>
+              <p className="text-xs text-gray-400">{item.symbol}</p>
+            </div>
+            <div className={`text-lg flex items-center ${isPos?'text-green-400':'text-red-400'}`}>
+              <TrendingIcon trend={isPos?'up':'down'}/>
+            </div>
+          </div>
+          <div className="flex-grow flex items-center justify-center my-1">
+            <div className={`text-3xl md:text-4xl font-bold ${isPos?'text-green-500':'text-red-500'}`}>
+              {isPos?'+':'-'}{(changeAbs*100).toFixed(1)}%
+            </div>
+          </div>
+          <div className="text-xs text-gray-400 pt-2 border-t border-gray-700 space-y-1">
+            <div className="flex justify-between"><span className="font-semibold">PER</span><span className="text-gray-200 font-medium">{typeof item.per==='number'?item.per.toFixed(2):'-'}</span></div>
+            <div className="flex justify-between"><span className="font-semibold">PBR</span><span className="text-gray-200 font-medium">{typeof item.pbr==='number'?item.pbr.toFixed(2):'-'}</span></div>
+            <div className="flex justify-between"><span className="font-semibold">配当利回</span><span className="text-gray-200 font-medium">{typeof item.dividendYield==='number'?(item.dividendYield*100).toFixed(2)+'%':'-'}</span></div>
+            <div className="flex justify-between"><span className="font-semibold truncate" title="時価総額">時価総額</span><span className="text-gray-200 font-medium">{item.marketCap?(item.marketCap/1e8).toLocaleString('ja-JP',{maximumFractionDigits:2})+'億':'-'}</span></div>
+          </div>
+        </div>
+      );
+    };
+
+    const Portfolio=({portfolio})=>{
+      const totalValue=useMemo(()=>portfolio.reduce((s,a)=> a.type==='現金'&&a.details.currency==='USD'? s+(a.value*(a.details.rate||150)) : s+a.value,0),[portfolio]);
+      const cashValue=useMemo(()=>portfolio.filter(a=>a.type==='現金').reduce((s,a)=> a.details.currency==='USD'? s+(a.value*(a.details.rate||150)) : s+a.value,0),[portfolio]);
+      const investmentValue=totalValue-cashValue;
+      const totalChange=25340;
+      const totalChangePercent=(totalChange/(totalValue-totalChange))*100;
+      return(
+        <div>
+          <div className="bg-gray-800 p-4 rounded-lg mb-6">
+            <div className="text-gray-400 text-sm">総資産額 (JPY)</div>
+            <div className="text-3xl font-bold text-white">¥ {totalValue.toLocaleString()}</div>
+            <div className={`text-md font-semibold mt-1 ${totalChange>=0?'text-green-400':'text-red-400'}`}>
+              {totalChange>=0?'+':''}¥{Math.abs(totalChange).toLocaleString()} ({totalChange>=0?'+':''}{totalChangePercent.toFixed(2)}%)
+              <span className="text-sm text-gray-500 ml-2">対前日比</span>
+            </div>
+            <div className="flex justify-between mt-4 pt-4 border-t border-gray-700 text-base">
+              <div className="text-green-400">現金: ¥ {cashValue.toLocaleString()}</div>
+              <div className="text-blue-400">投資: ¥ {investmentValue.toLocaleString()}</div>
+            </div>
+          </div>
+
+          <div className="bg-gray-800 p-4 rounded-lg mb-6 h-64 flex items-center justify-center">
+            <p className="text-gray-500">資産推移グラフ</p>
+          </div>
+
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-semibold text-gray-200">資産一覧</h2>
+            <button className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-4 rounded-lg flex items-center">
+              <PlusCircle /><span className="ml-2">追加</span>
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            {portfolio.map(asset=>{
+              const isUsdCash=asset.type==='現金'&&asset.details.currency==='USD';
+              let displayValue=isUsdCash? asset.value*(asset.details.rate||0) : asset.value;
+              return(
+                <div key={asset.id} className="bg-gray-800 rounded-lg p-4 flex justify-between items-center">
+                  <div>
+                    <p className="font-bold text-gray-100">{asset.name}</p>
+                    <p className="text-sm text-gray-400">{asset.type}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-lg text-gray-50">
+                      {isUsdCash ? '¥' : (asset.details.currency==='USD' ? '$' : '¥')}
+                      {displayValue.toLocaleString(undefined,{maximumFractionDigits:2})}
+                    </p>
+                    {isUsdCash && (<p className="text-sm text-gray-400">($ {asset.value.toLocaleString()})</p>)}
+                    {asset.gainLossPercent!==undefined && (
+                      <p className={`font-semibold text-sm ${asset.gainLossPercent>=0?'text-green-500':'text-red-500'}`}>
+                        {asset.gainLossPercent>=0?'+':''}{asset.gainLossPercent.toFixed(2)}%
+                      </p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    };
+
+    const Settings=()=>(
+      <div>
+        <h2 className="text-2xl font-semibold mb-4 text-gray-200">設定</h2>
+        <div className="bg-gray-800 rounded-lg p-4">
+          <h3 className="text-lg font-bold mb-2">アラート設定</h3>
+          <div className="flex justify-between items-center">
+            <p>S&P 500 VIX指数が40を超えたら通知</p>
+            <label className="switch"><input type="checkbox" defaultChecked /><span className="slider"></span></label>
+          </div>
+        </div>
+      </div>
+    );
+
+    const BottomNav=({activeTab,setActiveTab})=>{
+      const navItems=[
+        {id:'dashboard',label:'ダッシュボード',icon:<HomeIcon/>},
+        {id:'portfolio',label:'資産管理',icon:<PieChartIcon/>},
+        {id:'settings',label:'設定',icon:<SettingsIcon/>},
+      ];
+      return(
+        <nav className="fixed bottom-0 left-0 right-0 bg-gray-800 border-t border-gray-700 shadow-lg">
+          <div className="flex justify-around max-w-lg mx-auto">
+            {navItems.map(item=>(
+              <button key={item.id} onClick={()=>setActiveTab(item.id)}
+                className={`flex flex-col items-center justify-center w-full pt-2 pb-1 ${activeTab===item.id?'text-indigo-400':'text-gray-400'}`}>
+                {item.icon}<span className="text-xs">{item.label}</span>
+              </button>
+            ))}
+          </div>
+        </nav>
+      );
+    };
+
+    /* Chart modal */
+    const StockChartModal=({stock,onClose})=>{
+      const containerRef=useRef(null);
+      const chartRef=useRef(null);
+      const seriesRef=useRef({});
+      const [timeframe,setTimeframe]=useState('D');
+      const [loading,setLoading]=useState(true);
+
+      useEffect(()=>{
+        if(!stock) return;
+        let disposed=false; let ro;
+        (async()=>{
+          setLoading(true);
+          try{
+            const L=await ensureLightweightCharts();
+            await new Promise(r=>requestAnimationFrame(r));
+            if(disposed||!containerRef.current) return;
+            if(chartRef.current){chartRef.current.remove();chartRef.current=null;seriesRef.current={};}
+            const chart=L.createChart(containerRef.current,{
+              width:containerRef.current.clientWidth||800,
+              height:containerRef.current.clientHeight||420,
+              layout:{backgroundColor:'#1f2937',textColor:'rgba(255,255,255,0.9)'},
+              grid:{vertLines:{color:'#374151'},horzLines:{color:'#374151'}},
+              crosshair:{mode:L.CrosshairMode.Normal},
+              timeScale:{borderColor:'#4b5563'},
+            });
+            if(typeof chart.addCandlestickSeries!=='function') throw new Error('chart API invalid');
+            const candle=chart.addCandlestickSeries({
+              upColor:'#10b981',downColor:'#ef4444',borderUpColor:'#10b981',borderDownColor:'#ef4444',wickUpColor:'#10b981',wickDownColor:'#ef4444'
+            });
+            const volume=chart.addHistogramSeries({priceFormat:{type:'volume'},priceScaleId:''});
+            volume.priceScale().applyOptions({scaleMargins:{top:0.8,bottom:0}});
+            const ma50=chart.addLineSeries({color:'rgba(234,179,8,0.8)',lineWidth:2});
+            const ma200=chart.addLineSeries({color:'rgba(192,132,252,0.8)',lineWidth:2});
+            const bbU=chart.addLineSeries({color:'rgba(56,189,248,0.5)',lineWidth:1});
+            const bbL=chart.addLineSeries({color:'rgba(56,189,248,0.5)',lineWidth:1});
+            chartRef.current=chart; seriesRef.current={candle,volume,ma50,ma200,bbU,bbL};
+            ro=new ResizeObserver(([e])=>{ if(!e||!chartRef.current) return; const {width,height}=e.contentRect; chartRef.current.applyOptions({width,height}); });
+            ro.observe(containerRef.current);
+            setLoading(false);
+          }catch(err){console.error('Failed to initialize chart:',err);setLoading(false);}
+        })();
+        return ()=>{disposed=true; if(ro) ro.disconnect(); if(chartRef.current){chartRef.current.remove();chartRef.current=null;} seriesRef.current={};};
+      },[stock]);
+
+      useEffect(()=>{
+        if(!stock||!seriesRef.current.candle) return;
+        let alive=true;
+        (async()=>{
+          setLoading(true);
+          try{
+            const raw=await fetchHistoricalData(stock.symbol,timeframe);
+            if(!alive||!seriesRef.current.candle){setLoading(false);return;}
+            const ohlc=raw.map(d=>({time:d.time,open:d.open,high:d.high,low:d.low,close:d.close}));
+            const vol =raw.map(d=>({time:d.time,value:d.value,color:d.color}));
+            const ma=(arr,n)=>arr.slice(n-1).map((_,i)=>{const slice=arr.slice(i,i+n);const sum=slice.reduce((s,v)=>s+v.close,0);return{time:arr[i+n-1].time,value:sum/n};});
+            const bb=(arr,n,k)=>arr.slice(n-1).map((_,i)=>{const s=arr.slice(i,i+n);const mean=s.reduce((a,v)=>a+v.close,0)/n;const std=Math.sqrt(s.reduce((a,v)=>a+Math.pow(v.close-mean,2),0)/n);return{time:arr[i+n-1].time,upper:mean+k*std,lower:mean-k*std};});
+            const {candle,volume,ma50,ma200,bbU,bbL}=seriesRef.current;
+            candle.setData(ohlc); volume.setData(vol);
+            ma50.setData(ma(ohlc,50)); ma200.setData(ma(ohlc,200));
+            const bb20=bb(ohlc,20,2);
+            bbU.setData(bb20.map(x=>({time:x.time,value:x.upper})));
+            bbL.setData(bb20.map(x=>({time:x.time,value:x.lower})));
+            chartRef.current.timeScale().fitContent();
+          }catch(e){console.error('Failed to fetch/render data:',e);}
+          finally{ if(alive) setLoading(false); }
+        })();
+        return()=>{alive=false};
+      },[stock,timeframe]);
+
+      useEffect(()=>{const onKey=e=>e.key==='Escape'&&onClose(); window.addEventListener('keydown',onKey); return()=>window.removeEventListener('keydown',onKey);},[onClose]);
+
+      if(!stock) return null;
+      return(
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50" onClick={onClose}>
+          <div className="bg-gray-800 rounded-lg shadow-xl w-11/12 max-w-4xl h-3/4 p-4 flex flex-col" onClick={e=>e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-2">
+              <h2 className="text-xl font-bold">{stock.name} ({stock.symbol})</h2>
+              <div className="flex items-center">
+                <div className="bg-gray-700 rounded-md p-1 flex space-x-1 mr-4">
+                  {['D','W','M'].map(tf=>(
+                    <button key={tf} onClick={()=>setTimeframe(tf)}
+                      className={`px-3 py-1 text-sm font-semibold rounded ${timeframe===tf?'bg-indigo-600 text-white':'text-gray-300 hover:bg-gray-600'}`}>
+                      {tf==='D'?'日':tf==='W'?'週':'月'}
+                    </button>
+                  ))}
+                </div>
+                <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl font-bold">&times;</button>
+              </div>
+            </div>
+            <div className="w-full flex-grow relative" ref={containerRef}>
+              {loading&&(
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-800 bg-opacity-80 z-10">
+                  <Loader/><span className="ml-4 text-gray-300">チャートデータを読み込み中...</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    /* React 18 mount */
+    ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+  </script>
+</body>
+</html>
