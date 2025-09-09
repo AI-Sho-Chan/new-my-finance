@@ -97,6 +97,24 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, j);
     }
 
+    // Symbol search proxy (Yahoo Finance Search API)
+    if (path === '/api/yf/search') {
+      const q = url.searchParams.get('q') || '';
+      const quotesCount = url.searchParams.get('quotesCount') || '10';
+      const lang = url.searchParams.get('lang') || 'ja-JP';
+      const region = url.searchParams.get('region') || 'JP';
+      const headers = { 'User-Agent': UA, 'Accept': 'application/json,*/*', 'Accept-Language': 'ja,en;q=0.9' };
+      const u1 = `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&lang=${lang}&region=${region}&quotesCount=${quotesCount}&newsCount=0`;
+      let r = await fetch(u1, { headers });
+      let j = await r.json();
+      if (!Array.isArray(j?.quotes)) {
+        const u2 = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&lang=${lang}&region=${region}&quotesCount=${quotesCount}&newsCount=0`;
+        r = await fetch(u2, { headers });
+        j = await r.json();
+      }
+      return send(res, 200, j);
+    }
+
     // Fundamentals/price details via quoteSummary modules
     if (path === '/api/yf/fund') {
       const symbol = url.searchParams.get('symbol');

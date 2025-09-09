@@ -1,18 +1,14 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>マネーマネージャー</title>
-
-  <!-- React + Babel + Tailwind -->
+  <title>繝槭ロ繝ｼ繝槭ロ繝ｼ繧ｸ繝｣繝ｼ</title>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
-
   <script>
-    // Proxy base and JSON helper
     window.__YF_PROXY__ = window.__YF_PROXY__ || 'http://127.0.0.1:8787/api/yf';
     window.yfGetJSON = async function(pathWithQuery) {
       const base = window.__YF_PROXY__;
@@ -23,85 +19,88 @@
       return res.json();
     }
   </script>
-
   <style>
     .animate-spin{animation:spin 1s linear infinite}@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
   </style>
 </head>
 <body class="bg-gray-900">
   <div id="root"></div>
-
   <script type="text/babel">
     const {useState,useEffect,useMemo,useRef} = React;
 
-    /* Lightweight Charts loader */
-    const LWC_URL='https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js';
-    let __lwcPromise=null;
-    const ensureLightweightCharts=()=>{
-      if(window.LightweightCharts?.createChart) return Promise.resolve(window.LightweightCharts);
-      if(__lwcPromise) return __lwcPromise;
-      __lwcPromise=new Promise((resolve,reject)=>{
-        const id='lightweight-charts-standalone';
-        const existing=document.getElementById(id);
-        const onReady=()=>{
-          try{
-            const L=window.LightweightCharts;
-            if(!L?.createChart) throw new Error('LightweightCharts missing createChart');
-            const testDiv=document.createElement('div');
-            testDiv.style.cssText='position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;';
-            document.body.appendChild(testDiv);
-            const tmp=L.createChart(testDiv,{width:1,height:1});
-            const ok=typeof tmp.addLineSeries==='function';
-            tmp.remove(); document.body.removeChild(testDiv);
-            if(!ok) throw new Error('LightweightCharts API incomplete');
-            resolve(L);
-          }catch(e){reject(e)}
-        };
-        if(existing){
-          existing.addEventListener('load',onReady,{once:true});
-          existing.addEventListener('error',()=>reject(new Error('LWC script error')),{once:true});
-          if(window.LightweightCharts?.createChart) onReady();
-          return;
-        }
-        const s=document.createElement('script');
-        s.id=id; s.src=LWC_URL; s.async=true; s.crossOrigin='anonymous';
-        s.addEventListener('load',onReady,{once:true});
-        s.addEventListener('error',()=>reject(new Error('Failed to load Lightweight Charts')),{once:true});
-        document.head.appendChild(s);
-      });
-      return __lwcPromise;
-    };
-
-    /* Icons */
-    const TrendingUp=()=> <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>;
-    const TrendingDown=()=> <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>;
-    const HomeIcon=()=> <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>;
-    const PieChartIcon=()=> <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>;
-    const SettingsIcon=()=> <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 0 2l-.15.08a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l-.22-.38a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1 0-2l-.15-.08a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15-.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>;
+    const TrendingUp=()=> <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>;
+    const TrendingDown=()=> <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>;
+    const HomeIcon=()=> <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>;
+    const PieChartIcon=()=> <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>;
+    const SettingsIcon=()=> <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 0 2l-.15.08a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l-.22-.38a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1 0-2l-.15-.08a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15-.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>;
     const Loader=()=> <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-spin"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg>;
 
-    /* 初期データ */
-    const initialWatchlistData=[
-      {id:1,name:'日経平均',symbol:'^N225'},
-      {id:2,name:'S&P 500',symbol:'^GSPC'},
-      {id:3,name:'トヨタ自動車',symbol:'7203.T'},
-      {id:4,name:'Apple Inc.',symbol:'AAPL'},
-      {id:5,name:'USD/JPY',symbol:'JPY=X'},
-      {id:6,name:'S&P 500 VIX',symbol:'^VIX'},
+    const DEFAULT_ITEMS = [
+      {id:'^N225', name:'譌･邨悟ｹｳ蝮・, symbol:'^N225'},
+      {id:'^GSPC', name:'S&P500', symbol:'^GSPC'},
+      {id:'7203.T', name:'繝医Κ繧ｿ閾ｪ蜍戊ｻ・, symbol:'7203.T'},
+      {id:'AAPL', name:'繧｢繝・・繝ｫ', symbol:'AAPL'},
+      {id:'JPY=X', name:'繝峨Ν蜀・, symbol:'JPY=X'},
+      {id:'^VIX', name:'VIX謖・焚', symbol:'^VIX'},
+      {id:'BTC-JPY', name:'繝薙ャ繝医さ繧､繝ｳ(蜀・', symbol:'BTC-JPY'},
+      {id:'^IXIC', name:'NASDAQ邱丞粋', symbol:'^IXIC'},
+      {id:'^RUT', name:'繝ｩ繝・そ繝ｫ2000', symbol:'^RUT'},
+      {id:'GC=F', name:'驥・, symbol:'GC=F'},
+      {id:'CL=F', name:'蜴滓ｲｹ', symbol:'CL=F'},
+      {id:'1343.T', name:'譚ｱ險ｼREIT', symbol:'1343.T'},
+      {id:'8306.T', name:'荳芽廠UFJFG', symbol:'8306.T'},
+      {id:'8316.T', name:'荳我ｺ穂ｽ丞暑FG', symbol:'8316.T'},
+      {id:'7011.T', name:'荳芽廠驥榊ｷ･', symbol:'7011.T'},
+      {id:'6501.T', name:'譌･遶・, symbol:'6501.T'},
+      {id:'6702.T', name:'蟇悟｣ｫ騾・, symbol:'6702.T'},
+      {id:'6920.T', name:'繝ｬ繝ｼ繧ｶ繝ｼ繝・ャ繧ｯ', symbol:'6920.T'},
+      {id:'8035.T', name:'譚ｱ莠ｬ繧ｨ繝ｬ繧ｯ繝医Ο繝ｳ', symbol:'8035.T'},
+      {id:'8584.T', name:'繧ｸ繝｣繝・け繧ｹ', symbol:'8584.T'},
+      {id:'7741.T', name:'HOYA', symbol:'7741.T'},
+      {id:'5401.T', name:'譌･譛ｬ陬ｽ驩・, symbol:'5401.T'},
+      {id:'NVDA', name:'NVIDIA', symbol:'NVDA'},
+      {id:'AVGO', name:'繝悶Ο繝ｼ繝峨さ繝', symbol:'AVGO'},
+      {id:'GOOGL', name:'Alphabet', symbol:'GOOGL'},
+      {id:'MSFT', name:'Microsoft', symbol:'MSFT'},
+      {id:'META', name:'Meta', symbol:'META'},
     ];
+    const NAME_MAP = Object.fromEntries(DEFAULT_ITEMS.map(x=>[x.symbol,x.name]));
+
     const initialPortfolioData=[
-      {id:'bank1',type:'現金',name:'A口座 (JPY)',value:1500000,details:{currency:'JPY'}},
-      {id:'bank2',type:'現金',name:'B口座 (USD)',value:10000,details:{currency:'USD',symbol:'JPY=X'}},
-      {id:'stock1',type:'日本株',name:'ソニーグループ',value:0,details:{symbol:'6758.T',qty:100,avgPrice:12500}},
-      {id:'stock2',type:'米国株',name:'NVIDIA Corp',value:0,details:{symbol:'NVDA',qty:10,avgPrice:600}},
-      {id:'crypto1',type:'暗号資産',name:'Bitcoin (JPY)',value:0,details:{symbol:'BTC-JPY',avgPrice:8000000,qty:0.125}},
+      {id:'bank1',type:'迴ｾ驥・,name:'A蜿｣蠎ｧ (JPY)',value:1500000,details:{currency:'JPY'}},
+      {id:'bank2',type:'迴ｾ驥・,name:'B蜿｣蠎ｧ (USD)',value:10000,details:{currency:'USD',symbol:'JPY=X'}},
+      {id:'stock1',type:'譌･譛ｬ譬ｪ',name:'繧ｽ繝九・繧ｰ繝ｫ繝ｼ繝・,value:0,details:{symbol:'6758.T',qty:100,avgPrice:12500}},
+      {id:'stock2',type:'邀ｳ蝗ｽ譬ｪ',name:'NVIDIA Corp',value:0,details:{symbol:'NVDA',qty:10,avgPrice:600}},
+      {id:'crypto1',type:'證怜捷雉・肇',name:'Bitcoin (JPY)',value:0,details:{symbol:'BTC-JPY',avgPrice:8000000,qty:0.125}},
     ];
 
     const yfGetJSON = window.yfGetJSON;
-    const SYMBOL_NAME_MAP = { 'AAPL': 'Apple', '7203.T': 'トヨタ自動車', '^N225': '日経平均' };
-    const asNum = x => (typeof x === 'number' && Number.isFinite(x)) ? x : undefined;
+    const searchSymbols = async (q) => {
+      if (!q || !q.trim()) return [];
+      const j = await yfGetJSON(`/search?q=${encodeURIComponent(q)}&quotesCount=10&lang=ja-JP&region=JP`);
+      const qs = Array.isArray(j?.quotes) ? j.quotes : [];
+      return qs.filter(x=>x.symbol).map(x=>({ symbol:x.symbol, name:x.longname || x.shortname || x.symbol }));
+    };
 
-    // Quote snapshot (with proxy fallback)
+    const asNum = x => (typeof x === 'number' && Number.isFinite(x)) ? x : undefined;
+    const is24hSymbol = (s) => s==='JPY=X' || /-JPY$/.test(s) || /=X$/.test(s) || s==='BTC-JPY';
+    const fetch24hDelta = async (symbol) => {
+      try {
+        const j = await yfGetJSON(`/history?symbol=${encodeURIComponent(symbol)}&interval=1h&range=2d`);
+        const r = j?.chart?.result?.[0] || {};
+        const ts = r?.timestamp || [];
+        const qt = r?.indicators?.quote?.[0] || {};
+        const close = qt?.close || [];
+        let iLast = -1; for (let i=ts.length-1;i>=0;i--){ const c=close[i]; if (Number.isFinite(c)) { iLast=i; break; } }
+        if (iLast<0) throw new Error('no last');
+        const iPrev = Math.max(0, iLast-24);
+        const last = close[iLast]; const prev = close[iPrev];
+        if (!Number.isFinite(last) || !Number.isFinite(prev) || prev<=0) throw new Error('bad 24h');
+        const change = last - prev; const changePercent = change / prev;
+        return { change, changePercent };
+      } catch(e){ return null; }
+    };
+
     const fetchMarketData = async (symbols) => {
       try {
         const data = await yfGetJSON(`/quote?symbols=${encodeURIComponent(symbols.join(','))}`);
@@ -114,20 +113,18 @@
           const changePercent = (price != null && prev != null && prev > 0)
             ? (price - prev) / prev
             : (typeof q.regularMarketChangePercent === 'number' ? q.regularMarketChangePercent / 100 : 0);
-          out[q.symbol] = {
-            price, change, changePercent,
-            name: q.longName || q.shortName || SYMBOL_NAME_MAP[q.symbol] || q.symbol,
-          };
+          out[q.symbol] = { price, change, changePercent, name: q.longName || q.shortName || NAME_MAP[q.symbol] || q.symbol };
         }
-        for(const s of symbols){ if(!out[s]) out[s] = { price:0, change:0, changePercent:0, name:SYMBOL_NAME_MAP[s]||s }; }
+        for(const s of symbols){ if(!out[s]) out[s] = { price:0, change:0, changePercent:0, name:NAME_MAP[s]||s }; }
+        const s24 = symbols.filter(is24hSymbol);
+        await Promise.all(s24.map(async s=>{ const d = await fetch24hDelta(s); if(d && out[s]) { out[s].change=d.change; out[s].changePercent=d.changePercent; } }));
         return out;
       } catch(e){
         console.error('fetchMarketData failed:', e);
-        return symbols.reduce((acc,s)=>{ acc[s]={ price:0, change:0, changePercent:0, name:SYMBOL_NAME_MAP[s]||s }; return acc; },{});
+        return symbols.reduce((acc,s)=>{ acc[s]={ price:0, change:0, changePercent:0, name:NAME_MAP[s]||s }; return acc; },{});
       }
     };
 
-    // Fundamentals via /api/yf/fund
     const fetchFundamentals = async (symbol) => {
       try {
         const f = await yfGetJSON(`/fund?symbol=${encodeURIComponent(symbol)}`);
@@ -144,7 +141,6 @@
       }
     };
 
-    // History summary for last update + MA trend
     const fetchHistorySummary = async (symbol) => {
       try {
         const j = await yfGetJSON(`/history?symbol=${encodeURIComponent(symbol)}&interval=1d&range=1y`);
@@ -164,11 +160,10 @@
       } catch(e){ return { lastTs:null, trend:'flat' }; }
     };
 
-    // Full historical for chart modal
     const fetchHistoricalData = async (symbol, timeframe) => {
-      const tf = timeframe === 'W' ? { interval: '1wk', range: '2y' }
-               : timeframe === 'M' ? { interval: '1mo', range: '5y' }
-               :                      { interval: '1d',  range: '1y' };
+      const tf = timeframe === 'W' ? { interval: '1wk', range: '10y' }
+               : timeframe === 'M' ? { interval: '1mo', range: 'max' }
+               :                      { interval: '1d',  range: '5y' };
       try{
         const data = await yfGetJSON(`/history?symbol=${encodeURIComponent(symbol)}&interval=${tf.interval}&range=${tf.range}`);
         const result = data?.chart?.result?.[0];
@@ -185,7 +180,6 @@
         return out;
       }catch(e){
         console.error('fetchHistoricalData failed:', e);
-        // fallback synthetic series
         const out=[]; const base=100; const now=Date.now();
         const days = timeframe==='W'?104: timeframe==='M'?60: 252;
         for(let i=days;i>=0;i--){
@@ -199,87 +193,120 @@
       }
     };
 
-    /* App */
+    // LWC loader
+    const LWC_URL='https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js';
+    let __lwcPromise=null;
+    const ensureLightweightCharts=()=>{
+      if(window.LightweightCharts?.createChart) return Promise.resolve(window.LightweightCharts);
+      if(__lwcPromise) return __lwcPromise;
+      __lwcPromise=new Promise((resolve,reject)=>{
+        const s=document.createElement('script'); s.id='lightweight-charts-standalone'; s.src=LWC_URL; s.async=true; s.crossOrigin='anonymous';
+        s.addEventListener('load',()=>resolve(window.LightweightCharts),{once:true});
+        s.addEventListener('error',()=>reject(new Error('Failed to load Lightweight Charts')),{once:true});
+        document.head.appendChild(s);
+      });
+      return __lwcPromise;
+    };
+
+    const externalLinkFor = (symbol) => {
+      if (/\.T$/.test(symbol)) { return `https://kabutan.jp/stock/?code=${symbol.replace('.T','')}`; }
+      return `https://finance.yahoo.com/quote/${encodeURIComponent(symbol)}`;
+    };
+
     const App=()=>{
       const [activeTab,setActiveTab]=useState('dashboard');
+      const [watchItems,setWatchItems]=useState(()=>{ try{ const j=JSON.parse(localStorage.getItem('nmy.watch.items')||'[]'); if(Array.isArray(j)&&j.length) return j; }catch(_){} return DEFAULT_ITEMS; });
       const [watchlist,setWatchlist]=useState([]);
-      const [portfolio,setPortfolio]=useState([]);
+      const [portfolio,setPortfolio]=useState(initialPortfolioData);
       const [isLoading,setIsLoading]=useState(true);
       const [isModalOpen,setIsModalOpen]=useState(false);
       const [selectedStock,setSelectedStock]=useState(null);
+      const [sortMode,setSortMode]=useState(()=> localStorage.getItem('nmy.watch.sort') || 'none');
+
+      const persistItems = (items)=>{ setWatchItems(items); try{ localStorage.setItem('nmy.watch.items', JSON.stringify(items)); }catch(_){} };
 
       useEffect(()=>{
         const run=async()=>{
           setIsLoading(true);
-          const watchSyms=initialWatchlistData.map(i=>i.symbol);
-          const portSyms=initialPortfolioData.filter(i=>i.details.symbol).map(i=>i.details.symbol);
+          const watchSyms=watchItems.map(i=>i.symbol);
+          const portSyms=portfolio.filter(i=>i.details.symbol).map(i=>i.details.symbol);
           const all=[...new Set([...watchSyms,...portSyms])];
           try{
-            // base quotes
             const market=await fetchMarketData(all);
-
-            // enrich watchlist with fundamentals + last updated + MA trend
-            const enrichedWatch = await Promise.all(initialWatchlistData.map(async i => {
+            const enriched = await Promise.all(watchItems.map(async i => {
               const base = market[i.symbol] || {};
-              const [fund, hist] = await Promise.all([
-                fetchFundamentals(i.symbol),
-                fetchHistorySummary(i.symbol),
-              ]);
-              const name = fund.longName || fund.shortName || base.name || SYMBOL_NAME_MAP[i.symbol] || i.name;
+              const [fund, hist] = await Promise.all([ fetchFundamentals(i.symbol), fetchHistorySummary(i.symbol) ]);
+              const name = fund.longName || fund.shortName || base.name || NAME_MAP[i.symbol] || i.name;
               const lastUpdated = hist.lastTs ? new Date(hist.lastTs * 1000) : null;
-              return {
-                ...i,
-                ...base,
-                name,
-                per: fund.per ?? undefined,
-                pbr: fund.pbr ?? undefined,
-                dividendYield: fund.dividendYield ?? undefined,
-                marketCap: fund.marketCap ?? undefined,
-                trend: hist.trend || 'flat',
-                lastUpdated,
-              };
+              return { id:i.id, symbol:i.symbol, name, ...base, trend: hist.trend || 'flat', lastUpdated };
             }));
-            setWatchlist(enrichedWatch);
-
-            // portfolio valuation update using quotes
-            setPortfolio(initialPortfolioData.map(a=>{
+            setWatchlist(enriched);
+            setPortfolio(prev => prev.map(a=>{
               if(!a.details.symbol) return a;
               const d=market[a.details.symbol]; if(!d) return a;
-              if(a.type==='現金'&&a.details.currency==='USD') return {...a,details:{...a.details,rate:d.price}};
+              if(a.type==='迴ｾ驥・&&a.details.currency==='USD') return {...a,details:{...a.details,rate:d.price}};
               const current=(d.price??0)*(a.details.qty??0);
               const cost=(a.details.avgPrice??0)*(a.details.qty??0);
               const gl=cost>0?((current-cost)/cost)*100:0;
               return {...a,value:current,gainLossPercent:gl};
             }));
-          }catch(e){
-            console.error(e);
-            setWatchlist(initialWatchlistData);
-            setPortfolio(initialPortfolioData);
-          }finally{ setIsLoading(false); }
+          }catch(e){ console.error(e); setWatchlist(watchItems); }
+          finally{ setIsLoading(false); }
         };
         run();
-      },[]);
+      },[watchItems]);
+
+      useEffect(()=>{
+        const portSyms=portfolio.filter(i=>i.details.symbol).map(i=>i.details.symbol);
+        const add = portSyms.filter(s=>!watchItems.some(w=>w.symbol===s));
+        if(add.length){ const added = add.map(s=>({id:s,symbol:s,name:NAME_MAP[s]||s})); persistItems([...watchItems,...added]); }
+      },[portfolio]);
+
+      const addSymbol = async (symbol, name) => { if (watchItems.some(w=>w.symbol===symbol)) return; persistItems([...watchItems, {id:symbol, symbol, name: name || NAME_MAP[symbol] || symbol }]); };
+      const removeSymbol = (symbol) => { if (!confirm(`${symbol} 繧貞炎髯､縺励∪縺吶°・歔)) return; persistItems(watchItems.filter(w=>w.symbol!==symbol)); };
+      const moveItem = (fromIdx, toIdx) => { if (fromIdx===toIdx) return; const arr = [...watchItems]; const [m] = arr.splice(fromIdx,1); arr.splice(toIdx,0,m); persistItems(arr); };
 
       const handleCardClick=(stock)=>{setSelectedStock(stock);setIsModalOpen(true);};
       const closeModal=()=>{setIsModalOpen(false);setSelectedStock(null);};
 
-      const renderContent=()=>{
-        if(isLoading){
-          return(<div className="flex justify-center items-center h-64"><Loader/><span className="ml-4 text-lg text-gray-400">市場データを取得中...</span></div>);
-        }
-        switch(activeTab){
-          case 'dashboard': return <Dashboard watchlist={watchlist} onCardClick={handleCardClick}/>;
-          case 'portfolio': return <Portfolio portfolio={portfolio}/>;
-          case 'settings': return <Settings/>;
-          default: return <Dashboard watchlist={watchlist} onCardClick={handleCardClick}/>;
-        }
-      };
+      const displayed = useMemo(()=>{
+        if (sortMode==='none') return watchlist;
+        const arr = [...watchlist];
+        const byChange = (asc)=> (a,b)=> (asc? (a.changePercent-b.changePercent):(b.changePercent-a.changePercent));
+        if (sortMode==='changeAsc') return arr.sort(byChange(true));
+        if (sortMode==='changeDesc') return arr.sort(byChange(false));
+        if (sortMode==='trendUpChangeAsc') return arr.filter(x=>x.trend==='up').sort(byChange(true));
+        if (sortMode==='trendDownChangeDesc') return arr.filter(x=>x.trend==='down').sort(byChange(false));
+        if (sortMode==='trendUpFirst') return arr.sort((a,b)=> (a.trend===b.trend)?0:(a.trend==='up'?-1:1));
+        if (sortMode==='trendDownFirst') return arr.sort((a,b)=> (a.trend===b.trend)?0:(a.trend==='down'?-1:1));
+        return watchlist;
+      },[watchlist,sortMode]);
 
       return(
         <div className="bg-gray-900 text-white min-h-screen font-sans antialiased">
-          <div className="container mx-auto px-4 pb-20">
-            <Header/>
-            <main>{renderContent()}</main>
+          <div className="container mx-auto px-4 pb-24">
+            <header className="py-6"><h1 className="text-3xl font-bold text-gray-100">繝槭ロ繝ｼ繝槭ロ繝ｼ繧ｸ繝｣繝ｼ</h1><p className="text-md text-gray-400">縺ゅ↑縺溘・雉・肇縺ｨ逶ｸ蝣ｴ繧偵∵焔蜈・〒謚頑升縲・/p></header>
+            <div className="flex items-center justify-between mb-3">
+              <SearchAdd onPick={addSymbol}/>
+              <div className="flex items-center space-x-2">
+                <select value={sortMode} onChange={e=>{ const v=e.target.value; setSortMode(v); try{ localStorage.setItem('nmy.watch.sort',v); }catch(_){} }} className="bg-gray-800 text-gray-200 text-sm px-3 py-2 rounded">
+                  <option value="none">謇句虚鬆・/option>
+                  <option value="changeAsc">蟇ｾ蜑肴律豈・譏・・/option>
+                  <option value="changeDesc">蟇ｾ蜑肴律豈・髯埼・/option>
+                  <option value="trendUpFirst">荳頑・繝医Ξ繝ｳ繝牙━蜈・/option>
+                  <option value="trendDownFirst">荳矩剄繝医Ξ繝ｳ繝牙━蜈・/option>
+                  <option value="trendUpChangeAsc">荳頑・繝医Ξ繝ｳ繝牙・ 荳玖誠邇・・鬆・/option>
+                  <option value="trendDownChangeDesc">荳矩剄繝医Ξ繝ｳ繝牙・ 荳頑・邇・剄鬆・/option>
+                </select>
+                <button onClick={()=>setSortMode('none')} className="px-3 py-2 bg-gray-700 rounded text-sm">蜈・↓謌ｻ縺・/button>
+              </div>
+            </div>
+            <main>
+              {isLoading
+                ? (<div className="flex justify-center items-center h-64"><Loader/><span className="ml-4 text-lg text-gray-400">蟶ょｴ繝・・繧ｿ繧貞叙蠕嶺ｸｭ...</span></div>)
+                : (<Dashboard watchlist={displayed} sortMode={sortMode} onRemove={removeSymbol} onReorder={moveItem} onCardClick={handleCardClick} />)
+              }
+            </main>
           </div>
           <BottomNav activeTab={activeTab} setActiveTab={setActiveTab}/>
           {isModalOpen && <StockChartModal stock={selectedStock} onClose={closeModal}/>}
@@ -287,47 +314,73 @@
       );
     };
 
-    const Header=()=>(
-      <header className="py-6">
-        <h1 className="text-3xl font-bold text-gray-100">マネーマネージャー</h1>
-        <p className="text-md text-gray-400">あなたの資産と相場を、手元で把握。</p>
-      </header>
-    );
-
-    const Dashboard=({watchlist,onCardClick})=>(
-      <div>
-        <h2 className="text-2xl font-semibold mb-4 text-gray-200">ダッシュボード</h2>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-4">
-          {watchlist.map(item=>(
-            <StockCard key={item.id} item={item} onClick={()=>onCardClick(item)}/>
-          ))}
+    const SearchAdd = ({onPick}) => {
+      const [q,setQ]=React.useState('');
+      const [sugs,setSugs]=React.useState([]);
+      React.useEffect(()=>{
+        let alive=true; const t=setTimeout(async()=>{ if(!q.trim()){ setSugs([]); return; } try{ const r=await searchSymbols(q.trim()); if(alive) setSugs(r.slice(0,10)); }catch(e){ if(alive) setSugs([]);} }, 300);
+        return()=>{ clearTimeout(t); alive=false; };
+      },[q]);
+      return (
+        <div className="relative w-full max-w-md">
+          <input value={q} onChange={e=>setQ(e.target.value)} placeholder="驫俶氛蜷・繝・ぅ繝・き繝ｼ/繧ｳ繝ｼ繝峨〒霑ｽ蜉" className="w-full bg-gray-800 text-gray-200 placeholder-gray-500 rounded px-3 py-2 outline-none" />
+          {sugs.length>0 && (
+            <div className="absolute z-10 mt-1 w-full bg-gray-800 border border-gray-700 rounded shadow-lg max-h-64 overflow-auto">
+              {sugs.map(s=> (
+                <button key={s.symbol} onClick={()=>{ onPick(s.symbol, s.name); setQ(''); setSugs([]); }} className="w-full text-left px-3 py-2 hover:bg-gray-700 text-sm">
+                  <span className="text-gray-200 font-semibold mr-2">{s.symbol}</span>
+                  <span className="text-gray-400">{s.name}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
-      </div>
-    );
+      );
+    };
 
-    const TrendingIcon=({trend})=> trend==='up'?<TrendingUp/>: trend==='down'?<TrendingDown/>:<span className="text-gray-400 text-xs">—</span>;
+    const Dashboard=({watchlist,sortMode,onRemove,onReorder,onCardClick})=>{
+      const [dragIndex,setDragIndex]=React.useState(null);
+      return (
+        <div>
+          <h2 className="text-2xl font-semibold mb-3 text-gray-200">繝繝・す繝･繝懊・繝・/h2>
+          <div className="text-xs text-gray-400 mb-2">{sortMode==='none' ? '繧ｫ繝ｼ繝峨・繝峨Λ繝・げ・・ラ繝ｭ繝・・縺ｧ荳ｦ縺ｹ譖ｿ縺医〒縺阪∪縺吶・ : '迴ｾ蝨ｨ繧ｽ繝ｼ繝郁｡ｨ遉ｺ荳ｭ縺ｮ縺溘ａ荳ｦ縺ｹ譖ｿ縺医・辟｡蜉ｹ縺ｧ縺吶・}</div>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-4">
+            {watchlist.map((item,idx)=>(
+              <StockCard key={item.symbol}
+                item={item}
+                draggable={sortMode==='none'}
+                onDragStart={()=>setDragIndex(idx)}
+                onDragOver={(e)=>{ if(sortMode==='none'){ e.preventDefault(); }}
+                onDrop={()=>{ if(sortMode==='none' && dragIndex!=null){ onReorder(dragIndex, idx); setDragIndex(null); } }}
+                onRemove={()=>onRemove(item.symbol)}
+                onClick={()=>onCardClick(item)}
+              />
+            ))}
+          </div>
+        </div>
+      );
+    };
 
-    const StockCard=({item,onClick})=>{
+    const TrendingIcon=({trend})=> trend==='up'?<TrendingUp/>: trend==='down'?<TrendingDown/>:<span className="text-gray-400 text-xs">窶・/span>;
+
+    const StockCard=({item,onClick,onRemove,draggable,onDragStart,onDragOver,onDrop})=>{
       const changeAbs=Math.abs(item.changePercent??0);
       const isPos=(item.changePercent??0)>=0;
       const isVolatile=(changeAbs*100)>=5;
-      const cardStyle=`
-        bg-gray-800 rounded-lg p-3 shadow-lg transform hover:scale-105 transition-transform duration-300 cursor-pointer
-        flex flex-col justify-between h-full aspect-[4/5]
-        ${isVolatile?'ring-2 ring-yellow-400 shadow-yellow-400/20':''}
-      `;
+      const cardStyle=`bg-gray-800 rounded-lg p-3 shadow-lg transform hover:scale-105 transition-transform duration-300 cursor-pointer flex flex-col justify-between h-full aspect-[4/5] ${isVolatile?'ring-2 ring-yellow-400 shadow-yellow-400/20':''}`;
       const timeText = item.lastUpdated ? new Intl.DateTimeFormat('ja-JP', { hour: '2-digit', minute: '2-digit', hour12: false }).format(item.lastUpdated) : '';
       const trendColor = item.trend==='up' ? 'text-green-400' : item.trend==='down' ? 'text-red-400' : 'text-gray-400';
       return(
-        <div className={cardStyle} onClick={onClick}>
+        <div className={cardStyle} onClick={onClick} draggable={draggable} onDragStart={onDragStart} onDragOver={onDragOver} onDrop={onDrop}>
           <div className="flex justify-between items-start">
             <div className="w-4/5">
               <h3 className="text-sm font-bold text-gray-100 truncate">{item.name}</h3>
               <p className="text-xs text-gray-400">{item.symbol}</p>
             </div>
-            <div className={`flex flex-col items-end ${trendColor}`}>
-              <div className="text-[10px] text-gray-400">最終 {timeText}</div>
-              <div className="text-lg flex items-center"><TrendingIcon trend={item.trend}/></div>
+            <div className="flex flex-col items-end">
+              <button className="text-gray-500 hover:text-white text-lg" onClick={(e)=>{ e.stopPropagation(); onRemove(); }} title="蜑企勁">ﾃ・/button>
+              <div className={`text-[10px] text-gray-400 mt-1`}>譛邨・{timeText}</div>
+              <div className={`text-lg flex items-center ${trendColor}`}><TrendingIcon trend={item.trend}/></div>
             </div>
           </div>
           <div className="flex-grow flex items-center justify-center my-1">
@@ -335,51 +388,12 @@
               {(isPos?'+':'-')}{(changeAbs*100).toFixed(1)}%
             </div>
           </div>
-          <div className="text-xs text-gray-400 pt-2 border-t border-gray-700 space-y-1">
-            <div className="flex justify-between"><span className="font-semibold">PER</span><span className="text-gray-200 font-medium">{typeof item.per==='number'?item.per.toFixed(2):'-'}</span></div>
-            <div className="flex justify-between"><span className="font-semibold">PBR</span><span className="text-gray-200 font-medium">{typeof item.pbr==='number'?item.pbr.toFixed(2):'-'}</span></div>
-            <div className="flex justify-between"><span className="font-semibold">配当利回り</span><span className="text-gray-200 font-medium">{typeof item.dividendYield==='number'?(item.dividendYield*100).toFixed(2)+'%':'-'}</span></div>
-            <div className="flex justify-between"><span className="font-semibold truncate" title="時価総額">時価総額</span><span className="text-gray-200 font-medium">{item.marketCap?(item.marketCap/1e8).toLocaleString('ja-JP',{maximumFractionDigits:2})+'億':'-'}</span></div>
+          <div className="text-xs text-gray-400 pt-2 border-t border-gray-700">
+            <a href={externalLinkFor(item.symbol)} target="_blank" rel="noreferrer" className="text-indigo-400 hover:underline">謖・ｨ吶ｒ隕九ｋ・亥､夜Κ繧ｵ繧､繝茨ｼ・/a>
           </div>
         </div>
       );
     };
-
-    const Portfolio=({portfolio})=>{
-      const totalValue=useMemo(()=>portfolio.reduce((s,a)=> a.type==='現金'&&a.details.currency==='USD'? s+(a.value*(a.details.rate||150)) : s+a.value,0),[portfolio]);
-      const cashValue=useMemo(()=>portfolio.filter(a=>a.type==='現金').reduce((s,a)=> a.details.currency==='USD'? s+(a.value*(a.details.rate||150)) : s+a.value,0),[portfolio]);
-      const investmentValue=totalValue-cashValue;
-      const totalChange=25340;
-      const totalChangePercent=(totalChange/(totalValue-totalChange))*100;
-      return(
-        <div>
-          <div className="bg-gray-800 p-4 rounded-lg mb-6">
-            <div className="text-gray-400 text-sm">総資産 (JPY)</div>
-            <div className="text-3xl font-bold text-white">\ {totalValue.toLocaleString()}</div>
-            <div className={`text-md font-semibold mt-1 ${totalChange>=0?'text-green-400':'text-red-400'}`}>
-              {totalChange>=0?'+':''}{totalChange.toLocaleString()} JPY ({totalChangePercent.toFixed(2)}%)
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-gray-800 p-4 rounded-lg">
-              <h3 className="font-semibold mb-2">現金</h3>
-              <div className="text-gray-300">\ {cashValue.toLocaleString()}</div>
-            </div>
-            <div className="bg-gray-800 p-4 rounded-lg">
-              <h3 className="font-semibold mb-2">投資</h3>
-              <div className="text-gray-300">\ {investmentValue.toLocaleString()}</div>
-            </div>
-          </div>
-        </div>
-      );
-    };
-
-    const Settings=()=> (
-      <div className="bg-gray-800 p-4 rounded-lg">
-        <h3 className="text-lg font-semibold mb-2">設定</h3>
-        <p className="text-gray-400 text-sm">ここにアプリ設定が入ります。</p>
-      </div>
-    );
 
     const BottomNav=({activeTab,setActiveTab})=>{
       const Item=({id,label,icon})=> (
@@ -390,22 +404,21 @@
       );
       return (
         <nav className="fixed bottom-0 left-0 right-0 bg-gray-800 border-t border-gray-700 flex">
-          <Item id="dashboard" label="ホーム" icon={<HomeIcon/>}/>
-          <Item id="portfolio" label="ポートフォリオ" icon={<PieChartIcon/>}/>
-          <Item id="settings" label="設定" icon={<SettingsIcon/>}/>
+          <Item id="dashboard" label="繝帙・繝" icon={<HomeIcon/>}/>
+          <Item id="portfolio" label="繝昴・繝医ヵ繧ｩ繝ｪ繧ｪ" icon={<PieChartIcon/>}/>
+          <Item id="settings" label="險ｭ螳・ icon={<SettingsIcon/>}/>
         </nav>
       );
     };
 
-    /* Chart modal */
     const StockChartModal=({stock,onClose})=>{
       const containerRef=useRef(null);
       const chartRef=useRef(null);
       const seriesRef=useRef({});
-      const [timeframe,setTimeframe]=useState('D');
-      const [loading,setLoading]=useState(true);
+      const [timeframe,setTimeframe]=React.useState('D');
+      const [loading,setLoading]=React.useState(true);
 
-      useEffect(()=>{
+      React.useEffect(()=>{
         if(!stock) return;
         let disposed=false; let ro;
         (async()=>{
@@ -422,6 +435,7 @@
               grid:{vertLines:{color:'#374151'},horzLines:{color:'#374151'}},
               crosshair:{mode:L.CrosshairMode.Normal},
               timeScale:{borderColor:'#4b5563'},
+              localization:{ locale:'ja-JP', timeFormatter:(t)=> new Date(t*1000).toLocaleDateString('ja-JP') },
             });
             const price=chart.addLineSeries({color:'#60a5fa',lineWidth:2});
             const volume=chart.addHistogramSeries({priceFormat:{type:'volume'},priceScaleId:''});
@@ -429,8 +443,9 @@
             const ma50=chart.addLineSeries({color:'rgba(234,179,8,0.8)',lineWidth:2});
             const ma200=chart.addLineSeries({color:'rgba(192,132,252,0.8)',lineWidth:2});
             const bbU=chart.addLineSeries({color:'rgba(56,189,248,0.5)',lineWidth:1});
+            const bbM=chart.addLineSeries({color:'rgba(56,189,248,0.7)',lineWidth:1,lineStyle:L.LineStyle.Dotted});
             const bbL=chart.addLineSeries({color:'rgba(56,189,248,0.5)',lineWidth:1});
-            chartRef.current=chart; seriesRef.current={price,volume,ma50,ma200,bbU,bbL};
+            chartRef.current=chart; seriesRef.current={price,volume,ma50,ma200,bbU,bbM,bbL};
             ro=new ResizeObserver(([e])=>{ if(!e||!chartRef.current) return; const {width,height}=e.contentRect; chartRef.current.applyOptions({width,height}); });
             ro.observe(containerRef.current);
             setLoading(false);
@@ -439,7 +454,7 @@
         return ()=>{disposed=true; if(ro) ro.disconnect(); if(chartRef.current){chartRef.current.remove();chartRef.current=null;} seriesRef.current={};};
       },[stock]);
 
-      useEffect(()=>{
+      React.useEffect(()=>{
         if(!stock||!seriesRef.current.price) return;
         let alive=true;
         (async()=>{
@@ -450,12 +465,13 @@
             const close=raw.map(d=>({time:d.time,value:d.close}));
             const vol =raw.map(d=>({time:d.time,value:d.value,color:d.color}));
             const ma=(arr,n)=>arr.slice(n-1).map((_,i)=>{const slice=arr.slice(i,i+n);const sum=slice.reduce((s,v)=>s+v.value,0);return{time:arr[i+n-1].time,value:sum/n};});
-            const bb=(arr,n,k)=>arr.slice(n-1).map((_,i)=>{const s=arr.slice(i,i+n).map(x=>x.value);const mean=s.reduce((a,v)=>a+v,0)/n;const std=Math.sqrt(s.reduce((a,v)=>a+Math.pow(v-mean,2),0)/n);return{time:arr[i+n-1].time,upper:mean+k*std,lower:mean-k*std};});
-            const {price,volume,ma50,ma200,bbU,bbL}=seriesRef.current;
+            const bb=(arr,n,k)=>arr.slice(n-1).map((_,i)=>{const s=arr.slice(i,i+n).map(x=>x.value);const mean=s.reduce((a,v)=>a+v,0)/n;const std=Math.sqrt(s.reduce((a,v)=>a+Math.pow(v-mean,2),0)/n);return{time:arr[i+n-1].time,upper:mean+k*std,mid:mean,lower:mean-k*std};});
+            const {price,volume,ma50,ma200,bbU,bbM,bbL}=seriesRef.current;
             price.setData(close); volume.setData(vol);
             ma50.setData(ma(close,50)); ma200.setData(ma(close,200));
             const bb20=bb(close,20,2);
             bbU.setData(bb20.map(x=>({time:x.time,value:x.upper})));
+            bbM.setData(bb20.map(x=>({time:x.time,value:x.mid})));
             bbL.setData(bb20.map(x=>({time:x.time,value:x.lower})));
             chartRef.current.timeScale().fitContent();
           }catch(e){console.error('Failed to fetch/render data:',e);} finally{ if(alive) setLoading(false); }
@@ -463,7 +479,7 @@
         return()=>{alive=false};
       },[stock,timeframe]);
 
-      useEffect(()=>{const onKey=e=>e.key==='Escape'&&onClose(); window.addEventListener('keydown',onKey); return()=>window.removeEventListener('keydown',onKey);},[onClose]);
+      React.useEffect(()=>{const onKey=e=>e.key==='Escape'&&onClose(); window.addEventListener('keydown',onKey); return()=>window.removeEventListener('keydown',onKey);},[onClose]);
 
       if(!stock) return null;
       return(
@@ -474,8 +490,7 @@
               <div className="flex items-center">
                 <div className="bg-gray-700 rounded-md p-1 flex space-x-1 mr-4">
                   {['D','W','M'].map(tf=>(
-                    <button key={tf} onClick={()=>setTimeframe(tf)}
-                      className={`px-3 py-1 text-sm font-semibold rounded ${timeframe===tf?'bg-indigo-600 text-white':'text-gray-300 hover:bg-gray-600'}`}>
+                    <button key={tf} onClick={()=>setTimeframe(tf)} className={`px-3 py-1 text-sm font-semibold rounded ${timeframe===tf?'bg-indigo-600 text-white':'text-gray-300 hover:bg-gray-600'}`}>
                       {tf==='D'?'日':tf==='W'?'週':'月'}
                     </button>
                   ))}
@@ -486,7 +501,7 @@
             <div className="w-full flex-grow relative" ref={containerRef}>
               {loading&&(
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-800 bg-opacity-80 z-10">
-                  <Loader/><span className="ml-4 text-gray-300">チャートデータを読み込み中...</span>
+                  <div className="flex items-center"><Loader/><span className="ml-4 text-gray-300">繝√Ε繝ｼ繝医ョ繝ｼ繧ｿ繧定ｪｭ縺ｿ霎ｼ縺ｿ荳ｭ...</span></div>
                 </div>
               )}
             </div>
@@ -495,7 +510,6 @@
       );
     };
 
-    /* React 18 mount */
     ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
   </script>
 </body>
