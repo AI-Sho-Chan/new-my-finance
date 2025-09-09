@@ -1,8 +1,20 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <script>
+    // Ensure proxy base and fetch helper are available before UI runs
+    window.__YF_PROXY__ = window.__YF_PROXY__ || 'http://127.0.0.1:8787/api/yf';
+    window.yfGetJSON = async function(pathWithQuery) {
+      const base = window.__YF_PROXY__;
+      if (!base) throw new Error('YF proxy not set');
+      const u = base + pathWithQuery + (pathWithQuery.includes('?') ? '&' : '?') + 'ts=' + Date.now();
+      const res = await fetch(u, { cache: 'no-store', headers: { 'Accept': 'application/json' } });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    }
+  </script>
   <script>window.__YF_PROXY__ = window.__YF_PROXY__ || 'http://127.0.0.1:8787/api/yf';</script>
   <title>資産マネージャー</title>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
@@ -100,15 +112,6 @@ const fetchWithProxy = async (url, tries = PROXIES.length) => {
   for (let t = 0; t < tries; t++) {
     const proxied = PROXIES[proxyIdx](urlNoCache);
     try {
-      const res = await fetch(proxied, { cache: 'no-store' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const body = await res.text();           // text/plain対策
-      return JSON.parse(body);
-    } catch (e) {
-      proxyIdx = (proxyIdx + 1) % PROXIES.length;
-      if (t === tries - 1) throw e;
-    }
-  }
 };
 
     // 専用Yahoo Financeプロキシ（Cloudflare Workersなど）を使用
