@@ -1,9 +1,9 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>繝槭ロ繝ｼ繝槭ロ繝ｼ繧ｸ繝｣繝ｼ</title>
+  <title>MyFinance</title>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -12,7 +12,6 @@
     window.__YF_PROXY__ = window.__YF_PROXY__ || 'http://127.0.0.1:8787/api/yf';
     window.yfGetJSON = async function(pathWithQuery) {
       const base = window.__YF_PROXY__;
-      if (!base) throw new Error('YF proxy not set');
       const u = base + pathWithQuery + (pathWithQuery.includes('?') ? '&' : '?') + 'ts=' + Date.now();
       const res = await fetch(u, { cache: 'no-store', headers: { 'Accept': 'application/json' } });
       if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -25,489 +24,97 @@
 </head>
 <body class="bg-gray-900">
   <div id="root"></div>
+
   <script type="text/babel">
     const {useState,useEffect,useMemo,useRef} = React;
+    const J = (s)=>decodeURIComponent(s);
 
+    // Minimal icons
     const TrendingUp=()=> <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>;
     const TrendingDown=()=> <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>;
-    const HomeIcon=()=> <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>;
-    const PieChartIcon=()=> <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>;
-    const SettingsIcon=()=> <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 0 2l-.15.08a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l-.22-.38a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1 0-2l-.15-.08a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15-.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>;
     const Loader=()=> <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-spin"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg>;
 
-    const J = (s)=>decodeURIComponent(s);
-const DEFAULT_ITEMS = [
-  {id:'^N225',   name:J('%E6%97%A5%E7%B5%8C%E5%B9%B3%E5%9D%87'), symbol:'^N225'},
-  {id:'^GSPC',   name:'S&P500',                                   symbol:'^GSPC'},
-  {id:'7203.T',  name:J('%E3%83%88%E3%83%A8%E3%82%BF%E8%87%AA%E5%8B%95%E8%BB%8A'), symbol:'7203.T'},
-  {id:'AAPL',    name:J('%E3%82%A2%E3%83%83%E3%83%97%E3%83%AB'), symbol:'AAPL'},
-  {id:'JPY=X',   name:J('%E3%83%89%E3%83%AB%E5%86%86'),           symbol:'JPY=X'},
-  {id:'^VIX',    name:J('VIX%E6%8C%87%E6%95%B0'),                 symbol:'^VIX'},
-  {id:'BTC-JPY', name:J('%E3%83%93%E3%83%83%E3%83%88%E3%82%B3%E3%82%A4%E3%83%B3(%E5%86%86)'), symbol:'BTC-JPY'},
-  {id:'^IXIC',   name:J('NASDAQ%E7%B7%8F%E5%90%88'),             symbol:'^IXIC'},
-  {id:'^RUT',    name:J('%E3%83%A9%E3%83%83%E3%82%BB%E3%83%AB2000'), symbol:'^RUT'},
-  {id:'GC=F',    name:J('%E9%87%91'),                             symbol:'GC=F'},
-  {id:'CL=F',    name:J('%E5%8E%9F%E6%B2%B9'),                     symbol:'CL=F'},
-  {id:'1343.T',  name:J('%E6%9D%B1%E8%A8%BCREIT'),                 symbol:'1343.T'},
-  {id:'8306.T',  name:J('%E4%B8%89%E8%8F%B1UFJFG'),               symbol:'8306.T'},
-  {id:'8316.T',  name:J('%E4%B8%89%E4%BA%95%E4%BD%8F%E5%8F%8BFG'), symbol:'8316.T'},
-  {id:'7011.T',  name:J('%E4%B8%89%E8%8F%B1%E9%87%8D%E5%B7%A5'),   symbol:'7011.T'},
-  {id:'6501.T',  name:J('%E6%97%A5%E7%AB%8B'),                     symbol:'6501.T'},
-  {id:'6702.T',  name:J('%E5%AF%8C%E5%A3%AB%E9%80%9A'),             symbol:'6702.T'},
-  {id:'6920.T',  name:J('%E3%83%AC%E3%83%BC%E3%82%B6%E3%83%BC%E3%83%86%E3%83%83%E3%82%AF'), symbol:'6920.T'},
-  {id:'8035.T',  name:J('%E6%9D%B1%E4%BA%AC%E3%82%A8%E3%83%AC%E3%82%AF%E3%83%88%E3%83%AD%E3%83%B3'), symbol:'8035.T'},
-  {id:'8584.T',  name:J('%E3%82%B8%E3%83%A3%E3%83%83%E3%82%AF%E3%82%B9'), symbol:'8584.T'},
-  {id:'7741.T',  name:'HOYA',                                     symbol:'7741.T'},
-  {id:'5401.T',  name:J('%E6%97%A5%E6%9C%AC%E8%A3%BD%E9%89%84'),   symbol:'5401.T'},
-  {id:'NVDA',    name:'NVIDIA',                                   symbol:'NVDA'},
-  {id:'AVGO',    name:J('%E3%83%96%E3%83%AD%E3%83%BC%E3%83%89%E3%82%B3%E3%83%A0'), symbol:'AVGO'},
-  {id:'GOOGL',   name:'Alphabet',                                 symbol:'GOOGL'},
-  {id:'MSFT',    name:'Microsoft',                                symbol:'MSFT'},
-  {id:'META',    name:'Meta',                                     symbol:'META'},
-];
-    const NAME_MAP = Object.fromEntries(DEFAULT_ITEMS.map(x=>[x.symbol,x.name]));
-
-    const initialPortfolioData=[
-
-      {id:'bank1',type:'CASH',name:'Account A (JPY)',value:1500000,details:{currency:'JPY'}},
-      {id:'bank2',type:'CASH',name:'Account B (USD)',value:10000,details:{currency:'USD',symbol:'JPY=X'}},
-      {id:'stock1',type:'JP_EQUITY',name:'Sony Group',value:0,details:{symbol:'6758.T',qty:100,avgPrice:12500}},
-      {id:'stock2',type:'US_EQUITY',name:'NVIDIA Corp',value:0,details:{symbol:'NVDA',qty:10,avgPrice:600}},
-      {id:'crypto1',type:'CRYPTO',name:'Bitcoin (JPY)',value:0,details:{symbol:'BTC-JPY',avgPrice:8000000,qty:0.125}},
+    // Defaults (a few samples)
+    const DEFAULT_ITEMS = [
+      {id:'^N225', name:J('%E6%97%A5%E7%B5%8C%E5%B9%B3%E5%9D%87'), symbol:'^N225'},
+      {id:'^GSPC', name:'S&P500', symbol:'^GSPC'},
+      {id:'AAPL', name:'Apple', symbol:'AAPL'},
+      {id:'JPY=X', name:J('%E3%83%89%E3%83%AB%E5%86%86'), symbol:'JPY=X'}
     ];
-    const yfGetJSON = window.yfGetJSON;
-    const searchSymbols = async (q) => {
-      if (!q || !q.trim()) return [];
-      const j = await yfGetJSON(`/search?q=${encodeURIComponent(q)}&quotesCount=10&lang=ja-JP&region=JP`);
-      const qs = Array.isArray(j?.quotes) ? j.quotes : [];
-      return qs.filter(x=>x.symbol).map(x=>({ symbol:x.symbol, name:x.longname || x.shortname || x.symbol }));
-    };
 
+    // Data fetchers (quote only to keep minimal)
     const asNum = x => (typeof x === 'number' && Number.isFinite(x)) ? x : undefined;
-    const is24hSymbol = (s) => s==='JPY=X' || /-JPY$/.test(s) || /=X$/.test(s) || s==='BTC-JPY';
-    const fetch24hDelta = async (symbol) => {
-      try {
-        const j = await yfGetJSON(`/history?symbol=${encodeURIComponent(symbol)}&interval=1h&range=2d`);
-        const r = j?.chart?.result?.[0] || {};
-        const ts = r?.timestamp || [];
-        const qt = r?.indicators?.quote?.[0] || {};
-        const close = qt?.close || [];
-        let iLast = -1; for (let i=ts.length-1;i>=0;i--){ const c=close[i]; if (Number.isFinite(c)) { iLast=i; break; } }
-        if (iLast<0) throw new Error('no last');
-        const iPrev = Math.max(0, iLast-24);
-        const last = close[iLast]; const prev = close[iPrev];
-        if (!Number.isFinite(last) || !Number.isFinite(prev) || prev<=0) throw new Error('bad 24h');
-        const change = last - prev; const changePercent = change / prev;
-        return { change, changePercent };
-      } catch(e){ return null; }
-    };
-
     const fetchMarketData = async (symbols) => {
       try {
-        const data = await yfGetJSON(`/quote?symbols=${encodeURIComponent(symbols.join(','))}`);
-        const list = data?.quoteResponse?.result || [];
+        const j = await yfGetJSON(`/quote?symbols=${encodeURIComponent(symbols.join(','))}`);
+        const list = j?.quoteResponse?.result || [];
         const out = {};
         for (const q of list) {
-          const price = asNum(q.regularMarketPrice) ?? asNum(q.postMarketPrice) ?? asNum(q.preMarketPrice);
-          const prev  = asNum(q.regularMarketPreviousClose) ?? asNum(q.previousClose) ?? asNum(q.chartPreviousClose);
-          const change = (price != null && prev != null) ? price - prev : (asNum(q.regularMarketChange) ?? 0);
-          const changePercent = (price != null && prev != null && prev > 0)
-            ? (price - prev) / prev
-            : (typeof q.regularMarketChangePercent === 'number' ? q.regularMarketChangePercent / 100 : 0);
-          out[q.symbol] = { price, change, changePercent, name: q.longName || q.shortName || NAME_MAP[q.symbol] || q.symbol };
+          const price = asNum(q.regularMarketPrice);
+          const prev = asNum(q.regularMarketPreviousClose);
+          const change = (price!=null && prev!=null) ? price - prev : 0;
+          const changePercent = (price!=null && prev>0) ? (price-prev)/prev : 0;
+          out[q.symbol] = { price, change, changePercent, name: q.longName || q.shortName || q.symbol };
         }
-        for(const s of symbols){ if(!out[s]) out[s] = { price:0, change:0, changePercent:0, name:NAME_MAP[s]||s }; }
-        const s24 = symbols.filter(is24hSymbol);
-        await Promise.all(s24.map(async s=>{ const d = await fetch24hDelta(s); if(d && out[s]) { out[s].change=d.change; out[s].changePercent=d.changePercent; } }));
+        for(const s of symbols){ if(!out[s]) out[s] = { price:0, change:0, changePercent:0, name:s }; }
         return out;
       } catch(e){
-        console.error('fetchMarketData failed:', e);
-        return symbols.reduce((acc,s)=>{ acc[s]={ price:0, change:0, changePercent:0, name:NAME_MAP[s]||s }; return acc; },{});
+        return symbols.reduce((a,s)=>{ a[s]={ price:0, change:0, changePercent:0, name:s }; return a; },{});
       }
     };
 
-    const fetchFundamentals = async (symbol) => {
-      try {
-        const f = await yfGetJSON(`/fund?symbol=${encodeURIComponent(symbol)}`);
-        return {
-          longName: f?.longName || null,
-          shortName: f?.shortName || null,
-          per: asNum(f?.per),
-          pbr: asNum(f?.pbr),
-          dividendYield: asNum(f?.dividendYield),
-          marketCap: asNum(f?.marketCap),
-        };
-      } catch(e){
-        return { longName:null, shortName:null, per:undefined, pbr:undefined, dividendYield:undefined, marketCap:undefined };
-      }
-    };
+    const TrendingIcon=({trend})=> trend==='up'?<TrendingUp/>: trend==='down'?<TrendingDown/>:<span className="text-gray-400 text-xs">—</span>;
 
-    const fetchHistorySummary = async (symbol) => {
-      try {
-        const j = await yfGetJSON(`/history?symbol=${encodeURIComponent(symbol)}&interval=1d&range=1y`);
-        const r = j?.chart?.result?.[0] || {};
-        const ts = r?.timestamp || [];
-        const qt = r?.indicators?.quote?.[0] || {};
-        const close = qt?.close || [];
-        let lastTs = null; const closes = [];
-        for(let i=0;i<ts.length;i++){
-          const c = close[i];
-          if(Number.isFinite(c)){ closes.push(c); lastTs = ts[i]; }
-        }
-        const ma = (arr,n)=>{ if(arr.length<n) return null; let s=0; for(let i=arr.length-n;i<arr.length;i++) s+=arr[i]; return s/n; };
-        const ma50 = ma(closes,50); const ma200 = ma(closes,200);
-        let trend='flat'; if(Number.isFinite(ma50)&&Number.isFinite(ma200)){ const diff=(ma50-ma200)/ma200; trend= diff>0.001?'up': diff<-0.001?'down':'flat'; }
-        return { lastTs, trend };
-      } catch(e){ return { lastTs:null, trend:'flat' }; }
-    };
-
-    const fetchHistoricalData = async (symbol, timeframe) => {
-      const tf = timeframe === 'W' ? { interval: '1wk', range: '10y' }
-               : timeframe === 'M' ? { interval: '1mo', range: 'max' }
-               :                      { interval: '1d',  range: '5y' };
-      try{
-        const data = await yfGetJSON(`/history?symbol=${encodeURIComponent(symbol)}&interval=${tf.interval}&range=${tf.range}`);
-        const result = data?.chart?.result?.[0];
-        const ts = result?.timestamp || [];
-        const qt = result?.indicators?.quote?.[0] || {};
-        const open = qt.open || [], high = qt.high || [], low = qt.low || [], close = qt.close || [], volume = qt.volume || [];
-        const out = [];
-        for (let i = 0; i < ts.length; i++) {
-          const o = open[i], h = high[i], l = low[i], c = close[i], v = volume[i];
-          if ([o,h,l,c].some(x => x == null || !isFinite(x))) continue;
-          out.push({ time: ts[i], open:o, high:h, low:l, close:c, value:isFinite(v)?v:0, color: c>=o ? 'rgba(0,150,136,0.2)': 'rgba(255,82,82,0.2)' });
-        }
-        if (out.length === 0) throw new Error('empty history');
-        return out;
-      }catch(e){
-        console.error('fetchHistoricalData failed:', e);
-        const out=[]; const base=100; const now=Date.now();
-        const days = timeframe==='W'?104: timeframe==='M'?60: 252;
-        for(let i=days;i>=0;i--){
-          const t=Math.floor((now-i*86400000)/1000);
-          const p=base+Math.sin(i/10)*20+(Math.random()-0.5)*10;
-          const o=p+(Math.random()-0.5)*5, c=p+(Math.random()-0.5)*5;
-          const h=Math.max(o,c)+Math.random()*3, l=Math.min(o,c)-Math.random()*3;
-          out.push({ time:t, open:o, high:h, low:l, close:c, value:Math.floor(Math.random()*1e6), color:c>=o?'rgba(0,150,136,0.2)':'rgba(255,82,82,0.2)' });
-        }
-        return out;
-      }
-    };
-
-    // LWC loader
-    const LWC_URL='https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js';
-    let __lwcPromise=null;
-    const ensureLightweightCharts=()=>{
-      if(window.LightweightCharts?.createChart) return Promise.resolve(window.LightweightCharts);
-      if(__lwcPromise) return __lwcPromise;
-      __lwcPromise=new Promise((resolve,reject)=>{
-        const s=document.createElement('script'); s.id='lightweight-charts-standalone'; s.src=LWC_URL; s.async=true; s.crossOrigin='anonymous';
-        s.addEventListener('load',()=>resolve(window.LightweightCharts),{once:true});
-        s.addEventListener('error',()=>reject(new Error('Failed to load Lightweight Charts')),{once:true});
-        document.head.appendChild(s);
-      });
-      return __lwcPromise;
-    };
-
-    const externalLinkFor = (symbol) => {
-      if (/\.T$/.test(symbol)) { return `https://kabutan.jp/stock/?code=${symbol.replace('.T','')}`; }
-      return `https://finance.yahoo.com/quote/${encodeURIComponent(symbol)}`;
-    };
-
-    const App=()=>{
-      const [activeTab,setActiveTab]=useState('dashboard');
-      const [watchItems,setWatchItems]=useState(()=>{ try{ const j=JSON.parse(localStorage.getItem('nmy.watch.items')||'[]'); if(Array.isArray(j)&&j.length) return j; }catch(_){} return DEFAULT_ITEMS; });
-      const [watchlist,setWatchlist]=useState([]);
-      const [portfolio,setPortfolio]=useState(initialPortfolioData);
-      const [isLoading,setIsLoading]=useState(true);
-      const [isModalOpen,setIsModalOpen]=useState(false);
-      const [selectedStock,setSelectedStock]=useState(null);
-      const [sortMode,setSortMode]=useState(()=> localStorage.getItem('nmy.watch.sort') || 'none');
-
-      const persistItems = (items)=>{ setWatchItems(items); try{ localStorage.setItem('nmy.watch.items', JSON.stringify(items)); }catch(_){} };
-
-      useEffect(()=>{
-        const run=async()=>{
-          setIsLoading(true);
-          const watchSyms=watchItems.map(i=>i.symbol);
-          const portSyms=portfolio.filter(i=>i.details.symbol).map(i=>i.details.symbol);
-          const all=[...new Set([...watchSyms,...portSyms])];
-          try{
-            const market=await fetchMarketData(all);
-            const enriched = await Promise.all(watchItems.map(async i => {
-              const base = market[i.symbol] || {};
-              const [fund, hist] = await Promise.all([ fetchFundamentals(i.symbol), fetchHistorySummary(i.symbol) ]);
-              const name = fund.longName || fund.shortName || base.name || NAME_MAP[i.symbol] || i.name;
-              const lastUpdated = hist.lastTs ? new Date(hist.lastTs * 1000) : null;
-              return { id:i.id, symbol:i.symbol, name, ...base, trend: hist.trend || 'flat', lastUpdated };
-            }));
-            setWatchlist(enriched);
-            setPortfolio(prev => prev.map(a=>{
-              if(!a.details.symbol) return a;
-              const d=market[a.details.symbol]; if(!d) return a;
-              if(a.type==='CASH' && a.details.currency==='USD') return {...a,details:{...a.details,rate:d.price}};
-              const current=(d.price??0)*(a.details.qty??0);
-              const cost=(a.details.avgPrice??0)*(a.details.qty??0);
-              const gl=cost>0?((current-cost)/cost)*100:0;
-              return {...a,value:current,gainLossPercent:gl};
-            }));
-          }catch(e){ console.error(e); setWatchlist(watchItems); }
-          finally{ setIsLoading(false); }
-        };
-        run();
-      },[watchItems]);
-
-      useEffect(()=>{
-        const portSyms=portfolio.filter(i=>i.details.symbol).map(i=>i.details.symbol);
-        const add = portSyms.filter(s=>!watchItems.some(w=>w.symbol===s));
-        if(add.length){ const added = add.map(s=>({id:s,symbol:s,name:NAME_MAP[s]||s})); persistItems([...watchItems,...added]); }
-      },[portfolio]);
-
-      const addSymbol = async (symbol, name) => { if (watchItems.some(w=>w.symbol===symbol)) return; persistItems([...watchItems, {id:symbol, symbol, name: name || NAME_MAP[symbol] || symbol }]); };
-      const removeSymbol = (symbol) => { if (!confirm(`Delete ${symbol}?`)) return; persistItems(watchItems.filter(w=>w.symbol!==symbol)); };
-      const moveItem = (fromIdx, toIdx) => { if (fromIdx===toIdx) return; const arr = [...watchItems]; const [m] = arr.splice(fromIdx,1); arr.splice(toIdx,0,m); persistItems(arr); };
-
-      const handleCardClick=(stock)=>{setSelectedStock(stock);setIsModalOpen(true);};
-      const closeModal=()=>{setIsModalOpen(false);setSelectedStock(null);};
-
-      const displayed = useMemo(()=>{
-        if (sortMode==='none') return watchlist;
-        const arr = [...watchlist];
-        const byChange = (asc)=> (a,b)=> (asc? (a.changePercent-b.changePercent):(b.changePercent-a.changePercent));
-        if (sortMode==='changeAsc') return arr.sort(byChange(true));
-        if (sortMode==='changeDesc') return arr.sort(byChange(false));
-        if (sortMode==='trendUpChangeAsc') return arr.filter(x=>x.trend==='up').sort(byChange(true));
-        if (sortMode==='trendDownChangeDesc') return arr.filter(x=>x.trend==='down').sort(byChange(false));
-        if (sortMode==='trendUpFirst') return arr.sort((a,b)=> (a.trend===b.trend)?0:(a.trend==='up'?-1:1));
-        if (sortMode==='trendDownFirst') return arr.sort((a,b)=> (a.trend===b.trend)?0:(a.trend==='down'?-1:1));
-        return watchlist;
-      },[watchlist,sortMode]);
-
-      return(
-        <div className="bg-gray-900 text-white min-h-screen font-sans antialiased">
-          <div className="container mx-auto px-4 pb-24">
-                        <header className="py-6">
-              <h1 className="text-3xl font-bold text-gray-100">{J('%E3%83%9E%E3%83%8D%E3%83%BC%E3%83%9E%E3%83%8D%E3%83%BC%E3%82%B8%E3%83%A3%E3%83%BC')}</h1>
-              <p className="text-md text-gray-400">{J('%E3%81%82%E3%81%AA%E3%81%9F%E3%81%AE%E8%B3%87%E7%94%A3%E3%81%A8%E7%9B%B8%E5%A0%B4%E3%82%92%E3%80%81%E6%89%8B%E5%85%83%E3%81%A7%E6%8A%8A%E6%8F%A1%E3%80%82')}</p>
-            </header>
-            <div className="flex items-center justify-between mb-3">
-              <SearchAdd onPick={addSymbol}/>
-              <div className="flex items-center space-x-2">
-                
-                <select value={sortMode} onChange={e=>{ const v=e.target.value; setSortMode(v); try{ localStorage.setItem('nmy.watch.sort',v); }catch(_){} }} className="bg-gray-800 text-gray-200 text-sm px-3 py-2 rounded">
-                  <option value="none">{J('%E6%89%8B%E5%8B%95%E9%A0%86')}</option>
-                  <option value="changeAsc">{J('%E5%AF%BE%E5%89%8D%E6%97%A5%E6%AF%94%20%E6%98%87%E9%A0%86')}</option>
-                  <option value="changeDesc">{J('%E5%AF%BE%E5%89%8D%E6%97%A5%E6%AF%94%20%E9%99%8D%E9%A0%86')}</option>
-                  <option value="trendUpFirst">{J('%E4%B8%8A%E6%98%87%E3%83%88%E3%83%AC%E3%83%B3%E3%83%89%E5%84%AA%E5%85%88')}</option>
-                  <option value="trendDownFirst">{J('%E4%B8%8B%E9%99%8D%E3%83%88%E3%83%AC%E3%83%B3%E3%83%89%E5%84%AA%E5%85%88')}</option>
-                  <option value="trendUpChangeAsc">{J('%E4%B8%8A%E6%98%87%E3%83%88%E3%83%AC%E3%83%B3%E3%83%89%E5%86%85%20%E4%B8%8B%E8%90%BD%E7%8E%87%E6%98%87%E9%A0%86')}</option>
-                  <option value="trendDownChangeDesc">{J('%E4%B8%8B%E9%99%8D%E3%83%88%E3%83%AC%E3%83%B3%E3%83%89%E5%86%85%20%E4%B8%8A%E6%98%87%E7%8E%87%E9%99%8D%E9%A0%86')}</option>
-                </select>
-                <button onClick={()=>setSortMode('none')} className="px-3 py-2 bg-gray-700 rounded text-sm">{J('%E5%85%83%E3%81%AB%E6%88%BB%E3%81%99')}</button>
-            </div>
-            <main>
-              {isLoading
-                ? (<div className="flex justify-center items-center h-64"><Loader/><span className="ml-4 text-lg text-gray-400">{J('%E5%B8%82%E5%A0%B4%E3%83%87%E3%83%BC%E3%82%BF%E3%82%92%E5%8F%96%E5%BE%97%E4%B8%AD...')}</span></div>)
-                : (<Dashboard watchlist={displayed} sortMode={sortMode} onRemove={removeSymbol} onReorder={moveItem} onCardClick={handleCardClick} />)
-              }
-            </main>
-          </div>
-          <BottomNav activeTab={activeTab} setActiveTab={setActiveTab}/>
-          {isModalOpen && <StockChartModal stock={selectedStock} onClose={closeModal}/>}
-        </div>
-      );
-    };
-
-    const SearchAdd = ({onPick}) => {
-      const [q,setQ]=React.useState('');
-      const [sugs,setSugs]=React.useState([]);
-      React.useEffect(()=>{
-        let alive=true; const t=setTimeout(async()=>{ if(!q.trim()){ setSugs([]); return; } try{ const r=await searchSymbols(q.trim()); if(alive) setSugs(r.slice(0,10)); }catch(e){ if(alive) setSugs([]);} }, 300);
-        return()=>{ clearTimeout(t); alive=false; };
-      },[q]);
+    const StockCard=({item,onClick,onRemove})=>{
+      const changeAbs = Math.abs(item.changePercent??0);
+      const isPos = (item.changePercent??0) >= 0;
       return (
-        <div className="relative w-full max-w-md">
-          <input value={q} onChange={e=>setQ(e.target.value)} placeholder="驫俶氛蜷・繝・ぅ繝・き繝ｼ/繧ｳ繝ｼ繝峨〒霑ｽ蜉" className="w-full bg-gray-800 text-gray-200 placeholder-gray-500 rounded px-3 py-2 outline-none" />
-          {sugs.length>0 && (
-            <div className="absolute z-10 mt-1 w-full bg-gray-800 border border-gray-700 rounded shadow-lg max-h-64 overflow-auto">
-              {sugs.map(s=> (
-                <button key={s.symbol} onClick={()=>{ onPick(s.symbol, s.name); setQ(''); setSugs([]); }} className="w-full text-left px-3 py-2 hover:bg-gray-700 text-sm">
-                  <span className="text-gray-200 font-semibold mr-2">{s.symbol}</span>
-                  <span className="text-gray-400">{s.name}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      );
-    };
-
-    const Dashboard=({watchlist,sortMode,onRemove,onReorder,onCardClick})=>{
-      const [dragIndex,setDragIndex]=React.useState(null);
-      return (
-        <div>
-          <h2 className="text-2xl font-semibold mb-3 text-gray-200">繝繝・す繝･繝懊・繝・/h2>
-          <div className="text-xs text-gray-400 mb-2">{sortMode==='none' ? '繧ｫ繝ｼ繝峨・繝峨Λ繝・げ・・ラ繝ｭ繝・・縺ｧ荳ｦ縺ｹ譖ｿ縺医〒縺阪∪縺吶・ : '迴ｾ蝨ｨ繧ｽ繝ｼ繝郁｡ｨ遉ｺ荳ｭ縺ｮ縺溘ａ荳ｦ縺ｹ譖ｿ縺医・辟｡蜉ｹ縺ｧ縺吶・}</div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-4">
-            {watchlist.map((item,idx)=>(
-              <StockCard key={item.symbol}
-                item={item}
-                draggable={sortMode==='none'}
-                onDragStart={()=>setDragIndex(idx)}
-                onDragOver={(e)=>{ if(sortMode==='none'){ e.preventDefault(); }}
-                onDrop={()=>{ if(sortMode==='none' && dragIndex!=null){ onReorder(dragIndex, idx); setDragIndex(null); } }}
-                onRemove={()=>onRemove(item.symbol)}
-                onClick={()=>onCardClick(item)}
-              />
-            ))}
-          </div>
-        </div>
-      );
-    };
-
-    const TrendingIcon=({trend})=> trend==='up'?<TrendingUp/>: trend==='down'?<TrendingDown/>:<span className="text-gray-400 text-xs">窶・/span>;
-
-    const StockCard=({item,onClick,onRemove,draggable,onDragStart,onDragOver,onDrop})=>{
-      const changeAbs=Math.abs(item.changePercent??0);
-      const isPos=(item.changePercent??0)>=0;
-      const isVolatile=(changeAbs*100)>=5;
-      const cardStyle=`bg-gray-800 rounded-lg p-3 shadow-lg transform hover:scale-105 transition-transform duration-300 cursor-pointer flex flex-col justify-between h-full aspect-[4/5] ${isVolatile?'ring-2 ring-yellow-400 shadow-yellow-400/20':''}`;
-      const timeText = item.lastUpdated ? new Intl.DateTimeFormat('ja-JP', { hour: '2-digit', minute: '2-digit', hour12: false }).format(item.lastUpdated) : '';
-      const trendColor = item.trend==='up' ? 'text-green-400' : item.trend==='down' ? 'text-red-400' : 'text-gray-400';
-      return(
-        <div className={cardStyle} onClick={onClick} draggable={draggable} onDragStart={onDragStart} onDragOver={onDragOver} onDrop={onDrop}>
+        <div className="bg-gray-800 rounded-lg p-3 shadow-lg cursor-pointer" onClick={onClick}>
           <div className="flex justify-between items-start">
-            <div className="w-4/5">
+            <div>
               <h3 className="text-sm font-bold text-gray-100 truncate">{item.name}</h3>
               <p className="text-xs text-gray-400">{item.symbol}</p>
             </div>
-            <div className="flex flex-col items-end">
-              <button className="text-gray-500 hover:text-white text-lg" onClick={(e)=>{ e.stopPropagation(); onRemove(); }} title="蜑企勁">ﾃ・/button>
-              <div className={`text-[10px] text-gray-400 mt-1`}>譛邨・{timeText}</div>
-              <div className={`text-lg flex items-center ${trendColor}`}><TrendingIcon trend={item.trend}/></div>
-            </div>
+            <div className={`text-lg ${isPos?'text-green-400':'text-red-400'}`}><TrendingIcon trend={isPos?'up':'down'}/></div>
           </div>
-          <div className="flex-grow flex items-center justify-center my-1">
-            <div className={`text-3xl md:text-4xl font-bold ${isPos?'text-green-500':'text-red-500'}`}>
-              {(isPos?'+':'-')}{(changeAbs*100).toFixed(1)}%
-            </div>
-          </div>
-          <div className="text-xs text-gray-400 pt-2 border-t border-gray-700">
-            <a href={externalLinkFor(item.symbol)} target="_blank" rel="noreferrer" className="text-indigo-400 hover:underline">謖・ｨ吶ｒ隕九ｋ・亥､夜Κ繧ｵ繧､繝茨ｼ・/a>
+          <div className="flex items-center justify-center py-2">
+            <div className={`text-3xl font-bold ${isPos?'text-green-500':'text-red-500'}`}>{(isPos?'+':'-')}{(changeAbs*100).toFixed(1)}%</div>
           </div>
         </div>
       );
     };
 
-    const BottomNav=({activeTab,setActiveTab})=>{
-      const Item=({id,label,icon})=> (
-        <button onClick={()=>setActiveTab(id)} className={`flex-1 flex flex-col items-center justify-center py-2 ${activeTab===id?'text-indigo-400':'text-gray-400'}`}>
-          {icon}
-          <span className="text-xs mt-1">{label}</span>
-        </button>
-      );
+    const App=()=>{
+      const [watchItems,setWatchItems]=useState(DEFAULT_ITEMS);
+      const [watchlist,setWatchlist]=useState([]);
+      const [isLoading,setIsLoading]=useState(true);
+
+      useEffect(()=>{ document.title = J('%E3%83%9E%E3%83%8D%E3%83%BC%E3%83%9E%E3%83%8D%E3%83%BC%E3%82%B8%E3%83%A3%E3%83%BC'); },[]);
+
+      useEffect(()=>{
+        (async()=>{
+          setIsLoading(true);
+          try{
+            const market=await fetchMarketData(watchItems.map(i=>i.symbol));
+            setWatchlist(watchItems.map(i=>({ ...i, ...(market[i.symbol]||{}) })));
+          }finally{ setIsLoading(false); }
+        })();
+      },[watchItems]);
+
       return (
-        <nav className="fixed bottom-0 left-0 right-0 bg-gray-800 border-t border-gray-700 flex">
-          <Item id="dashboard" label="繝帙・繝" icon={<HomeIcon/>}/>
-          <Item id="portfolio" label="繝昴・繝医ヵ繧ｩ繝ｪ繧ｪ" icon={<PieChartIcon/>}/>
-          <Item id="settings" label="險ｭ螳・ icon={<SettingsIcon/>}/>
-        </nav>
-      );
-    };
-
-    const StockChartModal=({stock,onClose})=>{
-      const containerRef=useRef(null);
-      const chartRef=useRef(null);
-      const seriesRef=useRef({});
-      const [timeframe,setTimeframe]=React.useState('D');
-      const [loading,setLoading]=React.useState(true);
-
-      React.useEffect(()=>{
-        if(!stock) return;
-        let disposed=false; let ro;
-        (async()=>{
-          setLoading(true);
-          try{
-            const L=await ensureLightweightCharts();
-            await new Promise(r=>requestAnimationFrame(r));
-            if(disposed||!containerRef.current) return;
-            if(chartRef.current){chartRef.current.remove();chartRef.current=null;seriesRef.current={};}
-            const chart=L.createChart(containerRef.current,{
-              width:containerRef.current.clientWidth||800,
-              height:containerRef.current.clientHeight||420,
-              layout:{backgroundColor:'#1f2937',textColor:'rgba(255,255,255,0.9)'},
-              grid:{vertLines:{color:'#374151'},horzLines:{color:'#374151'}},
-              crosshair:{mode:L.CrosshairMode.Normal},
-              timeScale:{borderColor:'#4b5563'},
-              localization:{ locale:'ja-JP', timeFormatter:(t)=> new Date(t*1000).toLocaleDateString('ja-JP') },
-            });
-            const price=chart.addLineSeries({color:'#60a5fa',lineWidth:2});
-            const volume=chart.addHistogramSeries({priceFormat:{type:'volume'},priceScaleId:''});
-            volume.priceScale().applyOptions({scaleMargins:{top:0.8,bottom:0}});
-            const ma50=chart.addLineSeries({color:'rgba(234,179,8,0.8)',lineWidth:2});
-            const ma200=chart.addLineSeries({color:'rgba(192,132,252,0.8)',lineWidth:2});
-            const bbU=chart.addLineSeries({color:'rgba(56,189,248,0.5)',lineWidth:1});
-            const bbM=chart.addLineSeries({color:'rgba(56,189,248,0.7)',lineWidth:1,lineStyle:L.LineStyle.Dotted});
-            const bbL=chart.addLineSeries({color:'rgba(56,189,248,0.5)',lineWidth:1});
-            chartRef.current=chart; seriesRef.current={price,volume,ma50,ma200,bbU,bbM,bbL};
-            ro=new ResizeObserver(([e])=>{ if(!e||!chartRef.current) return; const {width,height}=e.contentRect; chartRef.current.applyOptions({width,height}); });
-            ro.observe(containerRef.current);
-            setLoading(false);
-          }catch(err){console.error('Failed to initialize chart:',err);setLoading(false);}
-        })();
-        return ()=>{disposed=true; if(ro) ro.disconnect(); if(chartRef.current){chartRef.current.remove();chartRef.current=null;} seriesRef.current={};};
-      },[stock]);
-
-      React.useEffect(()=>{
-        if(!stock||!seriesRef.current.price) return;
-        let alive=true;
-        (async()=>{
-          setLoading(true);
-          try{
-            const raw=await fetchHistoricalData(stock.symbol,timeframe);
-            if(!alive||!seriesRef.current.price){setLoading(false);return;}
-            const close=raw.map(d=>({time:d.time,value:d.close}));
-            const vol =raw.map(d=>({time:d.time,value:d.value,color:d.color}));
-            const ma=(arr,n)=>arr.slice(n-1).map((_,i)=>{const slice=arr.slice(i,i+n);const sum=slice.reduce((s,v)=>s+v.value,0);return{time:arr[i+n-1].time,value:sum/n};});
-            const bb=(arr,n,k)=>arr.slice(n-1).map((_,i)=>{const s=arr.slice(i,i+n).map(x=>x.value);const mean=s.reduce((a,v)=>a+v,0)/n;const std=Math.sqrt(s.reduce((a,v)=>a+Math.pow(v-mean,2),0)/n);return{time:arr[i+n-1].time,upper:mean+k*std,mid:mean,lower:mean-k*std};});
-            const {price,volume,ma50,ma200,bbU,bbM,bbL}=seriesRef.current;
-            price.setData(close); volume.setData(vol);
-            ma50.setData(ma(close,50)); ma200.setData(ma(close,200));
-            const bb20=bb(close,20,2);
-            bbU.setData(bb20.map(x=>({time:x.time,value:x.upper})));
-            bbM.setData(bb20.map(x=>({time:x.time,value:x.mid})));
-            bbL.setData(bb20.map(x=>({time:x.time,value:x.lower})));
-            chartRef.current.timeScale().fitContent();
-          }catch(e){console.error('Failed to fetch/render data:',e);} finally{ if(alive) setLoading(false); }
-        })();
-        return()=>{alive=false};
-      },[stock,timeframe]);
-
-      React.useEffect(()=>{const onKey=e=>e.key==='Escape'&&onClose(); window.addEventListener('keydown',onKey); return()=>window.removeEventListener('keydown',onKey);},[onClose]);
-
-      if(!stock) return null;
-      return(
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50" onClick={onClose}>
-          <div className="bg-gray-800 rounded-lg shadow-xl w-11/12 max-w-4xl h-3/4 p-4 flex flex-col" onClick={e=>e.stopPropagation()}>
-            <div className="flex justify-between items-center mb-2">
-              <h2 className="text-xl font-bold">{stock.name} ({stock.symbol})</h2>
-              <div className="flex items-center">
-                <div className="bg-gray-700 rounded-md p-1 flex space-x-1 mr-4">
-                  {['D','W','M'].map(tf=>(
-                    <button key={tf} onClick={()=>setTimeframe(tf)} className={`px-3 py-1 text-sm font-semibold rounded ${timeframe===tf?'bg-indigo-600 text-white':'text-gray-300 hover:bg-gray-600'}`}>
-                      {tf==='D'?'日':tf==='W'?'週':'月'}
-                    </button>
-                  ))}
-                </div>
-                <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl font-bold">&times;</button>
-              </div>
-            </div>
-            <div className="w-full flex-grow relative" ref={containerRef}>
-              {loading&&(
-                <div className="absolute inset-0 flex items-center justify-center bg-gray-800 bg-opacity-80 z-10">
-                  <div className="flex items-center"><Loader/><span className="ml-4 text-gray-300">繝√Ε繝ｼ繝医ョ繝ｼ繧ｿ繧定ｪｭ縺ｿ霎ｼ縺ｿ荳ｭ...</span></div>
-                </div>
-              )}
+        <div className="bg-gray-900 text-white min-h-screen">
+          <div className="container mx-auto px-4 pb-20">
+            <header className="py-6">
+              <h1 className="text-3xl font-bold text-gray-100">{J('%E3%83%9E%E3%83%8D%E3%83%BC%E3%83%9E%E3%83%8D%E3%83%BC%E3%82%B8%E3%83%A3%E3%83%BC')}</h1>
+              <p className="text-md text-gray-400">{J('%E3%81%82%E3%81%AA%E3%81%9F%E3%81%AE%E8%B3%87%E7%94%A3%E3%81%A8%E7%9B%B8%E5%A0%B4%E3%82%92%E3%80%81%E6%89%8B%E5%85%83%E3%81%A7%E6%8A%8A%E6%8F%A1%E3%80%82')}</p>
+            </header>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+              {isLoading
+                ? (<div className="col-span-2 md:col-span-3 lg:col-span-4 flex justify-center items-center h-40"><Loader/><span className="ml-3 text-gray-400">{J('%E5%B8%82%E5%A0%B4%E3%83%87%E3%83%BC%E3%82%BF%E3%82%92%E5%8F%96%E5%BE%97%E4%B8%AD...')}</span></div>)
+                : watchlist.map(item => (
+                    <StockCard key={item.symbol} item={item} onClick={()=>{}} onRemove={()=>{}} />
+                  ))
+              }
             </div>
           </div>
         </div>
@@ -518,8 +125,4 @@ const DEFAULT_ITEMS = [
   </script>
 </body>
 </html>
-
-
-
-
 
