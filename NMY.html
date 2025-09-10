@@ -9,9 +9,10 @@
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
-    window.__YF_PROXY__ = window.__YF_PROXY__ || 'http://127.0.0.1:8787/api/yf';
+    // Use same-origin reverse proxy by default (works over tunnel)
+    window.__YF_PROXY__ = window.__YF_PROXY__ || (window.location.origin + '/api/yf');
     window.yfGetJSON = async function(pathWithQuery) {
-      const base = window.__YF_PROXY__;
+      const base = window.__YF_PROXY__ || (window.location.origin + '/api/yf');
       const u = base + pathWithQuery + (pathWithQuery.includes('?') ? '&' : '?') + 'ts=' + Date.now();
       const res = await fetch(u, { cache: 'no-store', headers: { 'Accept': 'application/json' } });
       if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -38,8 +39,7 @@
       const [data,setData]=useState({ now:null, previousClose:null, history:[] });
       const boxRef=useRef(null); const chartRef=useRef(null); const seriesRef=useRef(null);
       useEffect(()=>{ let alive=true; const load=async()=>{ try{
-            const host = (window.__YF_PROXY__||'').replace(/\/api\/yf.*$/,'') || 'http://127.0.0.1:8787';
-            const u= host + '/api/fgi?ts='+Date.now();
+            const u= '/api/fgi?ts='+Date.now();
             const r=await fetch(u,{headers:{'Accept':'application/json'}});
             if(!r.ok) throw new Error('fgi http '+r.status);
             const j=await r.json(); if(!alive) return;
