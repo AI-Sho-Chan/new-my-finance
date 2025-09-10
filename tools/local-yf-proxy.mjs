@@ -1,8 +1,14 @@
 import http from 'node:http';
+import https from 'node:https';
 import { URL } from 'node:url';
 
 const PORT = 8787;
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36 LocalYFProxy/1.0';
+
+const textOrEmpty = async (resp) => {
+  try { return await resp.text(); } catch { return ''; }
+};
+const tryParseJSON = (txt) => { try { return JSON.parse(txt); } catch { return null; } };
 
 const send = (res, status, body, headers = {}) => {
   const cors = {
@@ -27,6 +33,38 @@ const server = http.createServer(async (req, res) => {
 
   if (path === '/api/yf/ping') {
       return send(res, 200, { ok: true });
+    }
+
+    // Minimal fetch polyfill for Node < 18
+    if (typeof globalThis.fetch !== 'function') {
+      globalThis.fetch = (urlStr, opts = {}) => new Promise((resolve, reject) => {
+        try {
+          const u = new URL(urlStr);
+          const isHttps = u.protocol === 'https:';
+          const mod = isHttps ? https : http;
+          const reqOpts = {
+            method: opts.method || 'GET',
+            headers: opts.headers || {},
+          };
+          const req = mod.request(u, reqOpts, (resp) => {
+            let data = '';
+            resp.setEncoding('utf8');
+            resp.on('data', (chunk) => { data += chunk; });
+            resp.on('end', () => {
+              resolve({
+                ok: (resp.statusCode >= 200 && resp.statusCode < 300),
+                status: resp.statusCode || 0,
+                headers: resp.headers,
+                json: async () => { try { return JSON.parse(data || 'null'); } catch (e) { throw new Error('Invalid JSON: ' + (e?.message || e)); } },
+                text: async () => data,
+              });
+            });
+          });
+          req.on('error', reject);
+          if (opts.body) req.write(opts.body);
+          req.end();
+        } catch (e) { reject(e); }
+      });
     }
 
     if (path === '/api/yf/quote') {
@@ -104,15 +142,31 @@ const server = http.createServer(async (req, res) => {
       const lang = url.searchParams.get('lang') || 'ja-JP';
       const region = url.searchParams.get('region') || 'JP';
       const headers = { 'User-Agent': UA, 'Accept': 'application/json,*/*', 'Accept-Language': 'ja,en;q=0.9' };
-      const u1 = `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&lang=${lang}&region=${region}&quotesCount=${quotesCount}&newsCount=0`;
-      let r = await fetch(u1, { headers });
-      let j = await r.json();
-      if (!Array.isArray(j?.quotes)) {
-        const u2 = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&lang=${lang}&region=${region}&quotesCount=${quotesCount}&newsCount=0`;
-        r = await fetch(u2, { headers });
-        j = await r.json();
+      try {
+        const u1 = `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&lang=${lang}&region=${region}&quotesCount=${quotesCount}&newsCount=0`;
+        let r = await fetch(u1, { headers });
+        let t = await textOrEmpty(r);
+        let j = tryParseJSON(t);
+        if (!Array.isArray(j?.quotes)) {
+          const u2 = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&lang=${lang}&region=${region}&quotesCount=${quotesCount}&newsCount=0`;
+          r = await fetch(u2, { headers });
+          t = await textOrEmpty(r);
+          j = tryParseJSON(t);
+        }
+        // Fallback: autocomplete API (often better for JP stocks)
+        if (!Array.isArray(j?.quotes) || j.quotes.length === 0) {
+          const au = `https://autoc.finance.yahoo.com/autoc?query=${encodeURIComponent(q)}&region=${region}&lang=${lang}`;
+          const ar = await fetch(au, { headers });
+          const at = await textOrEmpty(ar);
+          const aj = tryParseJSON(at);
+          const rs = (aj?.ResultSet?.Result || []).map(x => ({ symbol: x.symbol, shortname: x.name }));
+          j = { quotes: rs };
+        }
+        return send(res, 200, j || { quotes: [] });
+      } catch (e) {
+        // Never 500 on search; return empty
+        return send(res, 200, { quotes: [] });
       }
-      return send(res, 200, j);
     }
 
     // Fundamentals/price details via quoteSummary modules
@@ -167,6 +221,28 @@ const server = http.createServer(async (req, res) => {
         }
       }
       return send(res, 200, j);
+    }
+
+    // CNN Fear & Greed Index (stocks)
+    if (path === '/api/fgi') {
+      try {
+        const headers = { 'User-Agent': UA, 'Accept': 'application/json,*/*', 'Accept-Language': 'ja,en;q=0.9' };
+        const curU = 'https://production.dataviz.cnn.io/index/fearandgreed/current';
+        const graphU = 'https://production.dataviz.cnn.io/index/fearandgreed/graphdata';
+        const [cr, gr] = await Promise.all([
+          fetch(curU, { headers }),
+          fetch(graphU, { headers }),
+        ]);
+        const ct = await textOrEmpty(cr); const gt = await textOrEmpty(gr);
+        const cj = tryParseJSON(ct) || {}; const gj = tryParseJSON(gt) || {};
+        const now = Number(cj?.fear_and_greed?.now?.value ?? cj?.fear_and_greed?.now ?? cj?.now ?? cj?.score ?? null);
+        const previousClose = Number(cj?.fear_and_greed?.previous_close?.value ?? cj?.fear_and_greed?.previous_close ?? cj?.previous_close ?? null);
+        const hist = Array.isArray(gj?.fear_and_greed_historical) ? gj.fear_and_greed_historical : [];
+        const history = hist.map(x => ({ t: Number(x.x) || null, v: Number(x.y) || null })).filter(x => Number.isFinite(x.t) && Number.isFinite(x.v));
+        return send(res, 200, { now, previousClose, history });
+      } catch (e) {
+        return send(res, 200, { now: null, previousClose: null, history: [] });
+      }
     }
 
     return send(res, 404, 'Not Found', { 'Content-Type': 'text/plain' });

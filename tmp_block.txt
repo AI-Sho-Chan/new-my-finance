@@ -1,0 +1,21 @@
+﻿   const PROXIES = [
+  u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+  u => `https://corsproxy.io/?${encodeURIComponent(u)}`
+];
+let proxyIdx = 0;
+const fetchWithProxy = async (url, tries = PROXIES.length) => {
+  // キャッシュ回避
+  const urlNoCache = url + (url.includes('?') ? '&' : '?') + 'ts=' + Date.now();
+  for (let t = 0; t < tries; t++) {
+    const proxied = PROXIES[proxyIdx](urlNoCache);
+    try {
+      const res = await fetch(proxied, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const body = await res.text();           // text/plain対策
+      return JSON.parse(body);
+    } catch (e) {
+      proxyIdx = (proxyIdx + 1) % PROXIES.length;
+      if (t === tries - 1) throw e;
+    }
+  }
+};
