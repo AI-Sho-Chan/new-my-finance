@@ -52,6 +52,9 @@ const server = http.createServer((req, res) => {
     if (pathname.startsWith('/api/yf/')) {
       return proxy(req, res, PROXY_BASE + pathname + (u.search || ''));
     }
+    if (pathname === '/api/signals') {
+      return proxy(req, res, PROXY_BASE + '/api/signals');
+    }
 
     // Static data folder
     if (pathname.startsWith('/data/')) {
@@ -87,4 +90,3 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`UI server listening at http://127.0.0.1:${PORT}`);
 });
-
