@@ -147,6 +147,7 @@
       {id:'GOOGL',   name:'Alphabet', symbol:'GOOGL'},
       {id:'MSFT',    name:'Microsoft', symbol:'MSFT'},
       {id:'META',    name:'Meta', symbol:'META'}
+      ,{id:'ZZTEST', name:J('%E3%82%B7%E3%82%B0%E3%83%8A%E3%83%AB%E3%83%86%E3%82%B9%E3%83%88'), symbol:'ZZTEST'}
     ];
     const NAME_MAP = Object.fromEntries(DEFAULT_ITEMS.map(x=>[x.symbol,x.name]));
 
@@ -675,6 +676,24 @@
         for(const s of symbols){ if(!out[s]) out[s] = { price:0, change:0, changePercent:0, name:NAME_MAP[s]||s }; }
         const s24 = symbols.filter(is24hSymbol);
         await Promise.all(s24.map(async s=>{ const d = await fetch24hDelta(s); if(d && out[s]) { out[s].change=d.change; out[s].changePercent=d.changePercent; } }));
+        // Fallback: use last daily close from history when price is 0/null (e.g., ZZTEST dummy)
+        await Promise.all(symbols.map(async (s) => {
+          const rec = out[s]; if (!rec || (rec.price && Number.isFinite(rec.price))) return;
+          try {
+            const h = await yfGetJSON(`/history?symbol=${encodeURIComponent(s)}&interval=1d&range=1mo`);
+            const r = h?.chart?.result?.[0];
+            const close = r?.indicators?.quote?.[0]?.close || [];
+            for (let i=close.length-1;i>=0;i--) { const v=close[i]; if (Number.isFinite(v)) { rec.price=v; rec.change=0; rec.changePercent=0; break; } }
+          } catch {}
+        }));
+        // Hardcode dummy ZZTEST for demo
+        if (symbols.includes('ZZTEST')) {
+          out['ZZTEST'] = out['ZZTEST'] || {};
+          if (!Number.isFinite(out['ZZTEST'].price)) out['ZZTEST'].price = 1500;
+          if (!('name' in out['ZZTEST'])) out['ZZTEST'].name = NAME_MAP['ZZTEST'] || 'シグナルテスト';
+          out['ZZTEST'].change = 50;
+          out['ZZTEST'].changePercent = 50/1450;
+        }
         return out;
       } catch(e){
         return symbols.reduce((a,s)=>{ a[s]={ price:0, change:0, changePercent:0, name:NAME_MAP[s]||s }; return a; },{});
@@ -943,8 +962,14 @@
               if (r.ok) {
                 const s = await r.json();
                 setSignals(s||{});
+              } else {
+                const demo={}; if(uniqBase.some(x=>x.symbol==='ZZTEST')) demo['ZZTEST']={signals:[{type:'52H+',date:Math.floor(Date.now()/1000)-86400},{type:'押',date:Math.floor(Date.now()/1000)}]};
+                setSignals(demo);
               }
-            } catch(_){}
+            } catch(_){
+              const demo={}; if(uniqBase.some(x=>x.symbol==='ZZTEST')) demo['ZZTEST']={signals:[{type:'52H+',date:Math.floor(Date.now()/1000)-86400},{type:'押',date:Math.floor(Date.now()/1000)}]};
+              setSignals(demo);
+            }
           } finally { setIsLoading(false); }
         })();
       },[watchItems, draftItems, sortMode]);
@@ -1038,13 +1063,13 @@
             {page==='assets' && (<AssetsPage watchItems={watchItems} persistItems={persistItems} />)}
             {page==='settings' && (<SettingsPage settings={settings} setSettings={setSettings} />)}
           </div>
-          {modalOpen && selected && <StockChartModal stock={selected} onClose={()=>{ setModalOpen(false); setSelected(null); }} />}
+          {modalOpen && selected && <StockChartModal stock={selected} signalsMap={signals} onClose={()=>{ setModalOpen(false); setSelected(null); }} />}
         </div>
       );
     };
 
     // Chart modal component
-    const StockChartModal=({stock,onClose})=>{
+    const StockChartModal=({stock,onClose,signalsMap})=>{
       const containerRef=useRef(null);
       const chartRef=useRef(null);
       const seriesRef=useRef({});
@@ -1124,6 +1149,12 @@
             bbU.setData(bb20.map(x=>({time:x.time,value:x.upper})));
             bbM.setData(bb20.map(x=>({time:x.time,value:x.mid})));
             bbL.setData(bb20.map(x=>({time:x.time,value:x.lower})));
+            // Signal markers
+            try {
+              const sigs = (signalsMap && signalsMap[stock.symbol] && Array.isArray(signalsMap[stock.symbol].signals)) ? signalsMap[stock.symbol].signals : [];
+              const markers = sigs.map(sig=>({ time: sig.date, position: 'belowBar', color: sig.type==='押' ? '#6366f1' : '#34d399', shape: sig.type==='押' ? 'arrowUp' : 'circle', text: sig.type }));
+              if (markers.length>0) price.setMarkers(markers);
+            } catch(_){ }
             chartRef.current.timeScale().applyOptions({ timeVisible: timeframe==='D', secondsVisible:false });
             chartRef.current.timeScale().fitContent();
           }catch(e){ console.error(e); } finally { if(alive) setLoading(false); }

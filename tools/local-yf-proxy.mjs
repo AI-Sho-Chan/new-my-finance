@@ -75,6 +75,22 @@ const server = http.createServer(async (req, res) => {
       let j = await r1.json();
       let items = Array.isArray(j?.quoteResponse?.result) ? j.quoteResponse.result : null;
       const unauthorized = !!(j?.finance?.error?.code === 'Unauthorized');
+      // Inject dummy symbol ZZTEST if requested
+      const symsList = symbols.split(',').map(s=>s.trim()).filter(Boolean);
+      if (symsList.includes('ZZTEST')) {
+        const dummy = {
+          symbol: 'ZZTEST',
+          longName: 'シグナルテスト',
+          shortName: 'Signal Test',
+          currency: 'JPY',
+          regularMarketPrice: 1500,
+          regularMarketPreviousClose: 1450,
+          regularMarketChange: 50,
+          regularMarketChangePercent: 3.45,
+        };
+        items = (items||[]).filter(x=>x.symbol!=='ZZTEST').concat([dummy]);
+        j = { quoteResponse: { result: items, error: null } };
+      }
       if (!items || items.length === 0 || unauthorized) {
         const t2 = `https://query2.finance.yahoo.com/v7/finance/quote?symbols=${symbols}`;
         const r2 = await fetch(t2, { headers });
@@ -173,6 +189,9 @@ const server = http.createServer(async (req, res) => {
     if (path === '/api/yf/fund') {
       const symbol = url.searchParams.get('symbol');
       if (!symbol) return send(res, 400, { error: 'symbol required' });
+      if (symbol === 'ZZTEST') {
+        return send(res, 200, { symbol, longName: 'シグナルテスト', shortName: 'Signal Test', per: 15.2, pbr: 2.1, dividendYield: 0.012, marketCap: 100000000000 });
+      }
       const headers = { 'User-Agent': UA, 'Accept': 'application/json,*/*', 'Accept-Language': 'en-US,en;q=0.9' };
       const modules = 'price,defaultKeyStatistics,financialData,summaryDetail';
       const t1 = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=${modules}`;
@@ -207,6 +226,37 @@ const server = http.createServer(async (req, res) => {
       const interval = url.searchParams.get('interval') || '1d';
       const range = url.searchParams.get('range') || '1y';
       if (!symbol) return send(res, 400, { error: 'symbol required' });
+      if (symbol === 'ZZTEST') {
+        // Generate 420 trading days of synthetic OHLC that include a 52w breakout and pullback
+        const days = 420;
+        const now = Date.now();
+        const start = now - days*86400000;
+        const ts = [];
+        const open=[], high=[], low=[], close=[], volume=[];
+        let price = 1000;
+        for (let i=0;i<days;i++){
+          const t = Math.floor((start + i*86400000)/1000);
+          ts.push(t);
+          // Trend with mild noise
+          const drift = 0.3 + (i>350? 2.0 : 0); // recent acceleration to force 52W high
+          const rnd = (Math.sin(i*0.3)+Math.random()-0.5)*2;
+          const prev = price;
+          price = Math.max(200, price + drift + rnd);
+          // After breakout (~day 360), create pullback near EMA20 zone around last 5 days
+          if (i>400 && i<415) price -= 3.5; // small pullback
+          const o = prev;
+          const c = price;
+          const h = Math.max(o,c) + Math.random()*3;
+          const l = Math.min(o,c) - Math.random()*3;
+          open.push(Number(o.toFixed(2)));
+          high.push(Number(h.toFixed(2)));
+          low.push(Number(l.toFixed(2)));
+          close.push(Number(c.toFixed(2)));
+          volume.push(100000 + Math.floor(Math.random()*20000));
+        }
+        const result = { chart: { result: [{ meta:{ currency:'JPY' }, timestamp: ts, indicators:{ quote:[{ open, high, low, close, volume }] } }], error:null } };
+        return send(res, 200, result);
+      }
       const headers = { 'User-Agent': UA, 'Accept': 'application/json,*/*', 'Accept-Language': 'en-US,en;q=0.9' };
       const t1 = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${interval}&range=${range}&includePrePost=false&events=div%2Csplit`;
       const r1 = await fetch(t1, { headers });
@@ -242,14 +292,21 @@ const server = http.createServer(async (req, res) => {
 
         for (const sym of symbols){
           try {
-            const url1 = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=1d&range=2y&includePrePost=false&events=div%2Csplit`;
-            let r1 = await fetch(url1, { headers });
-            let j1 = await r1.json();
-            let rr = (j1?.chart?.result||[])[0];
-            if(!rr){
-              const url2 = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=1d&range=2y&includePrePost=false&events=div%2Csplit`;
-              const r2 = await fetch(url2, { headers });
-              const j2 = await r2.json(); rr = (j2?.chart?.result||[])[0];
+            let rr=null;
+            if (sym === 'ZZTEST') {
+              // Reuse dummy history generation
+              const res = await (await fetch(`http://127.0.0.1:${PORT}/api/yf/history?symbol=ZZTEST&interval=1d&range=2y`)).json();
+              rr = (res?.chart?.result||[])[0];
+            } else {
+              const url1 = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=1d&range=2y&includePrePost=false&events=div%2Csplit`;
+              let r1 = await fetch(url1, { headers });
+              let j1 = await r1.json();
+              rr = (j1?.chart?.result||[])[0];
+              if(!rr){
+                const url2 = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=1d&range=2y&includePrePost=false&events=div%2Csplit`;
+                const r2 = await fetch(url2, { headers });
+                const j2 = await r2.json(); rr = (j2?.chart?.result||[])[0];
+              }
             }
             if(!rr){ out[sym] = { signals: [] }; continue; }
             const ts = rr.timestamp||[];
@@ -279,6 +336,11 @@ const server = http.createServer(async (req, res) => {
               if(nearBand && rsiOk){
                 signals.push({ type:'押', date: ts[iLast], strength: 0.6, reason:'Pullback to EMA20 - 1.5*ATR with RSI recovery zone' });
               }
+            }
+            // Ensure dummy gets at least one signal
+            if (sym === 'ZZTEST' && signals.length===0 && iLast>10) {
+              signals.push({ type:'52H+', date: ts[iLast-3], strength:0.7, reason:'Dummy breakout' });
+              signals.push({ type:'押', date: ts[iLast], strength:0.6, reason:'Dummy pullback' });
             }
             out[sym] = { signals };
           } catch (e) {
