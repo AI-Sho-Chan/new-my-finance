@@ -24,6 +24,11 @@ try {
   Start-Sleep -Milliseconds 500
 }
 
+# Try J-Quants token refresh (optional)
+try {
+  node tools/jq-login.mjs | Out-Null
+} catch {}
+
 # Start UI server
 try {
   $uip = Invoke-WebRequest -Uri "http://127.0.0.1:$UiPort/" -UseBasicParsing -TimeoutSec 2
@@ -35,4 +40,3 @@ try {
 # Open the UI
 $url = "http://127.0.0.1:$UiPort/NMY.html"
 Start-Process $url | Out-Null
-

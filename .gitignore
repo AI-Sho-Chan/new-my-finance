@@ -20,3 +20,6 @@ Thumbs.db
 # Additional ignores
 node_modules/
 cf-worker/node_modules/
+
+# Secrets (do not commit)
+tools/.secrets/

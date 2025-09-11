@@ -733,13 +733,31 @@
     const StockCard=({item,onClick,onRemove,draggable,onDragStart,onDragOver,onDrop})=>{
       const changeAbs = Math.abs(item.changePercent??0);
       const hasTrend = typeof item.trend === 'string' && item.trend.length>0;
+      const bigMove = changeAbs >= 0.04; // 4% 以上の変動
+      const isUp = (item.changePercent??0) >= 0;
+      const ringClass = bigMove
+        ? (isUp
+            ? ' ring-2 ring-green-400/50 shadow-[0_0_12px_rgba(34,197,94,0.35)] '
+            : ' ring-2 ring-red-400/50 shadow-[0_0_12px_rgba(248,113,113,0.35)] ')
+        : '';
       return (
-        <div className="bg-gray-800 rounded-lg p-3 shadow-lg cursor-pointer relative" onClick={onClick} draggable={draggable} onDragStart={onDragStart} onDragOver={onDragOver} onDrop={onDrop}>
+        <div className={("bg-gray-800 rounded-lg p-3 shadow-lg cursor-pointer relative " + ringClass).trim()} onClick={onClick} draggable={draggable} onDragStart={onDragStart} onDragOver={onDragOver} onDrop={onDrop}>
+          {bigMove && (
+            <div className={`pointer-events-none absolute inset-y-0 left-0 w-1 ${isUp?'bg-green-400/80':'bg-red-400/80'} rounded-l`}></div>
+          )}
           <button className="absolute right-2 top-2 text-gray-500 hover:text-white text-lg" title={J('%E5%89%8A%E9%99%A4')} onClick={(e)=>{ e.stopPropagation(); onRemove?.(); }}>&times;</button>
           <div className="flex justify-between items-start pr-6">
             <div className="min-w-0">
               <h3 className="text-sm font-bold text-gray-100 truncate" title={item.name}>{item.name}</h3>
               <p className="text-xs text-gray-400">{item.symbol}</p>
+              {/* Signal badges */}
+              {Array.isArray(signals[item.symbol]?.signals) && signals[item.symbol].signals.length>0 && (
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {signals[item.symbol].signals.slice(-3).map((sg,idx)=> (
+                    <span key={idx} className={`text-[10px] px-1.5 py-0.5 rounded border ${sg.type==='押' ? 'bg-indigo-500/10 text-indigo-300 border-indigo-500/30' : sg.type==='52H+' ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/10 text-amber-300 border-amber-500/30'}`}>{sg.type}</span>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="flex flex-col items-end">
               <div className={`text-lg ${hasTrend?(item.trend==='up'?'text-green-400':'text-red-400'):'text-gray-400'}`}><TrendingIcon trend={hasTrend?item.trend:'flat'}/></div>
@@ -890,6 +908,7 @@
       const [dragIndex,setDragIndex]=useState(null);
       const [selected,setSelected]=useState(null);
       const [modalOpen,setModalOpen]=useState(false);
+      const [signals,setSignals]=useState({});
       const [page,setPage]=useState('dashboard');
       const [settings,setSettings]=useState(()=> loadSettings());
 
@@ -918,6 +937,14 @@
                 trend:h.trend,
                 lastUpdated: h.lastTs? new Date(h.lastTs*1000): null };
             }));
+            // Fetch signals for these symbols
+            try {
+              const r = await fetch('/api/signals', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ symbols: uniqBase.map(x=>x.symbol) }) });
+              if (r.ok) {
+                const s = await r.json();
+                setSignals(s||{});
+              }
+            } catch(_){}
           } finally { setIsLoading(false); }
         })();
       },[watchItems, draftItems, sortMode]);
