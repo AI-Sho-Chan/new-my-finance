@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Dashboard from './components/Dashboard';
 import Portfolio from './components/Portfolio';
 import Analysis from './components/Analysis';
@@ -11,7 +11,14 @@ import { useStore } from './store';
 type TabKey = 'dashboard' | 'portfolio' | 'analysis' | 'settings';
 
 export default function App() {
-  const [tab, setTab] = useState<TabKey>('dashboard');
+  const initialTab = useMemo<TabKey>(() => {
+    if (typeof window !== 'undefined') {
+      const h = window.location.hash.replace('#','');
+      if (h === 'dashboard' || h === 'portfolio' || h === 'analysis' || h === 'settings') return h as TabKey;
+    }
+    return 'dashboard';
+  }, []);
+  const [tab, setTab] = useState<TabKey>(initialTab);
   const saveSnap = useStore((s) => s.savePortfolioSnapshot);
   useEffect(() => {
     // Attempt to restore legacy-saved assets if present and portfolio is empty
@@ -24,6 +31,9 @@ export default function App() {
       if (!hasToday) saveSnap('daily');
     } catch {}
   }, []);
+  useEffect(() => {
+    try { if (typeof window !== 'undefined') window.location.hash = '#' + tab; } catch {}
+  }, [tab]);
   return (
     <div className="min-h-screen">
       <div className="container mx-auto px-4 pb-20">
