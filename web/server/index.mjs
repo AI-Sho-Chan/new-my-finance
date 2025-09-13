@@ -330,7 +330,14 @@ app.get('/api/collected', (req, res) => {
 
 // Serve static built assets if present
 const distDir = path.resolve(__dirname, '../dist');
+// Serve built assets at root (no index) so /assets/* works
 app.use(express.static(distDir, { index: false }));
+// Serve React app under /react path
+app.use('/react', express.static(distDir));
+app.get('/react/*', (_req, res) => {
+  try { res.sendFile(path.join(distDir, 'index.html')); }
+  catch { res.status(404).send('react index not found'); }
+});
 
 // Serve legacy single-file app and make it the default UI
 function sendNMY(res) {
