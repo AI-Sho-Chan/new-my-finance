@@ -295,7 +295,37 @@ app.get('/api/yf/search', async (req, res) => {
 
 // Fear & Greed (stub)
 app.get('/api/fgi', async (_req, res) => {
-  res.json({ now: null, previousClose: null, history: [] });
+  try {
+    const key = `fgi:cnn`;
+    const cached = getCache(key);
+    if (cached) return res.json(cached);
+    const headers = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36 NMY/1.0',
+      'Accept': 'application/json,*/*',
+      'Accept-Language': 'ja,en;q=0.9',
+      'Referer': 'https://edition.cnn.com/markets/fear-and-greed',
+      'Origin': 'https://edition.cnn.com',
+    };
+    const curU = 'https://production.dataviz.cnn.io/index/fearandgreed/current';
+    const graphU = 'https://production.dataviz.cnn.io/index/fearandgreed/graphdata';
+    const [cr, gr] = await Promise.all([
+      fetch(curU, { headers }),
+      fetch(graphU, { headers }),
+    ]);
+    const ct = await cr.text();
+    const gt = await gr.text();
+    let cj = null; try { cj = JSON.parse(ct); } catch {}
+    let gj = null; try { gj = JSON.parse(gt); } catch {}
+    const now = Number(cj?.fear_and_greed?.now?.value ?? cj?.fear_and_greed?.now ?? cj?.now ?? cj?.score ?? null);
+    const previousClose = Number(cj?.fear_and_greed?.previous_close?.value ?? cj?.fear_and_greed?.previous_close ?? cj?.previous_close ?? null);
+    const hist = Array.isArray(gj?.fear_and_greed_historical) ? gj.fear_and_greed_historical : [];
+    const history = hist.map(x => ({ t: Number(x.x) || null, v: Number(x.y) || null })).filter(x => Number.isFinite(x.t) && Number.isFinite(x.v));
+    const out = { now: Number.isFinite(now) ? now : null, previousClose: Number.isFinite(previousClose) ? previousClose : null, history };
+    setCache(key, out, 30 * 60_000);
+    res.json(out);
+  } catch (e) {
+    res.json({ now: null, previousClose: null, history: [] });
+  }
 });
 
 // Signals stub
