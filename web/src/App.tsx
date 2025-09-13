@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import Dashboard from './components/Dashboard';
 import Portfolio from './components/Portfolio';
+import Analysis from './components/Analysis';
 import Settings from './components/Settings';
 import { HomeIcon, PieChartIcon, SettingsIcon } from './components/icons';
+import NavBar from './components/NavBar';
 import { migrateLegacyAssetsIfAny } from './lib/legacy';
 import { useStore } from './store';
 
-type TabKey = 'dashboard' | 'portfolio' | 'settings';
+type TabKey = 'dashboard' | 'portfolio' | 'analysis' | 'settings';
 
 export default function App() {
   const [tab, setTab] = useState<TabKey>('dashboard');
@@ -29,10 +31,11 @@ export default function App() {
         <main>
           {tab === 'dashboard' && <Dashboard />}
           {tab === 'portfolio' && <Portfolio />}
+          {tab === 'analysis' && <Analysis />}
           {tab === 'settings' && <Settings />}
         </main>
       </div>
-      <BottomNav activeTab={tab} setActiveTab={setTab} />
+      <NavBar activeTab={tab as any} setActiveTab={setTab as any} />
     </div>
   );
 }
