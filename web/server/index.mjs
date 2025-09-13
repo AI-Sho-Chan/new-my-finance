@@ -11,6 +11,7 @@ const __dirname = path.dirname(__filename);
 const app = express();
 app.use(compression());
 app.use(morgan('dev'));
+app.use(express.json({ limit: '2mb' }));
 
 // Simple in-memory cache
 const cache = new Map(); // key -> { ts: number, data: any, ttl: number }
@@ -150,6 +151,39 @@ app.get('/api/fundamentals', async (req, res) => {
   } catch (e) {
     res.status(500).json({ error: String(e.message || e) });
   }
+});
+
+// --- Lightweight collection endpoint for cross-origin bookmarklet ---
+const collected = [];
+function setCORS(res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
+}
+app.options('/api/collect', (req, res) => { setCORS(res); res.sendStatus(204); });
+app.post('/api/collect', (req, res) => {
+  setCORS(res);
+  try {
+    const { origin, href, nmy, my } = req.body || {};
+    const entry = {
+      ts: Date.now(),
+      origin: typeof origin === 'string' ? origin : null,
+      href: typeof href === 'string' ? href : null,
+      nmySize: typeof nmy === 'string' ? nmy.length : 0,
+      mySize: typeof my === 'string' ? my.length : 0,
+      nmy, my,
+    };
+    collected.push(entry);
+    if (collected.length > 100) collected.shift();
+    res.json({ status: 'ok', count: collected.length });
+  } catch (e) {
+    res.status(400).json({ status: 'error', error: String(e?.message || e) });
+  }
+});
+app.get('/api/collected', (req, res) => {
+  setCORS(res);
+  const out = collected.map((c) => ({ ts: c.ts, origin: c.origin, href: c.href, nmySize: c.nmySize, mySize: c.mySize }));
+  res.json(out);
 });
 
 // Serve static built assets if present

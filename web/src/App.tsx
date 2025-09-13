@@ -1,13 +1,27 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Dashboard from './components/Dashboard';
 import Portfolio from './components/Portfolio';
 import Settings from './components/Settings';
 import { HomeIcon, PieChartIcon, SettingsIcon } from './components/icons';
+import { migrateLegacyAssetsIfAny } from './lib/legacy';
+import { useStore } from './store';
 
 type TabKey = 'dashboard' | 'portfolio' | 'settings';
 
 export default function App() {
   const [tab, setTab] = useState<TabKey>('dashboard');
+  const saveSnap = useStore((s) => s.savePortfolioSnapshot);
+  useEffect(() => {
+    // Attempt to restore legacy-saved assets if present and portfolio is empty
+    try { migrateLegacyAssetsIfAny(); } catch {}
+    // Ensure at least one snapshot per day
+    try {
+      const hist = useStore.getState().portfolioHistory || [];
+      const today0 = new Date(); today0.setHours(0,0,0,0);
+      const hasToday = hist.some(h => { const d = new Date(h.ts); d.setHours(0,0,0,0); return d.getTime() === today0.getTime(); });
+      if (!hasToday) saveSnap('daily');
+    } catch {}
+  }, []);
   return (
     <div className="min-h-screen">
       <div className="container mx-auto px-4 pb-20">

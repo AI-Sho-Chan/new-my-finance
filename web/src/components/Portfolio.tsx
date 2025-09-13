@@ -34,7 +34,7 @@ export default function Portfolio() {
       const prev = quote.prevClose * a.details.qty;
       const change = (current - prev) * (quote.currency === 'USD' ? (quotes['USDJPY=X']?.price ?? 150) : 1);
       const valueJPY = current * (quote.currency === 'USD' ? (quotes['USDJPY=X']?.price ?? 150) : 1);
-      const cost = a.details.avgPrice * a.details.qty * (quote.currency === 'USD' ? (quotes['USDJPY']?.price ?? 150) : 1);
+      const cost = a.details.avgPrice * a.details.qty * (quote.currency === 'USD' ? (quotes['USDJPY=X']?.price ?? 150) : 1);
       const gainLossPercent = cost > 0 ? ((valueJPY - cost) / cost) * 100 : undefined;
       return { ...a, valueJPY, changeJPY: change, gainLossPercent } as ValuedAsset;
     });
