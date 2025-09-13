@@ -10,16 +10,16 @@ export default function NavBar({ activeTab, setActiveTab }: { activeTab: TabKey;
     { id: 'settings', label: '設定', icon: <SettingsIcon /> },
   ];
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-gray-800 border-t border-gray-700 shadow-lg">
-      <div className="flex justify-around max-w-lg mx-auto">
+    <nav className="sticky top-0 left-0 right-0 z-50 bg-gray-800/95 backdrop-blur border-b border-gray-700 shadow">
+      <div className="flex justify-around max-w-4xl mx-auto">
         {items.map((i) => (
           <button
             key={i.id}
             onClick={() => setActiveTab(i.id)}
-            className={`flex flex-col items-center justify-center w-full pt-2 pb-1 ${activeTab === i.id ? 'text-indigo-400' : 'text-gray-400'}`}
+            className={`flex items-center gap-2 px-4 py-3 ${activeTab === i.id ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-gray-300'}`}
           >
             {i.icon}
-            <span className="text-xs">{i.label}</span>
+            <span className="text-sm font-medium">{i.label}</span>
           </button>
         ))}
       </div>

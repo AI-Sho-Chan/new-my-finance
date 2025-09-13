@@ -5,6 +5,7 @@ import type { MarketQuote } from '../types';
 import StockCard from './StockCard';
 import Loader from './Loader';
 import StockChartModal from './StockChartModal';
+import MarketOverview from './MarketOverview';
 
 export default function Dashboard() {
   const watchlist = useStore((s) => [...s.watchlist].sort((a, b) => a.order - b.order));
@@ -20,7 +21,6 @@ export default function Dashboard() {
     setLoading(true);
     fetchMarketQuotes(symbols)
       .then(async (q) => {
-        // enrich trend + fundamentals (YoY)
         for (const sym of symbols) {
           const [candles, fund] = await Promise.all([
             fetchHistoricalCandles(sym, 'D'),
@@ -49,6 +49,7 @@ export default function Dashboard() {
   return (
     <div>
       <h2 className="text-2xl font-semibold mb-4 text-gray-200">ダッシュボード</h2>
+      <MarketOverview />
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-4">
         {watchlist.map((w) => (
           <StockCard key={w.id} quote={quotes[w.symbol]} onClick={() => setModal({ symbol: w.symbol })} />
@@ -58,3 +59,4 @@ export default function Dashboard() {
     </div>
   );
 }
+

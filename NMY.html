@@ -993,8 +993,8 @@
             {page==='analysis' && (
               <section className="bg-gray-800 rounded p-2">
                 <div className="font-semibold mb-2">{J('%E7%9B%B8%E5%AF%BE%E5%8A%9B%E3%83%80%E3%83%83%E3%82%B7%E3%83%A5%E3%83%9C%E3%83%BC%E3%83%89')}</div>
-                <div className="w-full" style={{ height: 820 }}>
-                  <iframe src="http://127.0.0.1:8081/#analysis" title="analysis" className="w-full h-full bg-gray-900 rounded border border-gray-700"></iframe>
+                <div className="w-full">
+                  <iframe id="analysisFrame" src="/react/?tab=analysis&embed=1" title="analysis" className="w-full bg-gray-900 rounded border border-gray-700" style={{ height: 600, overflow: 'hidden' }}></iframe>
                 </div>
               </section>
             )}
@@ -1204,8 +1204,29 @@
 
     ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
   </script>
+  <script>
+    (function(){
+      try {
+        window.addEventListener('message', function(ev){
+          try {
+            if(!ev || !ev.data) return;
+            if (ev.origin !== window.location.origin) return;
+            if (ev.data.type === 'analysisSize' && typeof ev.data.height === 'number') {
+              var el = document.getElementById('analysisFrame');
+              if (el) { el.style.height = Math.max(400, ev.data.height + 4) + 'px'; }
+            }
+          } catch(e) {}
+        });
+      } catch(e) {}
+    })();
+  </script>
 </body>
 </html>
+
+
+
+
+
 
 
 
