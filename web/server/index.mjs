@@ -166,7 +166,8 @@ app.get('/api/chart', async (req, res) => {
     setCache(key, out, tf === 'D' ? 15 * 60_000 : 2 * 60 * 60_000);
     res.json(out);
   } catch (e) {
-    res.status(500).json({ error: String(e?.message || e) });
+    // Return empty candles instead of 500 to keep UI stable
+    res.json([]);
   }
 });
 
@@ -252,10 +253,16 @@ app.get('/api/yf/history', async (req, res) => {
       `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${encodeURIComponent(range)}&interval=${encodeURIComponent(interval)}&includePrePost=false&events=div%2Csplits`,
       `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${encodeURIComponent(range)}&interval=${encodeURIComponent(interval)}&includePrePost=false&events=div%2Csplits`,
     ];
-    const data = await fetchJsonTry(urls);
-    setCache(key, data, 15 * 60_000);
-    res.json(data);
-  } catch (e) { res.status(500).json({ error: String(e?.message || e) }); }
+    try {
+      const data = await fetchJsonTry(urls);
+      setCache(key, data, 15 * 60_000);
+      res.json(data);
+    } catch (e) {
+      // Return a minimal empty Yahoo v8 chart shape with 200
+      const empty = { chart: { result: [{ timestamp: [], indicators: { quote: [{}] } }] , error: null } };
+      res.json(empty);
+    }
+  } catch (e) { res.json({ chart: { result: [{ timestamp: [], indicators: { quote: [{}] } }], error: null } }); }
 });
 
 app.get('/api/yf/fund', async (req, res) => {
