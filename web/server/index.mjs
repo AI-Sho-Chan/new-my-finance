@@ -308,18 +308,74 @@ app.get('/api/fgi', async (_req, res) => {
     };
     const curU = 'https://production.dataviz.cnn.io/index/fearandgreed/current';
     const graphU = 'https://production.dataviz.cnn.io/index/fearandgreed/graphdata';
-    const [cr, gr] = await Promise.all([
-      fetch(curU, { headers }),
-      fetch(graphU, { headers }),
-    ]);
-    const ct = await cr.text();
-    const gt = await gr.text();
-    let cj = null; try { cj = JSON.parse(ct); } catch {}
-    let gj = null; try { gj = JSON.parse(gt); } catch {}
-    const now = Number(cj?.fear_and_greed?.now?.value ?? cj?.fear_and_greed?.now ?? cj?.now ?? cj?.score ?? null);
-    const previousClose = Number(cj?.fear_and_greed?.previous_close?.value ?? cj?.fear_and_greed?.previous_close ?? cj?.previous_close ?? null);
-    const hist = Array.isArray(gj?.fear_and_greed_historical) ? gj.fear_and_greed_historical : [];
-    const history = hist.map(x => ({ t: Number(x.x) || null, v: Number(x.y) || null })).filter(x => Number.isFinite(x.t) && Number.isFinite(x.v));
+    let now = null, previousClose = null;
+    let history = [];
+    try {
+      const [cr, gr] = await Promise.all([
+        fetch(curU, { headers }),
+        fetch(graphU, { headers }),
+      ]);
+      const ct = await cr.text();
+      const gt = await gr.text();
+      let cj = null; try { cj = JSON.parse(ct); } catch {}
+      let gj = null; try { gj = JSON.parse(gt); } catch {}
+      now = Number(cj?.fear_and_greed?.now?.value ?? cj?.fear_and_greed?.now ?? cj?.now ?? cj?.score ?? null);
+      previousClose = Number(cj?.fear_and_greed?.previous_close?.value ?? cj?.fear_and_greed?.previous_close ?? cj?.previous_close ?? null);
+      const hist = Array.isArray(gj?.fear_and_greed_historical) ? gj.fear_and_greed_historical : [];
+      history = hist.map(x => ({ t: Number(x.x) || null, v: Number(x.y) || null })).filter(x => Number.isFinite(x.t) && Number.isFinite(x.v));
+    } catch {}
+
+    // Fallback 1: try to scrape from CNN HTML if history is empty
+    if (!Array.isArray(history) || history.length === 0) {
+      try {
+        const hr = await fetch('https://edition.cnn.com/markets/fear-and-greed', {
+          headers: {
+            'User-Agent': headers['User-Agent'],
+            'Accept': 'text/html,*/*',
+            'Accept-Language': headers['Accept-Language'],
+            'Referer': 'https://edition.cnn.com/',
+          },
+        });
+        const html = await hr.text();
+        // Attempt to locate a JSON array named fear_and_greed_historical: [...]
+        const key = 'fear_and_greed_historical';
+        const i = html.indexOf(key);
+        if (i >= 0) {
+          const after = html.slice(i);
+          const lb = after.indexOf('[');
+          if (lb >= 0) {
+            let depth = 0; let j = lb; let end = -1;
+            for (; j < after.length; j++) {
+              const ch = after[j];
+              if (ch === '[') depth++;
+              else if (ch === ']') { depth--; if (depth === 0) { end = j; break; } }
+            }
+            if (end > lb) {
+              const arrTxt = after.slice(lb, end + 1);
+              try {
+                const arr = JSON.parse(arrTxt);
+                if (Array.isArray(arr)) {
+                  history = arr.map(x => ({ t: Number(x.x) || null, v: Number(x.y) || null })).filter(x => Number.isFinite(x.t) && Number.isFinite(x.v));
+                }
+              } catch {}
+            }
+          }
+        }
+      } catch {}
+    }
+
+    // Fallback 2: local cached file if still empty
+    if (!Array.isArray(history) || history.length === 0) {
+      try {
+        const f = path.resolve(__dirname, '../../data/fgi/history.json');
+        if (fs.existsSync(f)) {
+          const j = JSON.parse(fs.readFileSync(f, 'utf8'));
+          const arr = Array.isArray(j?.history) ? j.history : [];
+          history = arr.map(x => ({ t: Number(x.t) || null, v: Number(x.v) || null })).filter(x => Number.isFinite(x.t) && Number.isFinite(x.v));
+        }
+      } catch {}
+    }
+
     const out = { now: Number.isFinite(now) ? now : null, previousClose: Number.isFinite(previousClose) ? previousClose : null, history };
     setCache(key, out, 30 * 60_000);
     res.json(out);
