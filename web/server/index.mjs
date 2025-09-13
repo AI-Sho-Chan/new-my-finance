@@ -376,9 +376,40 @@ app.get('/api/fgi', async (_req, res) => {
       } catch {}
     }
 
-    const out = { now: Number.isFinite(now) ? now : null, previousClose: Number.isFinite(previousClose) ? previousClose : null, history };
-    setCache(key, out, 30 * 60_000);
-    res.json(out);
+    // Merge with local on-disk history and persist
+    try {
+      const file = path.resolve(__dirname, '../../data/fgi/history.json');
+      let existing = [];
+      if (fs.existsSync(file)) {
+        try { const j = JSON.parse(fs.readFileSync(file, 'utf8')); existing = Array.isArray(j?.history) ? j.history : []; } catch {}
+      }
+      // Optionally add today's point from `now` if missing
+      if (Number.isFinite(now)) {
+        const d = new Date(); d.setHours(0,0,0,0);
+        const t0 = d.getTime();
+        if (!history.some(x => x && Number(x.t) === t0)) {
+          history = history.concat([{ t: t0, v: Number(now) }]);
+        }
+      }
+      // Union by timestamp
+      const map = new Map();
+      for (const x of existing) { const tt = Number(x?.t); if (Number.isFinite(tt)) map.set(tt, Number(x.v)); }
+      for (const x of history) { const tt = Number(x?.t); if (Number.isFinite(tt)) map.set(tt, Number(x.v)); }
+      const merged = Array.from(map.entries()).map(([t, v]) => ({ t, v })).sort((a,b)=>a.t-b.t);
+      // Persist
+      try {
+        const outFileDir = path.dirname(file);
+        if (!fs.existsSync(outFileDir)) { fs.mkdirSync(outFileDir, { recursive: true }); }
+        fs.writeFileSync(file, JSON.stringify({ history: merged }, null, 2), 'utf8');
+      } catch {}
+      const out = { now: Number.isFinite(now) ? now : null, previousClose: Number.isFinite(previousClose) ? previousClose : null, history: merged };
+      setCache(key, out, 30 * 60_000);
+      return res.json(out);
+    } catch {
+      const out = { now: Number.isFinite(now) ? now : null, previousClose: Number.isFinite(previousClose) ? previousClose : null, history };
+      setCache(key, out, 30 * 60_000);
+      return res.json(out);
+    }
   } catch (e) {
     res.json({ now: null, previousClose: null, history: [] });
   }
@@ -447,4 +478,11 @@ app.get('/', (_req, res) => sendNMY(res));
 app.get('*', (_req, res) => sendNMY(res));
 
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => console.log(`Server listening on http://localhost:${PORT}`));
+app.listen(PORT, () => {
+  console.log(`Server listening on http://localhost:${PORT}`);
+  // Background refresher for FGI (every 6h)
+  const base = `http://127.0.0.1:${PORT}`;
+  const refresh = async () => { try { await fetch(base + '/api/fgi'); } catch {} };
+  refresh();
+  setInterval(refresh, 6 * 60 * 60_000);
+});
