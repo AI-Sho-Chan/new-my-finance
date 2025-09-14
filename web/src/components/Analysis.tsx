@@ -2,6 +2,25 @@
 import { computeSnapshotWithTrails, DEFAULT_PARAMS, type SnapshotItem, type SnapshotTrails, type SnapshotMeta, UNIVERSE, UNIVERSE_US_SECTORS, UNIVERSE_JP_SECTORS, type AssetDef } from '../lib/analysis';
 import { useStore } from '../store';
 
+function colorForQuad(q: SnapshotItem['quadrant']) {
+  switch (q) {
+    case 'Q1': return '#22c55e';
+    case 'Q2': return '#f59e0b';
+    case 'Q3': return '#3b82f6';
+    case 'Q4': return '#ef4444';
+    default: return '#9ca3af';
+  }
+}
+
+function heatColor(pctl: number | null) {
+  if (pctl == null) return '#6b7280';
+  const t = pctl/100;
+  const r = Math.round(239*(1-t) + 34*t);
+  const g = Math.round(68*(1-t) + 197*t);
+  const b = Math.round(68*(1-t) + 94*t);
+  return `rgb(${r},${g},${b})`;
+}
+
 export default function Analysis({ bare = false }: { bare?: boolean }) {
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<SnapshotItem[] | null>(null);
@@ -12,12 +31,21 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
 
   // Read watchlist from NMY localStorage, fallback to Zustand
   const readNMYWatch = () => {
-    try { const raw = localStorage.getItem('nmy.watch.items'); const arr = raw ? JSON.parse(raw) : []; if (Array.isArray(arr)) return arr.map((w:any)=>({ symbol: String(w.symbol||''), name: String(w.name||w.symbol||'') })); } catch {}
+    try {
+      const raw = localStorage.getItem('nmy.watch.items');
+      const arr = raw ? JSON.parse(raw) : [];
+      if (Array.isArray(arr)) return arr.map((w: any) => ({ symbol: String(w.symbol||''), name: String(w.name||w.symbol||'') }));
+    } catch {}
     return [] as { symbol: string; name: string }[];
   };
   const zWatch = useStore((s) => [...s.watchlist].sort((a,b)=>a.order-b.order));
   const [nmyWatch, setNmyWatch] = useState<{ symbol: string; name: string }[]>(() => readNMYWatch());
-  useEffect(() => { const onStorage = (e: StorageEvent) => { if (e.key === 'nmy.watch.items') setNmyWatch(readNMYWatch()); }; window.addEventListener('storage', onStorage); const iv = window.setInterval(() => setNmyWatch(readNMYWatch()), 1500); return () => { window.removeEventListener('storage', onStorage); window.clearInterval(iv); }; }, []);
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => { if (e.key === 'nmy.watch.items') setNmyWatch(readNMYWatch()); };
+    window.addEventListener('storage', onStorage);
+    const iv = window.setInterval(() => setNmyWatch(readNMYWatch()), 1500);
+    return () => { window.removeEventListener('storage', onStorage); window.clearInterval(iv); };
+  }, []);
   const mergedWatch = (nmyWatch.length ? nmyWatch : zWatch.map(w=>({ symbol: w.symbol, name: w.name })));
   const watchKey = useMemo(() => mergedWatch.map(w=>w.symbol).join(','), [mergedWatch]);
 
@@ -202,6 +230,28 @@ function LegendQuadrant() {
   );
 }
 
+function HelpBox({ kind }: { kind: 'scatter' | 'heat' }) {
+  if (kind === 'scatter') {
+    return (
+      <details className="mt-2 text-xs text-gray-300">
+        <summary className="cursor-pointer select-none">How to read (F×V scatter)</summary>
+        <div className="mt-1 leading-relaxed">
+          <p>F: multi-horizon flow (20/63/252d) z-score; V: value (weekly 5y trend deviation) z-score (higher = cheaper).</p>
+          <p>Quadrants: Q1 strong & value, Q2 strong & rich, Q3 weak but value, Q4 avoid.</p>
+        </div>
+      </details>
+    );
+  }
+  return (
+    <details className="mt-2 text-xs text-gray-300">
+      <summary className="cursor-pointer select-none">How to read (heatmap)</summary>
+      <div className="mt-1 leading-relaxed">
+        <p>Cells show raw scores; background is percentile among current cross-section.</p>
+      </div>
+    </details>
+  );
+}
+
 function QList({ items }: { items: SnapshotItem[] }) {
   const q1 = items.filter(i=>i.quadrant==='Q1');
   const q4 = items.filter(i=>i.quadrant==='Q4');
@@ -212,23 +262,4 @@ function QList({ items }: { items: SnapshotItem[] }) {
       <div><span className="text-red-400 font-semibold mr-2">Q4:</span>{q4.length? q4.map(i=> <Chip key={i.id} label={i.name} />): <span className="text-gray-500">none</span>}</div>
     </div>
   );
-}
-
-function colorForQuad(q: SnapshotItem['quadrant']) {
-  switch (q) {
-    case 'Q1': return '#22c55e';
-    case 'Q2': return '#f59e0b';
-    case 'Q3': return '#3b82f6';
-    case 'Q4': return '#ef4444';
-    default: return '#9ca3af';
-  }
-}
-
-function heatColor(pctl: number | null) {
-  if (pctl == null) return '#6b7280';
-  const t = pctl/100;
-  const r = Math.round(239*(1-t) + 34*t);
-  const g = Math.round(68*(1-t) + 197*t);
-  const b = Math.round(68*(1-t) + 94*t);
-  return `rgb(${r},${g},${b})`;
 }
