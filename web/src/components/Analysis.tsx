@@ -4,7 +4,7 @@
     const onMsg = (ev: MessageEvent) => {
       try {
         if (!ev || !ev.data) return;
-        if (ev.origin !== window.location.origin) return;
+        if (window.location.origin && ev.origin && ev.origin !== window.location.origin) return;
         if (ev.data.type === "nmy.watch.update" && Array.isArray(ev.data.items)) {
           const arr = ev.data.items.map((w: any) => ({ symbol: String(w.symbol||""), name: String(w.name||w.symbol||"") }));
           setNmyWatch(arr);
@@ -279,4 +279,5 @@ function QList({ items }: { items: SnapshotItem[] }) {
     </div>
   );
 }
+
 
