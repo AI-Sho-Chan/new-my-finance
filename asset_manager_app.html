@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>資産マネージャー</title>
+    <title>雉・肇繝槭ロ繝ｼ繧ｸ繝｣繝ｼ</title>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -63,9 +63,9 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef } = React;
 
-        /* ─────────────────────────────────────────────────────────
-           Lightweight Charts ローダー
-           ───────────────────────────────────────────────────────── */
+        /* 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+           Lightweight Charts 繝ｭ繝ｼ繝繝ｼ
+           笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏 */
         const LWC_URL = 'https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js';
         let __lwcPromise = null;
         const ensureLightweightCharts = () => {
@@ -110,9 +110,8 @@
             return __lwcPromise;
         };
 
-        /* ─────────────────────────────────────────────────────────
-           アイコンコンポーネント
-           ───────────────────────────────────────────────────────── */
+        /* 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+           繧｢繧､繧ｳ繝ｳ繧ｳ繝ｳ繝昴・繝阪Φ繝・           笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏 */
         const TrendingUp = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>;
         const TrendingDown = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"></polyline><polyline points="17 18 23 18 23 12"></polyline></svg>;
         const PlusCircle = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>;
@@ -121,32 +120,30 @@
         const PieChartIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path><path d="M22 12A10 10 0 0 0 12 2v10z"></path></svg>;
         const Loader = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-spin"><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line></svg>;
 
-        /* ─────────────────────────────────────────────────────────
-           初期データ
-           ───────────────────────────────────────────────────────── */
+        /* 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+           蛻晄悄繝・・繧ｿ
+           笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏 */
         const initialWatchlistData = [
+            { id: 1, name: '譌･邨悟ｹｳ蝮・ｪ萓｡', symbol: '^N225' },
             { id: 1, name: '日経平均株価', symbol: '^N225' },
-            { id: 2, name: 'S&P 500', symbol: '^GSPC' },
+            { id: 3, name: '繝医Κ繧ｿ閾ｪ蜍戊ｻ・, symbol: '7203.T' },
             { id: 3, name: 'トヨタ自動車', symbol: '7203.T' },
-            { id: 4, name: 'Apple Inc.', symbol: 'AAPL' },
             { id: 5, name: 'USD/JPY', symbol: 'JPY=X' },
             { id: 6, name: 'S&P 500 VIX', symbol: '^VIX' },
         ];
 
         const initialPortfolioData = [
-            { id: 'bank1', type: '現金', name: 'A銀行 (JPY)', value: 1500000, details: { currency: 'JPY' }},
-            { id: 'bank2', type: '現金', name: 'B銀行 (USD)', value: 10000, details: { currency: 'USD', symbol: 'JPY=X' }},
+            { id: 'bank1', type: '迴ｾ驥・, name: 'A驫陦・(JPY)', value: 1500000, details: { currency: 'JPY' }},
+            { id: 'bank1', type: '現金', name: 'A銀行(JPY)', value: 1500000, details: { currency: 'JPY' }},
+            { id: 'bank2', type: '現金', name: 'B銀行(USD)', value: 10000, details: { currency: 'USD', symbol: 'JPY=X' }},
             { id: 'stock1', type: '日本株', name: 'ソニーグループ', value: 0, details: { symbol: '6758.T', qty: 100, avgPrice: 12500 }},
-            { id: 'stock2', type: '米国株', name: 'NVIDIA Corp', value: 0, details: { symbol: 'NVDA', qty: 10, avgPrice: 600 }},
+            { id: 'crypto1', type: '證怜捷雉・肇', name: 'Bitcoin (JPY)', value: 0, details: { symbol: 'BTC-JPY', avgPrice: 8000000, qty: 0.125 }},
             { id: 'crypto1', type: '暗号資産', name: 'Bitcoin (JPY)', value: 0, details: { symbol: 'BTC-JPY', avgPrice: 8000000, qty: 0.125 }},
-        ];
 
         /* ======================================================================
-           ★ Yahoo Finance データ取得（CORSプロキシ経由）
-           ====================================================================== */
+           笘・Yahoo Finance 繝・・繧ｿ蜿門ｾ暦ｼ・ORS繝励Ο繧ｭ繧ｷ邨檎罰・・           ====================================================================== */
         
-        // 複数のCORSプロキシを用意（フォールバック対応）
-        const CORS_PROXIES = [
+        // 隍・焚縺ｮCORS繝励Ο繧ｭ繧ｷ繧堤畑諢擾ｼ医ヵ繧ｩ繝ｼ繝ｫ繝舌ャ繧ｯ蟇ｾ蠢懶ｼ・        const CORS_PROXIES = [
             'https://api.allorigins.win/raw?url=',
             'https://corsproxy.io/?',
         ];
@@ -174,7 +171,7 @@
             }
         };
 
-        /** 複数銘柄のクオート取得 */
+        /** 隍・焚驫俶氛縺ｮ繧ｯ繧ｪ繝ｼ繝亥叙蠕・*/
         const fetchMarketData = async (symbols) => {
             try {
                 const symbolsStr = symbols.join(',');
@@ -206,7 +203,7 @@
                 return out;
             } catch (error) {
                 console.error('Failed to fetch market data:', error);
-                // フォールバック：ダミーデータを返す
+                // 繝輔か繝ｼ繝ｫ繝舌ャ繧ｯ・壹ム繝溘・繝・・繧ｿ繧定ｿ斐☆
                 return symbols.reduce((acc, symbol) => {
                     acc[symbol] = {
                         price: 100 + Math.random() * 100,
@@ -224,7 +221,7 @@
             }
         };
 
-        /** 時系列データ取得 */
+        /** 譎らｳｻ蛻励ョ繝ｼ繧ｿ蜿門ｾ・*/
         const fetchHistoricalData = async (symbol, timeframe) => {
             try {
                 const tf = timeframe === 'W' ? { interval: '1wk', range: '2y' }
@@ -257,7 +254,7 @@
                 return out;
             } catch (error) {
                 console.error('Failed to fetch historical data:', error);
-                // フォールバック：ダミーデータ生成
+                // 繝輔か繝ｼ繝ｫ繝舌ャ繧ｯ・壹ム繝溘・繝・・繧ｿ逕滓・
                 const out = [];
                 const basePrice = 100;
                 const now = Date.now();
@@ -285,9 +282,9 @@
             }
         };
 
-        /* ─────────────────────────────────────────────────────────
-           メインアプリケーション
-           ───────────────────────────────────────────────────────── */
+        /* 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+           繝｡繧､繝ｳ繧｢繝励Μ繧ｱ繝ｼ繧ｷ繝ｧ繝ｳ
+           笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏 */
         const App = () => {
             const [activeTab, setActiveTab] = useState('dashboard');
             const [watchlist, setWatchlist] = useState([]);
@@ -318,7 +315,7 @@
                                 if (!a.details.symbol) return a;
                                 const d = marketData[a.details.symbol];
                                 if (!d) return a;
-                                if (a.type === '現金' && a.details.currency === 'USD') {
+                                if (a.type === '迴ｾ驥・ && a.details.currency === 'USD') {
                                     return { ...a, details: { ...a.details, rate: d.price } };
                                 }
                                 const currentValue = (d.price ?? 0) * (a.details.qty ?? 0);
@@ -354,7 +351,7 @@
                     return (
                         <div className="flex justify-center items-center h-64">
                             <Loader />
-                            <span className="ml-4 text-lg text-gray-400">市場データを取得中...</span>
+                            <span className="ml-4 text-lg text-gray-400">蟶ょｴ繝・・繧ｿ繧貞叙蠕嶺ｸｭ...</span>
                         </div>
                     );
                 }
@@ -380,14 +377,14 @@
 
         const Header = () => (
             <header className="py-6">
-                <h1 className="text-3xl font-bold text-gray-100">資産マネージャー</h1>
-                <p className="text-md text-gray-400">あなたの資産と市場を、ここに集約。</p>
+                <h1 className="text-3xl font-bold text-gray-100">雉・肇繝槭ロ繝ｼ繧ｸ繝｣繝ｼ</h1>
+                <p className="text-md text-gray-400">縺ゅ↑縺溘・雉・肇縺ｨ蟶ょｴ繧偵√％縺薙↓髮・ｴ・・/p>
             </header>
         );
 
         const Dashboard = ({ watchlist, onCardClick }) => (
             <div>
-                <h2 className="text-2xl font-semibold mb-4 text-gray-200">ダッシュボード</h2>
+                <h2 className="text-2xl font-semibold mb-4 text-gray-200">繝繝・す繝･繝懊・繝・/h2>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-4">
                     {watchlist.map((item) => (
                         <StockCard key={item.id} item={item} onClick={() => onCardClick(item)} />
@@ -441,17 +438,17 @@
                             </span>
                         </div>
                         <div className="flex justify-between">
-                            <span className="font-semibold">配当利回</span> 
+                            <span className="font-semibold">驟榊ｽ灘茜蝗・/span> 
                             <span className="text-gray-200 font-medium">
                                 {typeof item.dividendYield === 'number' ? 
                                     `${(item.dividendYield*100).toFixed(2)}%` : '-'}
                             </span>
                         </div>
                         <div className="flex justify-between">
-                            <span className="font-semibold truncate" title="時価総額">時価総額</span> 
+                            <span className="font-semibold truncate" title="譎ゆｾ｡邱城｡・>譎ゆｾ｡邱城｡・/span> 
                             <span className="text-gray-200 font-medium">
                                 {item.marketCap ? 
-                                    (item.marketCap / 1e8).toLocaleString('ja-JP', { maximumFractionDigits: 2 }) + '億' : '-'}
+                                    (item.marketCap / 1e8).toLocaleString('ja-JP', { maximumFractionDigits: 2 }) + '蜆・ : '-'}
                             </span>
                         </div>
                     </div>
@@ -461,12 +458,12 @@
 
         const Portfolio = ({ portfolio }) => {
             const totalValue = useMemo(() => portfolio.reduce((sum, asset) => {
-                if (asset.type === '現金' && asset.details.currency === 'USD') 
+                if (asset.type === '迴ｾ驥・ && asset.details.currency === 'USD') 
                     return sum + (asset.value * (asset.details.rate || 150));
                 return sum + asset.value;
             }, 0), [portfolio]);
 
-            const cashValue = useMemo(() => portfolio.filter(a => a.type === '現金').reduce((sum, asset) => {
+            const cashValue = useMemo(() => portfolio.filter(a => a.type === '迴ｾ驥・).reduce((sum, asset) => {
                 if (asset.details.currency === 'USD') 
                     return sum + (asset.value * (asset.details.rate || 150));
                 return sum + asset.value;
@@ -479,34 +476,34 @@
             return (
                 <div>
                     <div className="bg-gray-800 p-4 rounded-lg mb-6">
-                        <div className="text-gray-400 text-sm">総資産額 (JPY)</div>
-                        <div className="text-3xl font-bold text-white">¥ {totalValue.toLocaleString()}</div>
+                        <div className="text-gray-400 text-sm">邱剰ｳ・肇鬘・(JPY)</div>
+                        <div className="text-3xl font-bold text-white">ﾂ･ {totalValue.toLocaleString()}</div>
                         <div className={`text-md font-semibold mt-1 ${totalChange >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                            {totalChange >= 0 ? '+' : ''}¥{Math.abs(totalChange).toLocaleString()} 
+                            {totalChange >= 0 ? '+' : ''}ﾂ･{Math.abs(totalChange).toLocaleString()} 
                             ({totalChange >= 0 ? '+' : ''}{totalChangePercent.toFixed(2)}%)
-                            <span className="text-sm text-gray-500 ml-2">対前日比</span>
+                            <span className="text-sm text-gray-500 ml-2">蟇ｾ蜑肴律豈・/span>
                         </div>
                         <div className="flex justify-between mt-4 pt-4 border-t border-gray-700 text-base">
-                            <div className="text-green-400">現金: ¥ {cashValue.toLocaleString()}</div>
-                            <div className="text-blue-400">投資: ¥ {investmentValue.toLocaleString()}</div>
+                            <div className="text-green-400">迴ｾ驥・ ﾂ･ {cashValue.toLocaleString()}</div>
+                            <div className="text-blue-400">謚戊ｳ・ ﾂ･ {investmentValue.toLocaleString()}</div>
                         </div>
                     </div>
 
                     <div className="bg-gray-800 p-4 rounded-lg mb-6 h-64 flex items-center justify-center">
-                        <p className="text-gray-500">資産推移グラフ</p>
+                        <p className="text-gray-500">雉・肇謗ｨ遘ｻ繧ｰ繝ｩ繝・/p>
                     </div>
 
                     <div className="flex justify-between items-center mb-4">
-                        <h2 className="text-2xl font-semibold text-gray-200">資産一覧</h2>
+                        <h2 className="text-2xl font-semibold text-gray-200">雉・肇荳隕ｧ</h2>
                         <button className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-4 rounded-lg flex items-center">
                             <PlusCircle />
-                            <span className="ml-2">追加</span>
+                            <span className="ml-2">霑ｽ蜉</span>
                         </button>
                     </div>
 
                     <div className="space-y-3">
                         {portfolio.map(asset => {
-                            const isUsdCash = asset.type === '現金' && asset.details.currency === 'USD';
+                            const isUsdCash = asset.type === '迴ｾ驥・ && asset.details.currency === 'USD';
                             let displayValue = isUsdCash ? asset.value * (asset.details.rate || 0) : asset.value;
                             return (
                                 <div key={asset.id} className="bg-gray-800 rounded-lg p-4 flex justify-between items-center">
@@ -516,7 +513,7 @@
                                     </div>
                                     <div className="text-right">
                                         <p className="font-bold text-lg text-gray-50">
-                                            {isUsdCash ? '¥' : (asset.details.currency === 'USD' ? ' : '¥')}
+                                            {isUsdCash ? "¥" : (asset.details.currency === "USD" ? "$" : "¥")}
                                             {displayValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                                         </p>
                                         {isUsdCash && (<p className="text-sm text-gray-400">($ {asset.value.toLocaleString()})</p>)}
@@ -536,11 +533,11 @@
 
         const Settings = () => (
             <div>
-                <h2 className="text-2xl font-semibold mb-4 text-gray-200">設定</h2>
+                <h2 className="text-2xl font-semibold mb-4 text-gray-200">險ｭ螳・/h2>
                 <div className="bg-gray-800 rounded-lg p-4">
-                    <h3 className="text-lg font-bold mb-2">アラート設定</h3>
+                    <h3 className="text-lg font-bold mb-2">繧｢繝ｩ繝ｼ繝郁ｨｭ螳・/h3>
                     <div className="flex justify-between items-center">
-                        <p>S&P 500 VIX指数が40を超えたら通知</p>
+                        <p>S&P 500 VIX謖・焚縺・0繧定ｶ・∴縺溘ｉ騾夂衍</p>
                         <label className="switch">
                             <input type="checkbox" defaultChecked />
                             <span className="slider"></span>
@@ -552,9 +549,9 @@
 
         const BottomNav = ({ activeTab, setActiveTab }) => {
             const navItems = [
-                { id: 'dashboard', label: 'ダッシュボード', icon: <HomeIcon /> },
-                { id: 'portfolio', label: '資産管理', icon: <PieChartIcon /> },
-                { id: 'settings', label: '設定', icon: <SettingsIcon /> },
+                { id: 'dashboard', label: '繝繝・す繝･繝懊・繝・, icon: <HomeIcon /> },
+                { id: 'portfolio', label: '雉・肇邂｡逅・, icon: <PieChartIcon /> },
+                { id: 'settings', label: '險ｭ螳・, icon: <SettingsIcon /> },
             ];
             
             return (
@@ -577,9 +574,9 @@
             );
         };
 
-        /* ─────────────────────────────────────────────────────────
-           チャートモーダル
-           ───────────────────────────────────────────────────────── */
+        /* 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+           繝√Ε繝ｼ繝医Δ繝ｼ繝繝ｫ
+           笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏 */
         const StockChartModal = ({ stock, onClose }) => {
             const containerRef = useRef(null);
             const chartRef = useRef(null);
@@ -773,7 +770,7 @@
                                                 timeframe === tf ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-gray-600'
                                             }`}
                                         >
-                                            {tf === 'D' ? '日' : tf === 'W' ? '週' : '月'}
+                                            {tf === 'D' ? '譌･' : tf === 'W' ? '騾ｱ' : '譛・}
                                         </button>
                                     ))}
                                 </div>
@@ -786,7 +783,7 @@
                             {loading && (
                                 <div className="absolute inset-0 flex items-center justify-center bg-gray-800 bg-opacity-80 z-10">
                                     <Loader />
-                                    <span className="ml-4 text-gray-300">チャートデータを読み込み中...</span>
+                                    <span className="ml-4 text-gray-300">繝√Ε繝ｼ繝医ョ繝ｼ繧ｿ繧定ｪｭ縺ｿ霎ｼ縺ｿ荳ｭ...</span>
                                 </div>
                             )}
                         </div>
@@ -795,8 +792,9 @@
             );
         };
 
-        // アプリケーションのレンダリング
+        // 繧｢繝励Μ繧ｱ繝ｼ繧ｷ繝ｧ繝ｳ縺ｮ繝ｬ繝ｳ繝繝ｪ繝ｳ繧ｰ
         ReactDOM.render(<App />, document.getElementById('root'));
     </script>
 </body>
 </html>
+
