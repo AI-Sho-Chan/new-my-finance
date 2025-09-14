@@ -500,6 +500,16 @@ function sendNMY(res) {
 }
 app.get('/NMY.html', (_req, res) => sendNMY(res));
 app.get('/', (_req, res) => sendNMY(res));
+// Serve alternate completed single-file app
+app.get('/asset_manager_app.html', (_req, res) => {
+  try {
+    const file = path.resolve(__dirname, '../../asset_manager_app.html');
+    res.setHeader('Cache-Control', 'no-store');
+    res.type('html').send(fs.readFileSync(file, 'utf8'));
+  } catch (e) {
+    res.status(404).send('asset_manager_app.html not found');
+  }
+});
 app.get('*', (_req, res) => sendNMY(res));
 
 const PORT = process.env.PORT || 8080;
@@ -511,6 +521,7 @@ app.listen(PORT, () => {
   refresh();
   setInterval(refresh, 6 * 60 * 60_000);
 });
+
 
 
 
