@@ -474,9 +474,10 @@ function sendReactIndex(res) {
     const pth = path.join(distDir, 'index.html');
     let html = fs.readFileSync(pth, 'utf8');
     const inject = '<script>try{window.__REACT_DEVTOOLS_GLOBAL_HOOK__=undefined;}catch(e){}</script>';
-    // skip devtools hook injection
-    // Strip crossorigin to reduce CORS friction under sandboxed iframes
-    try { html = html.replace(/\s+crossorigin(\s*=\s*['"][^'"]*['"])?/gi, ''); } catch {}
+    if (!html.includes('__REACT_DEVTOOLS_GLOBAL_HOOK__')) {
+      html = html.replace(/<head>/i, '<head>' + inject);
+    }
+    try { html = html.replace(/\s+crossorigin(\s*=\s*['\"][^'\"]*['\"])?/gi, ''); } catch {}
     res.type('html').send(html);
   } catch {
     res.status(404).send('react index not found');
@@ -510,5 +511,6 @@ app.listen(PORT, () => {
   refresh();
   setInterval(refresh, 6 * 60 * 60_000);
 });
+
 
 
