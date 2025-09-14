@@ -1,0 +1,15 @@
+import fs from 'node:fs';
+import path from 'node:path';
+
+const root = path.resolve(path.join(process.cwd(), '..'));
+const src = path.join(root, 'NMY.html');
+const dest = path.join(root, 'web', 'dist', 'NMY.html');
+
+fs.mkdirSync(path.dirname(dest), { recursive: true });
+if (!fs.existsSync(src)) {
+  console.warn('NMY.html not found at project root (skip copy).');
+  process.exit(0);
+}
+fs.copyFileSync(src, dest);
+console.log('Copied NMY.html -> web/dist/NMY.html');
+

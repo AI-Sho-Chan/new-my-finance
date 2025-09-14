@@ -1,4 +1,4 @@
-﻿{
+{
     "name":  "new-my-finance",
     "private":  true,
     "version":  "0.1.0",
@@ -6,7 +6,7 @@
     "scripts":  {
                     "dev":  "vite",
                     "dev:all":  "concurrently \"npm run serve\" \"npm run dev\"",
-                    "build": "vite build","vercel-build": "vite build && node ../tools/copy-nmy.js",
+                    "build": "vite build","vercel-build": "vite build && node ../tools/copy-nmy.mjs",
                     "preview":  "vite preview",
                     "serve":  "node server/index.mjs"
                 },
