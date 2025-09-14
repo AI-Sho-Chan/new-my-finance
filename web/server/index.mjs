@@ -1,4 +1,4 @@
-import express from 'express';
+﻿import express from 'express';
 import compression from 'compression';
 import morgan from 'morgan';
 import path from 'node:path';
@@ -458,8 +458,21 @@ const distDir = path.resolve(__dirname, '../dist');
 app.use(express.static(distDir, { index: false }));
 // Serve React app under /react path
 app.use('/react', express.static(distDir));
-app.get('/react/*', (_req, res) => {
-  try { res.sendFile(path.join(distDir, 'index.html')); }
+function sendReactIndex(res) {
+  try {
+    const pth = path.join(distDir, 'index.html');
+    let html = fs.readFileSync(pth, 'utf8');
+    const inject = '<script>try{window.__REACT_DEVTOOLS_GLOBAL_HOOK__=undefined;}catch(e){}</script>';
+    if (!html.includes('__REACT_DEVTOOLS_GLOBAL_HOOK__')) {
+      html = html.replace(/<head>/i, '<head>' + inject);
+    }
+    res.type('html').send(html);
+  } catch {
+    res.status(404).send('react index not found');
+  }
+}
+app.get('/react', (_req, res) => sendReactIndex(res));
+app.get('/react/*', (_req, res) => sendReactIndex(res)); }
   catch { res.status(404).send('react index not found'); }
 });
 
@@ -486,3 +499,4 @@ app.listen(PORT, () => {
   refresh();
   setInterval(refresh, 6 * 60 * 60_000);
 });
+
