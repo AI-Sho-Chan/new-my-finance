@@ -1,4 +1,20 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
+
+  useEffect(() => {
+    const onMsg = (ev: MessageEvent) => {
+      try {
+        if (!ev || !ev.data) return;
+        if (ev.origin !== window.location.origin) return;
+        if (ev.data.type === "nmy.watch.update" && Array.isArray(ev.data.items)) {
+          const arr = ev.data.items.map((w: any) => ({ symbol: String(w.symbol||""), name: String(w.name||w.symbol||"") }));
+          setNmyWatch(arr);
+        }
+      } catch {}
+    };
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, []);
+import { useEffect, useMemo, useState } from 'react';
 import { computeSnapshotWithTrails, DEFAULT_PARAMS, type SnapshotItem, type SnapshotTrails, type SnapshotMeta, UNIVERSE, UNIVERSE_US_SECTORS, UNIVERSE_JP_SECTORS, type AssetDef } from '../lib/analysis';
 import { useStore } from '../store';
 
@@ -263,3 +279,4 @@ function QList({ items }: { items: SnapshotItem[] }) {
     </div>
   );
 }
+

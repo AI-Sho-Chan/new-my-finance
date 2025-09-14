@@ -933,7 +933,7 @@
 
       useEffect(()=>{ document.title = J('%E3%83%9E%E3%83%8D%E3%83%BC%E3%83%9E%E3%83%8D%E3%83%BC%E3%82%B8%E3%83%A3%E3%83%BC'); },[]);
 
-      const persistItems = (items)=>{ const clean=uniqueBySymbol(items); setWatchItems(clean); setDraftItems(clean); try{ localStorage.setItem(LS.items, JSON.stringify(clean)); }catch(_){} };
+      const persistItems = (items)=>{ const clean=uniqueBySymbol(items); setWatchItems(clean); setDraftItems(clean); try{ localStorage.setItem(LS.items, JSON.stringify(clean)); }catch(_){} try{ __notifyAnalysisWatch(clean); }catch(_){} };
 
       useEffect(()=>{
         (async()=>{
@@ -1008,8 +1008,8 @@
             {page==='dashboard' && (
             <div className="flex items-center justify-between mb-3">
               <div className="flex flex-col md:flex-row md:space-x-2 gap-2 w-full">
-                <SearchAdd onPick={async (symbol,name)=>{ const exists = watchItems.some(w=>w.symbol===symbol); if(exists) return; const f=await fetchFundamentals(symbol); const display=f.longName||f.shortName||name||NAME_MAP[symbol]||symbol; const next=[...watchItems, {id:symbol, symbol, name:display }]; setWatchItems(next); setDraftItems(next); try{ localStorage.setItem(LS.items, JSON.stringify(next)); }catch(_){} }}/>
-                <JPStockAdd onPick={async (symbol,name)=>{ const exists = watchItems.some(w=>w.symbol===symbol); if(exists) return; const f=await fetchFundamentals(symbol); const display=f.longName||f.shortName||name||NAME_MAP[symbol]||symbol; const next=[...watchItems, {id:symbol, symbol, name:display }]; setWatchItems(next); setDraftItems(next); try{ localStorage.setItem(LS.items, JSON.stringify(next)); }catch(_){} }}/>
+                <SearchAdd onPick={async (symbol,name)=>{ const exists = watchItems.some(w=>w.symbol===symbol); if(exists) return; const f=await fetchFundamentals(symbol); const display=f.longName||f.shortName||name||NAME_MAP[symbol]||symbol; const next=[...watchItems, {id:symbol, symbol, name:display }]; setWatchItems(next); setDraftItems(next); try{ localStorage.setItem(LS.items, JSON.stringify(next)); }catch(_){} try{ __notifyAnalysisWatch(next); }catch(_){} }}/>
+                <JPStockAdd onPick={async (symbol,name)=>{ const exists = watchItems.some(w=>w.symbol===symbol); if(exists) return; const f=await fetchFundamentals(symbol); const display=f.longName||f.shortName||name||NAME_MAP[symbol]||symbol; const next=[...watchItems, {id:symbol, symbol, name:display }]; setWatchItems(next); setDraftItems(next); try{ localStorage.setItem(LS.items, JSON.stringify(next)); }catch(_){} try{ __notifyAnalysisWatch(next); }catch(_){} }}/>
               </div>
               <div className="flex items-center space-x-2">
                 <select value={sortMode} onChange={e=>{ const v=e.target.value; setSortMode(v); try{ localStorage.setItem(LS.sort,v); }catch(_){} }} className="bg-gray-800 text-gray-200 text-sm px-3 py-2 rounded">
@@ -1058,7 +1058,7 @@
                        item={item}
                        signalsMap={signals}
                        onClick={()=>{ setSelected(item); setModalOpen(true); }}
-                       onRemove={()=>{ if(!confirm(`Delete ${item.symbol}?`)) return; const after = draftItems.filter(w=>w.symbol!==item.symbol); setDraftItems(after); setWatchItems(after); try{ localStorage.setItem(LS.items, JSON.stringify(after)); }catch(_){} }}
+                       onRemove={()=>{ if(!confirm(`Delete ${item.symbol}?`)) return; const after = draftItems.filter(w=>w.symbol!==item.symbol); setDraftItems(after); setWatchItems(after); try{ localStorage.setItem(LS.items, JSON.stringify(after)); }catch(_){} try{ __notifyAnalysisWatch(after); }catch(_){} }}
                        draggable={sortMode==='none'}
                       onDragStart={(e)=>{ e.dataTransfer?.setData('text/plain', String(idx)); setDragIndex(idx); }}
                       onDragOver={(e)=>{ if(sortMode==='none'){ e.preventDefault(); }}}
@@ -1222,6 +1222,7 @@
   </script>
 </body>
 </html>
+
 
 
 
