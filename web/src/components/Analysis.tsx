@@ -1,20 +1,4 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
-
-  useEffect(() => {
-    const onMsg = (ev: MessageEvent) => {
-      try {
-        if (!ev || !ev.data) return;
-        if (window.location.origin && ev.origin && ev.origin !== window.location.origin) return;
-        if (ev.data.type === "nmy.watch.update" && Array.isArray(ev.data.items)) {
-          const arr = ev.data.items.map((w: any) => ({ symbol: String(w.symbol||""), name: String(w.name||w.symbol||"") }));
-          setNmyWatch(arr);
-        }
-      } catch {}
-    };
-    window.addEventListener("message", onMsg);
-    return () => window.removeEventListener("message", onMsg);
-  }, []);
-import { useEffect, useMemo, useState } from 'react';
 import { computeSnapshotWithTrails, DEFAULT_PARAMS, type SnapshotItem, type SnapshotTrails, type SnapshotMeta, UNIVERSE, UNIVERSE_US_SECTORS, UNIVERSE_JP_SECTORS, type AssetDef } from '../lib/analysis';
 import { useStore } from '../store';
 
@@ -56,6 +40,21 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
   };
   const zWatch = useStore((s) => [...s.watchlist].sort((a,b)=>a.order-b.order));
   const [nmyWatch, setNmyWatch] = useState<{ symbol: string; name: string }[]>(() => readNMYWatch());
+  // NMY からの即時同期（postMessage）
+  useEffect(() => {
+    const onMsg = (ev: MessageEvent) => {
+      try {
+        if (!ev || !ev.data) return;
+        if (window.location.origin && ev.origin && ev.origin !== window.location.origin) return;
+        if (ev.data.type === 'nmy.watch.update' && Array.isArray(ev.data.items)) {
+          const arr = ev.data.items.map((w: any) => ({ symbol: String(w.symbol||''), name: String(w.name||w.symbol||'') }));
+          setNmyWatch(arr);
+        }
+      } catch {}
+    };
+    window.addEventListener('message', onMsg);
+    return () => window.removeEventListener('message', onMsg);
+  }, []);
   useEffect(() => {
     const onStorage = (e: StorageEvent) => { if (e.key === 'nmy.watch.items') setNmyWatch(readNMYWatch()); };
     window.addEventListener('storage', onStorage);
@@ -163,7 +162,7 @@ function Scatter({ items, trails, xDomain, yDomain }: { items: SnapshotItem[]; t
           return (
             <g key={it.id}>
               <circle cx={cx} cy={cy} r={6} fill={colorForQuad(it.quadrant)} opacity={0.9} />
-              <title>{`${it.name} [${it.cls}]\nF=${it.F?.toFixed(2)} V=${it.V?.toFixed(2)} A=${it.A?.toFixed(2)} (${it.quadrant})`}</title>
+              <title>{`${it.name} [${it.cls}]F=${it.F?.toFixed(2)} V=${it.V?.toFixed(2)} A=${it.A?.toFixed(2)} (${it.quadrant})`}</title>
             </g>
           );
         })}
@@ -279,5 +278,7 @@ function QList({ items }: { items: SnapshotItem[] }) {
     </div>
   );
 }
+
+
 
 

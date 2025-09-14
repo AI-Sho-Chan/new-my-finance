@@ -916,6 +916,16 @@
         </div>
       );
     };
+    // Notify embedded Analysis (React) about watchlist changes
+    function __notifyAnalysisWatch(items){
+      try{
+        var f = document.getElementById('analysisFrame');
+        if(!f || !f.contentWindow) return;
+        var payload = { type:'nmy.watch.update', items: (Array.isArray(items)? items: []).map(function(w){ return { symbol: String(w.symbol||''), name: String(w.name||w.symbol||'') }; }) };
+        f.contentWindow.postMessage(payload, window.location.origin);
+      }catch(_){}
+    }
+
     const App=()=>{
       const uniqueBySymbol = (arr=[])=>{ const seen=new Set(); const out=[]; for(const x of arr){ const s=x?.symbol; if(!s||seen.has(s)) continue; seen.add(s); out.push({ id: x.id||s, ...x }); } return out; };
       const loadItems = ()=>{ try{ const j=JSON.parse(localStorage.getItem(LS.items)||'[]'); if(Array.isArray(j)&&j.length) return uniqueBySymbol(j); }catch(_){} return uniqueBySymbol(DEFAULT_ITEMS); };
@@ -994,7 +1004,7 @@
               <section className="bg-gray-800 rounded p-2">
                 <div className="font-semibold mb-2">{J('%E7%9B%B8%E5%AF%BE%E5%8A%9B%E3%83%80%E3%83%83%E3%82%B7%E3%83%A5%E3%83%9C%E3%83%BC%E3%83%89')}</div>
                 <div className="w-full">
-                  <iframe id="analysisFrame" src="/asset_manager_app.html?tab=analysis&embed=1" title="analysis" className="w-full bg-gray-900 rounded border border-gray-700" style={{ height: 600, overflow: 'hidden' }}></iframe>
+                  <iframe id="analysisFrame" src="/react?tab=analysis&embed=1" title="analysis" className="w-full bg-gray-900 rounded border border-gray-700" style={{ height: 600, overflow: 'hidden' }}></iframe>
                 </div>
               </section>
             )}
