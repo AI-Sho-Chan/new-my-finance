@@ -28,13 +28,14 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
   const [meta, setMeta] = useState<SnapshotMeta | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [view, setView] = useState<'GLOBAL' | 'US_SECTOR' | 'JP_SECTOR' | 'US_STOCKS' | 'JP_STOCKS'>('GLOBAL');
+  const watchlist = useStore((s) => [...s.watchlist].sort((a,b)=>a.order-b.order));
+  const watchKey = useMemo(() => watchlist.map(w=>w.symbol).join(','), [watchlist]);
 
   useEffect(() => {
     let alive = true;
     setLoading(true); setErr(null);
-    const wl = (useStore.getState().watchlist || []) as any[];
-    const watchUS: AssetDef[] = wl.filter(w=>!String(w.symbol).endsWith('.T')).map(w=>({ id:w.symbol, name:w.name||w.symbol, cls:'EQ', symbol:String(w.symbol), currency:'USD' }));
-    const watchJP: AssetDef[] = wl.filter(w=> String(w.symbol).endsWith('.T')).map(w=>({ id:w.symbol, name:w.name||w.symbol, cls:'EQ', symbol:String(w.symbol), currency:'JPY', priceToUSD:'JPY' }));
+    const watchUS: AssetDef[] = watchlist.filter(w=>!String(w.symbol).endsWith('.T')).map(w=>({ id:w.symbol, name:w.name||w.symbol, cls:'EQ', symbol:String(w.symbol), currency:'USD' }));
+    const watchJP: AssetDef[] = watchlist.filter(w=> String(w.symbol).endsWith('.T')).map(w=>({ id:w.symbol, name:w.name||w.symbol, cls:'EQ', symbol:String(w.symbol), currency:'JPY', priceToUSD:'JPY' }));
     const uni: AssetDef[] = (
       view==='GLOBAL' ? UNIVERSE :
       view==='US_SECTOR' ? UNIVERSE_US_SECTORS :
@@ -46,7 +47,7 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
       .catch((e) => setErr(String(e?.message||e)))
       .finally(()=> alive && setLoading(false));
     return () => { alive = false; };
-  }, [view]);
+  }, [view, watchKey]);
 
   const domain = useMemo(() => {
     if (!items) return { f:[-3,3] as [number,number], v:[-3,3] as [number,number] };
