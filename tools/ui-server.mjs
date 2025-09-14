@@ -1,4 +1,4 @@
-import http from 'node:http';
+﻿import http from 'node:http';
 import https from 'node:https';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -68,6 +68,62 @@ const server = http.createServer((req, res) => {
       return send(res, 404, 'Not Found');
     }
 
+
+    // React build (served under /react and /assets)
+    if (pathname === '/react' || pathname === '/react/') {
+      const p = path.join(ROOT, 'web', 'dist', 'index.html');
+      return send(res, 200, fs.readFileSync(p), { 'Content-Type': 'text/html; charset=utf-8' });
+    }
+    if (pathname.startsWith('/react/')) {
+      const rel = pathname.replace(/^\/react\//, '');
+      const p = path.join(ROOT, 'web', 'dist', rel);
+      if (fs.existsSync(p) && fs.statSync(p).isFile()) {
+        const ext = path.extname(p).toLowerCase();
+        const type = mime[ext] || 'application/octet-stream';
+        return send(res, 200, fs.readFileSync(p), { 'Content-Type': type });
+      }
+      const index = path.join(ROOT, 'web', 'dist', 'index.html');
+      return send(res, 200, fs.readFileSync(index), { 'Content-Type': 'text/html; charset=utf-8' });
+    }
+    if (pathname.startsWith('/assets/')) {
+      const p = path.join(ROOT, 'web', 'dist', pathname.replace(/^\/assets\//, 'assets/'));
+      if (fs.existsSync(p) && fs.statSync(p).isFile()) {
+        const ext = path.extname(p).toLowerCase();
+        const type = mime[ext] || 'application/octet-stream';
+        return send(res, 200, fs.readFileSync(p), { 'Content-Type': type });
+      }
+    }
+
+
+    // Favicon (no-content)
+    if (pathname === '/favicon.ico') {
+      return send(res, 204, '', { 'Content-Type': 'image/x-icon' });
+    }
+
+    // React build under /react and assets under /assets
+    if (pathname === '/react' || pathname === '/react/') {
+      const p = path.join(ROOT, 'web', 'dist', 'index.html');
+      return send(res, 200, fs.readFileSync(p), { 'Content-Type': 'text/html; charset=utf-8' });
+    }
+    if (pathname.startsWith('/react/')) {
+      const rel = pathname.slice('/react/'.length);
+      const p = path.join(ROOT, 'web', 'dist', rel);
+      if (fs.existsSync(p) && fs.statSync(p).isFile()) {
+        const ext = path.extname(p).toLowerCase();
+        const type = mime[ext] || 'application/octet-stream';
+        return send(res, 200, fs.readFileSync(p), { 'Content-Type': type });
+      }
+      const index = path.join(ROOT, 'web', 'dist', 'index.html');
+      return send(res, 200, fs.readFileSync(index), { 'Content-Type': 'text/html; charset=utf-8' });
+    }
+    if (pathname.startsWith('/assets/')) {
+      const p = path.join(ROOT, 'web', 'dist', pathname.replace(/^\/assets\//, 'assets/'));
+      if (fs.existsSync(p) && fs.statSync(p).isFile()) {
+        const ext = path.extname(p).toLowerCase();
+        const type = mime[ext] || 'application/octet-stream';
+        return send(res, 200, fs.readFileSync(p), { 'Content-Type': type });
+      }
+    }
     // NMY.html default
     if (pathname === '/' || pathname === '/index.html') {
       const p = path.join(ROOT, 'NMY.html');
@@ -90,3 +146,7 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`UI server listening at http://127.0.0.1:${PORT}`);
 });
+
+
+
+

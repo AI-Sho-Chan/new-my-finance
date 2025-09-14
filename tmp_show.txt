@@ -1,0 +1,153 @@
+import http from 'node:http';
+import https from 'node:https';
+import fs from 'node:fs';
+import path from 'node:path';
+import url from 'node:url';
+
+const PORT = process.env.PORT ? Number(process.env.PORT) : 8080;
+const ROOT = path.resolve(path.join(process.cwd()));
+const PROXY_BASE = 'http://127.0.0.1:8787';
+
+const mime = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'application/javascript; charset=utf-8',
+  '.mjs': 'application/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.ico': 'image/x-icon',
+};
+
+function send(res, status, body, headers = {}) {
+  const h = { 'Cache-Control': 'no-store', ...headers };
+  res.writeHead(status, h);
+  res.end(body);
+}
+
+function proxy(req, res, target) {
+  const t = new url.URL(target);
+  const mod = t.protocol === 'https:' ? https : http;
+  const opts = {
+    method: req.method,
+    headers: { ...req.headers, host: t.host },
+  };
+  const p = mod.request(t, opts, (pr) => {
+    res.writeHead(pr.statusCode || 502, pr.headers);
+    pr.pipe(res);
+  });
+  p.on('error', (e) => send(res, 502, String(e)));
+  if (req.method !== 'GET' && req.method !== 'HEAD') req.pipe(p); else p.end();
+}
+
+const server = http.createServer((req, res) => {
+  try {
+    const u = new url.URL(req.url, 'http://localhost');
+    const pathname = decodeURIComponent(u.pathname);
+
+    // Proxy endpoints
+    if (pathname === '/api/fgi') {
+      return proxy(req, res, PROXY_BASE + '/api/fgi' + (u.search || ''));
+    }
+    if (pathname.startsWith('/api/yf/')) {
+      return proxy(req, res, PROXY_BASE + pathname + (u.search || ''));
+    }
+    if (pathname === '/api/signals') {
+      return proxy(req, res, PROXY_BASE + '/api/signals');
+    }
+
+    // Static data folder
+    if (pathname.startsWith('/data/')) {
+      const p = path.join(ROOT, pathname.replace(/^\//, ''));
+      if (!p.startsWith(ROOT)) return send(res, 403, 'Forbidden');
+      if (fs.existsSync(p) && fs.statSync(p).isFile()) {
+        const ext = path.extname(p).toLowerCase();
+        const type = mime[ext] || 'application/octet-stream';
+        return send(res, 200, fs.readFileSync(p), { 'Content-Type': type });
+      }
+      return send(res, 404, 'Not Found');
+    }
+
+
+    // React build (served under /react and /assets)
+    if (pathname === '/react' || pathname === '/react/') {
+      const p = path.join(ROOT, 'web', 'dist', 'index.html');
+      return send(res, 200, fs.readFileSync(p), { 'Content-Type': 'text/html; charset=utf-8' });
+    }
+    if (pathname.startsWith('/react/')) {
+      const rel = pathname.replace(/^\/react\//, '');
+      const p = path.join(ROOT, 'web', 'dist', rel);
+      if (fs.existsSync(p) && fs.statSync(p).isFile()) {
+        const ext = path.extname(p).toLowerCase();
+        const type = mime[ext] || 'application/octet-stream';
+        return send(res, 200, fs.readFileSync(p), { 'Content-Type': type });
+      }
+      const index = path.join(ROOT, 'web', 'dist', 'index.html');
+      return send(res, 200, fs.readFileSync(index), { 'Content-Type': 'text/html; charset=utf-8' });
+    }
+    if (pathname.startsWith('/assets/')) {
+      const p = path.join(ROOT, 'web', 'dist', pathname.replace(/^\/assets\//, 'assets/'));
+      if (fs.existsSync(p) && fs.statSync(p).isFile()) {
+        const ext = path.extname(p).toLowerCase();
+        const type = mime[ext] || 'application/octet-stream';
+        return send(res, 200, fs.readFileSync(p), { 'Content-Type': type });
+      }
+    }
+
+
+    // Favicon (no-content)
+    if (pathname === '/favicon.ico') {
+      return send(res, 204, '', { 'Content-Type': 'image/x-icon' });
+    }
+
+    // React build under /react and assets under /assets
+    if (pathname === '/react' || pathname === '/react/') {
+      const p = path.join(ROOT, 'web', 'dist', 'index.html');
+      return send(res, 200, fs.readFileSync(p), { 'Content-Type': 'text/html; charset=utf-8' });
+    }
+    if (pathname.startsWith('/react/')) {
+      const rel = pathname.slice('/react/'.length);
+      const p = path.join(ROOT, 'web', 'dist', rel);
+      if (fs.existsSync(p) && fs.statSync(p).isFile()) {
+        const ext = path.extname(p).toLowerCase();
+        const type = mime[ext] || 'application/octet-stream';
+        return send(res, 200, fs.readFileSync(p), { 'Content-Type': type });
+      }
+      const index = path.join(ROOT, 'web', 'dist', 'index.html');
+      return send(res, 200, fs.readFileSync(index), { 'Content-Type': 'text/html; charset=utf-8' });
+    }
+    if (pathname.startsWith('/assets/')) {
+      const p = path.join(ROOT, 'web', 'dist', pathname.replace(/^\/assets\//, 'assets/'));
+      if (fs.existsSync(p) && fs.statSync(p).isFile()) {
+        const ext = path.extname(p).toLowerCase();
+        const type = mime[ext] || 'application/octet-stream';
+        return send(res, 200, fs.readFileSync(p), { 'Content-Type': type });
+      }
+    }
+    // NMY.html default
+    if (pathname === '/' || pathname === '/index.html') {
+      const p = path.join(ROOT, 'NMY.html');
+      return send(res, 200, fs.readFileSync(p), { 'Content-Type': 'text/html; charset=utf-8' });
+    }
+
+    // Serve arbitrary files under root (for NMY.html assets)
+    const p = path.join(ROOT, pathname.replace(/^\//, ''));
+    if (fs.existsSync(p) && fs.statSync(p).isFile()) {
+      const ext = path.extname(p).toLowerCase();
+      const type = mime[ext] || 'application/octet-stream';
+      return send(res, 200, fs.readFileSync(p), { 'Content-Type': type });
+    }
+    return send(res, 404, 'Not Found');
+  } catch (e) {
+    return send(res, 500, String(e?.message || e));
+  }
+});
+
+server.listen(PORT, '127.0.0.1', () => {
+  console.log(`UI server listening at http://127.0.0.1:${PORT}`);
+});
+
+
+
+
+

@@ -27,8 +27,8 @@ export async function fetchHistoricalCandles(symbol: TickerSymbol, timeframe: Ti
     if (!res.ok) throw new Error('chart http ' + res.status);
     return await res.json();
   } catch (e) {
-    console.warn('chart fallback (sim)', e);
-    return simulateCandles(symbol, timeframe);
+    // 実データが取得できない場合は NA 扱い（シミュレーションはしない）
+    return [];
   }
 }
 
@@ -118,14 +118,18 @@ function round2(n: number) {
 async function simulateQuotes(symbols: TickerSymbol[]): Promise<Record<string, MarketQuote>> {
   const out: Record<string, MarketQuote> = {};
   for (const sym of symbols) {
-    const base = seededNumber(sym) % 500 + 50;
-    const noise = (Math.random() - 0.5) * base * 0.02;
+    // Deterministic PRNG per symbol
+    let s = seededNumber(sym) || 1;
+    const rnd = () => { s = (s * 1664525 + 1013904223) >>> 0; return (s >>> 8) / 0xFFFFFF; };
+    const base = (s % 500) + 50;
+    const noise = (rnd() - 0.5) * base * 0.02;
     const prevClose = round2(base + noise);
-    const drift = (Math.random() - 0.5) * prevClose * 0.03;
+    const drift = (rnd() - 0.5) * prevClose * 0.03;
     const price = round2(prevClose + drift);
     const change = round2(price - prevClose);
     const changePct = round2((change / Math.max(prevClose, 0.01)) * 100);
     const currency: 'JPY' | 'USD' = sym.endsWith('.T') || sym.includes('=X') ? 'JPY' : 'USD';
+    const rr = (min: number, max: number) => round2(min + (max - min) * rnd());
     out[sym] = {
       symbol: sym,
       name: sym,
@@ -134,7 +138,7 @@ async function simulateQuotes(symbols: TickerSymbol[]): Promise<Record<string, M
       change,
       changePct,
       currency,
-      per: randRange(8, 30), pbr: randRange(0.8, 5), dividendYieldPct: Math.max(0, randRange(-0.5, 4)), marketCap: Math.round(randRange(1, 200) * 1e10),
+      per: rr(8, 30), pbr: rr(0.8, 5), dividendYieldPct: Math.max(0, rr(0, 4)), marketCap: Math.round(rr(1, 200) * 1e10),
       trend: 'flat',
     } as any;
   }
@@ -146,15 +150,18 @@ function simulateCandles(symbol: TickerSymbol, timeframe: Timeframe): Candle[] {
   const now = Math.floor(Date.now() / 1000);
   const points = timeframe === 'D' ? 380 : timeframe === 'W' ? 52 * 5 : 12 * 15;
   const step = timeframe === 'D' ? 86400 : timeframe === 'W' ? 7 * 86400 : 30 * 86400;
-  let price = seededNumber(symbol) % 600 + 100;
+  // Deterministic PRNG seeded by symbol+tf
+  let s = seededNumber(symbol + ':' + timeframe) || 1;
+  const rnd = () => { s = (s * 1664525 + 1013904223) >>> 0; return (s >>> 8) / 0xFFFFFF; };
+  let price = (seededNumber(symbol) % 600) + 100;
   for (let i = points - 1; i >= 0; i--) {
     const t = now - i * step;
     const open = price;
-    const change = (Math.random() - 0.48) * price * 0.04;
+    const change = (rnd() - 0.48) * price * 0.04;
     const close = open + change;
-    const high = Math.max(open, close) + Math.random() * price * 0.01;
-    const low = Math.min(open, close) - Math.random() * price * 0.01;
-    const volume = Math.random() * 2e6 + 5e5;
+    const high = Math.max(open, close) + rnd() * price * 0.01;
+    const low = Math.min(open, close) - rnd() * price * 0.01;
+    const volume = rnd() * 2e6 + 5e5;
     out.push({ time: t, open: round2(open), high: round2(high), low: round2(low), close: round2(close), value: Math.round(volume) });
     price = close;
   }

@@ -1,0 +1,23 @@
+{
+  "symbol": "MSFT",
+  "signals": [
+    {
+      "type": "押",
+      "date": 1757603265,
+      "strength": 0.6,
+      "reason": "Pullback to EMA20 - 1.5*ATR with RSI recovery zone"
+    },
+    {
+      "type": "押",
+      "date": 1757620801,
+      "strength": 0.6,
+      "reason": "Pullback to EMA20 - 1.5*ATR with RSI recovery zone"
+    },
+    {
+      "type": "押",
+      "date": 1757597400,
+      "strength": 0.6,
+      "reason": "Pullback to EMA20 - 1.5*ATR with RSI recovery zone"
+    }
+  ]
+}

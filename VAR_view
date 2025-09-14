@@ -1,0 +1,298 @@
+import express from 'express';
+import compression from 'compression';
+import morgan from 'morgan';
+import path from 'node:path';
+import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { setTimeout as delay } from 'node:timers/promises';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const app = express();
+app.use(compression());
+app.use(morgan('dev'));
+app.use(express.json({ limit: '2mb' }));
+
+// Simple in-memory cache
+const cache = new Map(); // key -> { ts: number, data: any, ttl: number }
+const now = () => Date.now();
+
+function setCache(key, data, ttlMs) {
+  cache.set(key, { ts: now(), data, ttl: ttlMs });
+}
+function getCache(key) {
+  const ent = cache.get(key);
+  if (!ent) return null;
+  if (now() - ent.ts > ent.ttl) { cache.delete(key); return null; }
+  return ent.data;
+}
+
+async function fetchJson(url, init) {
+  const res = await fetch(url, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      'Accept': 'application/json, text/javascript, */*; q=0.01',
+    },
+    ...init,
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(`Upstream ${res.status}: ${txt.slice(0,200)}`);
+  }
+  return res.json();
+}
+
+async function fetchJsonTry(urls, init) {
+  let lastErr = null;
+  for (const u of urls) {
+    try { return await fetchJson(u, init); } catch (e) { lastErr = e; }
+  }
+  throw lastErr || new Error('all upstream failed');
+}
+
+// Normalize Yahoo Quote
+function normalizeQuote(q) {
+  const price = q.regularMarketPrice;
+  const prevClose = q.regularMarketPreviousClose ?? q.previousClose;
+  const change = price != null && prevClose != null ? price - prevClose : undefined;
+  const changePct = change != null && prevClose ? (change / prevClose) * 100 : undefined;
+  const dividendYield = q.trailingAnnualDividendYield ?? q.dividendYield; // ratio
+  return {
+    symbol: q.symbol,
+    name: q.shortName ?? q.longName ?? q.symbol,
+    price: price ?? null,
+    prevClose: prevClose ?? null,
+    change: change != null ? Math.round(change * 100) / 100 : null,
+    changePct: changePct != null ? Math.round(changePct * 100) / 100 : null,
+    currency: q.currency ?? 'USD',
+    per: q.trailingPE ?? q.forwardPE ?? null,
+    pbr: q.priceToBook ?? null,
+    dividendYieldPct: dividendYield != null ? Math.round(dividendYield * 10000) / 100 : null,
+    marketCap: q.marketCap ?? null,
+  };
+}
+
+app.get('/api/quote', async (req, res) => {
+  try {
+    const symbolsParam = String(req.query.symbols || '').trim();
+    if (!symbolsParam) return res.status(400).json({ error: 'symbols required' });
+    const symbols = symbolsParam.split(',').map(s => s.trim()).filter(Boolean);
+    const key = `q:${symbols.sort().join(',')}`;
+    const cached = getCache(key);
+    if (cached) return res.json(cached);
+
+    const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols.join(','))}`;
+    const data = await fetchJson(url);
+    const result = {};
+    (data?.quoteResponse?.result ?? []).forEach((q) => {
+      result[q.symbol] = normalizeQuote(q);
+    });
+    // Cache for 30s
+    setCache(key, result, 30_000);
+    res.json(result);
+  } catch (e) {
+    res.json({ longName: null, shortName: null });
+  }
+});
+
+// Chart candles
+app.get('/api/chart', async (req, res) => {
+  try {
+    const symbol = String(req.query.symbol || '').trim();
+    const tf = String(req.query.tf || 'D');
+    if (!symbol) return res.status(400).json({ error: 'symbol required' });
+    const range = tf === 'D' ? '1y' : tf === 'W' ? '5y' : '15y';
+    const interval = tf === 'D' ? '1d' : tf === 'W' ? '1wk' : '1mo';
+    const key = `c:${symbol}:${range}:${interval}`;
+    const cached = getCache(key);
+    if (cached) return res.json(cached);
+    const urls = [
+      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}&includePrePost=false&events=div%2Csplits`,
+      `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}&includePrePost=false&events=div%2Csplits`,
+    ];
+    const data = await fetchJsonTry(urls);
+    const r = data?.chart?.result?.[0];
+    const ts = r?.timestamp ?? [];
+    const quote = r?.indicators?.quote?.[0] ?? {};
+    const out = ts.map((t, i) => ({
+      time: t,
+      open: Number(quote.open?.[i] ?? 0),
+      high: Number(quote.high?.[i] ?? 0),
+      low: Number(quote.low?.[i] ?? 0),
+      close: Number(quote.close?.[i] ?? 0),
+      value: Number(quote.volume?.[i] ?? 0),
+    })).filter(c => Number.isFinite(c.close) && c.close > 0);
+    setCache(key, out, tf === 'D' ? 15 * 60_000 : 2 * 60 * 60_000);
+    res.json(out);
+  } catch (e) {
+    res.json({ longName: null, shortName: null });
+  }
+});
+
+// Fundamentals (YoY metrics) via quoteSummary
+app.get('/api/fundamentals', async (req, res) => {
+  try {
+    const symbol = String(req.query.symbol || '').trim();
+    if (!symbol) return res.status(400).json({ error: 'symbol required' });
+    const key = `f:${symbol}`;
+    const cached = getCache(key);
+    if (cached) return res.json(cached);
+    const modules = ['incomeStatementHistoryQuarterly','defaultKeyStatistics','financialData','summaryDetail'];
+    const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=${modules.join(',')}`;
+    const data = await fetchJson(url);
+    const r = data?.quoteSummary?.result?.[0] ?? {};
+    const inc = r?.incomeStatementHistoryQuarterly?.incomeStatementHistory ?? [];
+    let yoyRevenuePct = null;
+    let yoyOperatingIncomePct = null;
+    if (inc.length >= 5) {
+      const latest = inc[0];
+      const back = inc[4];
+      const revA = latest?.totalRevenue?.raw;
+      const revB = back?.totalRevenue?.raw;
+      const opA = latest?.operatingIncome?.raw;
+      const opB = back?.operatingIncome?.raw;
+      if (revA != null && revB) yoyRevenuePct = Math.round(((revA - revB) / revB) * 10000) / 100;
+      if (opA != null && opB) yoyOperatingIncomePct = Math.round(((opA - opB) / opB) * 10000) / 100;
+    }
+    const out = { yoyRevenuePct, yoyOperatingIncomePct };
+    // Cache for 12h
+    setCache(key, out, 12 * 60 * 60_000);
+    res.json(out);
+  } catch (e) {
+    res.json({ longName: null, shortName: null });
+  }
+});
+
+// --- Yahoo Finance passthrough (for NMY.html compatibility) ---
+// Returns raw Yahoo responses so譌｢蟄倥ヵ繝ｭ繝ｳ繝医・繝代・繧ｵ縺ｫ縺昴・縺ｾ縺ｾ蜷医≧
+app.get('/api/yf/quote', async (req, res) => {
+  try {
+    const symbolsParam = String(req.query.symbols || '').trim();
+    if (!symbolsParam) return res.status(400).json({ error: 'symbols required' });
+    const syms = symbolsParam.split(',').map(s=>s.trim()).filter(Boolean);
+    // 蜷域ｳ輔↑莉｣譖ｿ: chart API縺九ｉ逶ｴ霑台ｾ｡譬ｼ/蜑肴律邨ょ､繧貞粋謌・    const results = {};
+    for (const s of syms) {
+      try {
+        const data = await fetchJsonTry([
+          `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(s)}?range=5d&interval=1d&includePrePost=false&events=div%2Csplits`,
+          `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(s)}?range=5d&interval=1d&includePrePost=false&events=div%2Csplits`,
+        ]);
+        const r = data?.chart?.result?.[0] ?? {};
+        const ts = r?.timestamp ?? [];
+        const q = r?.indicators?.quote?.[0] ?? {};
+        const closes = (q?.close || []).filter(v=>Number.isFinite(v));
+        const price = closes.length ? closes[closes.length-1] : null;
+        const prev = closes.length>1 ? closes[closes.length-2] : null;
+        results[s] = { symbol: s, regularMarketPrice: price, regularMarketPreviousClose: prev, longName: null, shortName: null, currency: s.endsWith('.T')?'JPY':'USD', price, prevClose: prev };
+      } catch {}
+    }
+    res.json({ quoteResponse: { result: Object.values(results) } });
+  } catch (e) { res.json({ longName: null, shortName: null }); }
+});
+
+app.get('/api/yf/history', async (req, res) => {
+  try {
+    const symbol = String(req.query.symbol || '').trim();
+    const range = String(req.query.range || '1y');
+    const interval = String(req.query.interval || '1d');
+    if (!symbol) return res.status(400).json({ error: 'symbol required' });
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}&includePrePost=false&events=div%2Csplits`;
+    const data = await fetchJson(url);
+    setCache(`yf:h:${symbol}:${range}:${interval}`, data, 15 * 60_000);
+    res.json(data);
+  } catch (e) { res.json({ longName: null, shortName: null }); }
+});
+
+app.get('/api/yf/fund', async (req, res) => {
+  try {
+    const symbol = String(req.query.symbol || '').trim();
+    if (!symbol) return res.status(400).json({ error: 'symbol required' });
+    const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=price,quoteType,summaryProfile,assetProfile`;
+    const data = await fetchJson(url);
+    const r = data?.quoteSummary?.result?.[0] ?? {};
+    const longName = r?.price?.longName ?? null;
+    const shortName = r?.price?.shortName ?? r?.quoteType?.shortName ?? null;
+    res.json({ longName, shortName });
+  } catch (e) { res.json({ longName: null, shortName: null }); }
+});
+
+app.get('/api/yf/search', async (req, res) => {
+  try {
+    const q = String(req.query.q || '').trim();
+    if (!q) return res.status(400).json({ error: 'q required' });
+    const region = String(req.query.region || 'JP');
+    const lang = String(req.query.lang || 'ja-JP');
+    const urls = [
+      `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&quotesCount=40&newsCount=0&listsCount=0&enableFuzzyQuery=true&lang=${encodeURIComponent(lang)}&region=${encodeURIComponent(region)}`,
+      `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&quotesCount=40&newsCount=0&listsCount=0&enableFuzzyQuery=true&lang=${encodeURIComponent(lang)}&region=${encodeURIComponent(region)}`,
+    ];
+    const data = await fetchJsonTry(urls);
+    res.json(data);
+  } catch (e) { res.json({ longName: null, shortName: null }); }
+});
+
+// Fear & Greed (邁｡譏薙せ繧ｿ繝悶ょｮ滓焚蛟､縺悟ｿ・ｦ√↑繧牙ｾ梧律繧ｵ繝ｼ繝仙・縺ｧ螳溯｣・
+app.get('/api/fgi', async (_req, res) => {
+  res.json({ now: null, previousClose: null, history: [] });
+});
+
+// Signals・・MY縺ｮ404蝗樣∩逕ｨ繧ｹ繧ｿ繝厄ｼ・app.get('/api/signals', async (_req, res) => {
+  res.json({});
+});
+
+// --- Lightweight collection endpoint for cross-origin bookmarklet ---
+const collected = [];
+function setCORS(res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
+}
+app.options('/api/collect', (req, res) => { setCORS(res); res.sendStatus(204); });
+app.post('/api/collect', (req, res) => {
+  setCORS(res);
+  try {
+    const { origin, href, nmy, my } = req.body || {};
+    const entry = {
+      ts: Date.now(),
+      origin: typeof origin === 'string' ? origin : null,
+      href: typeof href === 'string' ? href : null,
+      nmySize: typeof nmy === 'string' ? nmy.length : 0,
+      mySize: typeof my === 'string' ? my.length : 0,
+      nmy, my,
+    };
+    collected.push(entry);
+    if (collected.length > 100) collected.shift();
+    res.json({ status: 'ok', count: collected.length });
+  } catch (e) {
+    res.status(400).json({ status: 'error', error: String(e?.message || e) });
+  }
+});
+app.get('/api/collected', (req, res) => {
+  setCORS(res);
+  const out = collected.map((c) => ({ ts: c.ts, origin: c.origin, href: c.href, nmySize: c.nmySize, mySize: c.mySize }));
+  res.json(out);
+});
+
+// Serve static built assets if present
+const distDir = path.resolve(__dirname, '../dist');
+app.use(express.static(distDir));
+// Serve legacy single-file app for compatibility
+app.get('/NMY.html', (req, res) => {
+  try {
+    const file = path.resolve(__dirname, '../../NMY.html');
+    res.setHeader('Cache-Control', 'no-store');
+    res.type('html').send(fs.readFileSync(file, 'utf8'));
+  } catch (e) {
+    res.status(404).send('NMY.html not found');
+  }
+});
+app.get('*', (req, res) => {
+  res.sendFile(path.join(distDir, 'index.html'));
+});
+
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, () => console.log(`Server listening on http://localhost:${PORT}`));
+
+
+

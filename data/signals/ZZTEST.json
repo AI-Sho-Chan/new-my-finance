@@ -1,0 +1,995 @@
+{
+  "symbol": "ZZTEST",
+  "signals": [
+    {
+      "type": "52H+",
+      "date": 1754924146,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756652146,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757084146,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1754924305,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756652305,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757084305,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1754924829,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756652829,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757084829,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1754925187,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756653187,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757085187,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1754960734,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756688734,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757120734,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1754963128,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756691128,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757123128,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1754963673,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756691673,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757123673,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1754963677,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756691677,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757123677,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1754966457,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756694457,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757126457,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1754966913,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756694913,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757126913,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1754969489,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756697489,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757129489,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1754972284,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756700284,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757132284,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1754973694,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756701694,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757133694,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1754973932,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756701932,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757133932,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1754975203,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756703203,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757135203,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1754976695,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756704695,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757136695,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1754977275,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756705275,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757137275,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1754977709,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756705709,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757137709,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1754978896,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756706896,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757138896,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1754979347,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756707347,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757139347,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1754979771,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756707771,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757139771,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1754980652,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756708652,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757140652,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1755011374,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756739374,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757171374,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1755013675,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756741675,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757173675,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1755018102,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756746102,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757178102,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1755040388,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756768388,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757200388,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1755040617,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756768617,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757200617,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1755065488,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756793488,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757225488,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1755065544,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756793544,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757225544,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1755065618,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756793618,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757225618,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1755066435,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756794435,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757226435,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1755066817,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756794817,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757226817,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1755068076,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756796076,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757228076,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1755072096,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756800096,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757232096,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1755072145,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756800145,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757232145,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1755084701,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756812701,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757244701,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1755084721,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756812721,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757244721,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1755085049,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756813049,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757245049,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1755085052,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756813052,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757245052,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1755085074,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756813074,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757245074,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1755085451,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756813451,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757245451,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1755085453,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756813453,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757245453,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1755085471,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756813471,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757245471,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1755085474,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756813474,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757245474,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1755085476,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756813476,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757245476,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1755085682,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756813682,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757245682,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1755086565,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756814565,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757246565,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1755087114,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756815114,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757247114,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1755087153,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756815153,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757247153,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1755087687,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756815687,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757247687,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1755087739,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756815739,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757247739,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1755088623,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756816623,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757248623,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1755092485,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756820485,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757252485,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1755093184,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756821184,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757253184,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    },
+    {
+      "type": "52H+",
+      "date": 1755094178,
+      "strength": 0.7,
+      "reason": "Dummy breakout"
+    },
+    {
+      "type": "押",
+      "date": 1756822178,
+      "strength": 0.6,
+      "reason": "Dummy pullback"
+    },
+    {
+      "type": "EARN+",
+      "date": 1757254178,
+      "strength": 0.8,
+      "reason": "Dummy earnings drift"
+    }
+  ]
+}
