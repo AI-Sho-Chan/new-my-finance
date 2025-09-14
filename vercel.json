@@ -1,0 +1,17 @@
+{
+  "builds": [
+    {
+      "src": "web/package.json",
+      "use": "@vercel/static-build",
+      "config": { "distDir": "web/dist" }
+    },
+    { "src": "api/**/*.mjs", "use": "@vercel/node" }
+  ],
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/api/$1" },
+    { "src": "/react", "dest": "web/dist/index.html" },
+    { "src": "/assets/(.*)", "dest": "web/dist/assets/$1" },
+    { "src": "/", "dest": "web/dist/NMY.html" }
+  ]
+}
+
