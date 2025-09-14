@@ -317,3 +317,23 @@ function placeLabels(items: SnapshotItem[], xs: (v:number)=>number, ys: (v:numbe
   }
   return out;
 }
+
+function QList({ items }: { items: SnapshotItem[] }) {
+  const q1 = items.filter(i => i.quadrant === 'Q1');
+  const q4 = items.filter(i => i.quadrant === 'Q4');
+  const Chip = ({ label }: { label: string }) => (
+    <span className="px-2 py-0.5 text-xs bg-gray-700 rounded mr-1 mb-1 inline-block">{label}</span>
+  );
+  return (
+    <div className="mt-2 text-xs text-gray-300">
+      <div className="mb-1">
+        <span className="text-green-400 font-semibold mr-2">Q1:</span>
+        {q1.length ? q1.map(i => <Chip key={i.id} label={i.name} />) : <span className="text-gray-500">なし</span>}
+      </div>
+      <div>
+        <span className="text-red-400 font-semibold mr-2">Q4:</span>
+        {q4.length ? q4.map(i => <Chip key={i.id} label={i.name} />) : <span className="text-gray-500">なし</span>}
+      </div>
+    </div>
+  );
+}
