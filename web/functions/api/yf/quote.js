@@ -9,7 +9,7 @@ export async function onRequest({ request }) {
     const symbols = symbolsParam.split(',').map(s => s.trim()).filter(Boolean);
 
     let mode = 'v7';
-    let data: any = null;
+    let data = null;
     try {
       const urls = [
         `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols.join(','))}`,
@@ -18,7 +18,7 @@ export async function onRequest({ request }) {
       data = await fetchJsonTry(urls);
     } catch (e) {
       mode = 'chart_fallback';
-      const res: any[] = [];
+      const res[] = [];
       for (const s of symbols) {
         try {
           const urls = [
@@ -29,7 +29,7 @@ export async function onRequest({ request }) {
           const r = d?.chart?.result?.[0] ?? {};
           const meta = r?.meta ?? {};
           const q = r?.indicators?.quote?.[0] ?? {};
-          const closes = (q?.close || []).filter((v: any) => Number.isFinite(v));
+          const closes = (q?.close || []).filter((v) => Number.isFinite(v));
           const price = closes.length ? closes[closes.length - 1] : null;
           const prev = closes.length > 1 ? closes[closes.length - 2] : null;
           res.push({ symbol: s, shortName: null, longName: null, regularMarketPrice: price, regularMarketPreviousClose: prev, currency: meta.currency || (s.endsWith('.T') ? 'JPY' : 'USD') });
@@ -44,3 +44,4 @@ export async function onRequest({ request }) {
     return json({ error: String(e?.message || e) }, { status: 500 });
   }
 }
+
