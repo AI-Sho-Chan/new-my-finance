@@ -6,7 +6,9 @@
     "scripts":  {
                     "dev":  "vite",
                     "dev:all":  "concurrently \"npm run serve\" \"npm run dev\"",
-                    "build": "vite build","vercel-build": "vite build && node ../tools/copy-nmy.mjs",
+                    "build": "vite build && node ../tools/copy-nmy.mjs",
+                    "build:pages": "vite build && node ../tools/copy-nmy.mjs",
+                    "vercel-build": "vite build && node ../tools/copy-nmy.mjs",
                     "preview":  "vite preview",
                     "serve":  "node server/index.mjs"
                 },
