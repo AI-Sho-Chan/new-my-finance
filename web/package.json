@@ -1,4 +1,4 @@
-{
+﻿{
     "name":  "new-my-finance",
     "private":  true,
     "version":  "0.1.0",
@@ -6,7 +6,8 @@
     "scripts":  {
                     "dev":  "vite",
                     "dev:all":  "concurrently \"npm run serve\" \"npm run dev\"",
-                    "build": "vite build","vercel-build": "vite build && node ../tools/copy-nmy.mjs",
+                    "build":  "vite build",
+                    "vercel-build":  "vite build \u0026\u0026 node ../tools/copy-nmy.mjs",
                     "preview":  "vite preview",
                     "serve":  "node server/index.mjs"
                 },
@@ -31,7 +32,7 @@
                             "postcss":  "^8.4.47",
                             "tailwindcss":  "^3.4.10",
                             "typescript":  "^5.6.2",
-                            "vite":  "^5.4.2"
+                            "vite":  "^5.4.2",
+                            "@babel/parser":  "^7.25.0"
                         }
 }
-

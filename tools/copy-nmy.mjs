@@ -46,3 +46,7 @@ try {
 } catch (e) {
   console.warn("Data copy skipped:", e?.message || e);
 }
+
+import { execSync } from 'node:child_process';
+try { execSync('node ../tools/sanitize-nmy.mjs', { stdio: 'inherit' }); } catch(e) { console.warn('sanitize failed:', e?.message||e); }
+
