@@ -91,6 +91,25 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
     return { f:[fmin,fmax] as [number,number], v:[vmin,vmax] as [number,number] };
   }, [JSON.stringify(items)]);
 
+  // Derive an approximate as-of timestamp from trails (latest point time)
+  const asOfJST = useMemo(() => {
+    try {
+      if (!trails) return null;
+      let t = 0;
+      for (const k of Object.keys(trails || {})) {
+        const arr = (trails as any)[k] as { t:number }[];
+        if (Array.isArray(arr)) for (const p of arr) if (p && typeof p.t==='number' && p.t>t) t=p.t;
+      }
+      if (!t) return null;
+      const d = new Date((t + 9*3600) * 1000);
+      const mm = String(d.getUTCMonth()+1).padStart(2,'0');
+      const dd = String(d.getUTCDate()).padStart(2,'0');
+      const hh = String(d.getUTCHours()).padStart(2,'0');
+      const mi = String(d.getUTCMinutes()).padStart(2,'0');
+      return ${d.getUTCFullYear()}-- : JST;
+    } catch { return null; }
+  }, [trails]);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 text-sm">
@@ -101,9 +120,7 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
         <span className="mx-2 text-gray-600">|</span>
         <button className={`px-2 py-1 rounded ${view==='US_STOCKS'?'bg-indigo-600 text-white':'bg-gray-700 text-gray-200'}`} onClick={()=>setView('US_STOCKS')}>US Stocks (watch)</button>
         <button className={`px-2 py-1 rounded ${view==='JP_STOCKS'?'bg-indigo-600 text-white':'bg-gray-700 text-gray-200'}`} onClick={()=>setView('JP_STOCKS')}>JP Stocks (watch)</button>
-      </div>
-
-      {loading && <div className="card">Loading...</div>}
+      </div>`n      {asOfJST && <div className="text-xs text-gray-400">As of daily close/weekly trend: {asOfJST}</div>}`n      {loading && <div className="card">Loading...</div>}
       {err && <div className="card text-red-400">{err}</div>}
       {items && (
         <>
@@ -278,6 +295,7 @@ function QList({ items }: { items: SnapshotItem[] }) {
     </div>
   );
 }
+
 
 
 
