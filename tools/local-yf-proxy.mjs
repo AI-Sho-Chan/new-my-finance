@@ -377,7 +377,14 @@ const server = http.createServer(async (req, res) => {
         const file = pathMod.join(dataDir, 'history.json');
         try { fs.mkdirSync(dataDir, { recursive: true }); } catch {}
         let local = [];
-        try { const txt = fs.readFileSync(file, 'utf8'); const j = JSON.parse(txt); if (Array.isArray(j)) local = j; } catch {}
+        try {
+          const txt = fs.readFileSync(file, 'utf8');
+          const j = JSON.parse(txt);
+          let arr = Array.isArray(j) ? j : (Array.isArray(j?.history) ? j.history : []);
+          // normalize any {t,v} to {x,y}
+          local = arr.map(o => ({ x: Number(o.x ?? o.t), y: Number(o.y ?? o.v) }))
+                     .filter(o => Number.isFinite(o.x) && Number.isFinite(o.y));
+        } catch {}
 
         const byDay = (t)=> Math.floor(t / 86400000) * 86400000;
         const map = new Map();
@@ -387,7 +394,11 @@ const server = http.createServer(async (req, res) => {
         // Keep last 3 years
         const cutoff = Date.now() - 3*365*86400000;
         const combined = Array.from(map.values()).filter(r => Number(r.x) >= cutoff).sort((a,b)=>a.x-b.x);
-        try { fs.writeFileSync(file, JSON.stringify(combined, null, 2), 'utf8'); } catch {}
+        // persist as {history:[{t,v}]}
+        try {
+          const out = { history: combined.map(r => ({ t: Number(r.x), v: Number(r.y) })) };
+          fs.writeFileSync(file, JSON.stringify(out, null, 2), 'utf8');
+        } catch {}
 
         const history = combined.map(r => ({ t: Number(r.x), v: Number(r.y) }));
         return send(res, 200, { now, previousClose, history });

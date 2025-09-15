@@ -59,7 +59,16 @@
             const r=await fetch(u,{headers:{'Accept':'application/json'}});
             if(!r.ok) throw new Error('fgi http '+r.status);
             const j=await r.json(); if(!alive) return;
-            setData({ now:(typeof j.now==='number'? j.now: null), previousClose:(typeof j.previousClose==='number'? j.previousClose: null), history:Array.isArray(j.history)?j.history:[] });
+            let hist = Array.isArray(j.history)? j.history: [];
+            if(!hist.length){
+              try{
+                const rs=await fetch('/data/fgi/history.json?ts='+Date.now(),{cache:'no-store'});
+                const jj=await rs.json();
+                if(Array.isArray(jj)) hist = jj.map(x=>({ t:Number(x.x)||0, v:Number(x.y)||0 })).filter(x=>x.t&&Number.isFinite(x.v));
+                else if(Array.isArray(jj.history)) hist = jj.history;
+              }catch(_){ }
+            }
+            setData({ now:(typeof j.now==='number'? j.now: null), previousClose:(typeof j.previousClose==='number'? j.previousClose: null), history: hist });
           }catch(e){ /* noop */ } };
         load(); const t=setInterval(load, 5*60*1000); return ()=>{ alive=false; clearInterval(t); } },[]);
       useEffect(()=>{ (async()=>{ if(!boxRef.current) return; const L=await ensureLightweightCharts(); await new Promise(r=>requestAnimationFrame(r)); if(!chartRef.current){ const el=boxRef.current; const c=L.createChart(el,{ width:el.clientWidth||600, height:120, layout:{background:{type:'solid',color:'#1f2937'},textColor:'rgba(255,255,255,0.9)'}, grid:{vertLines:{color:'#374151'},horzLines:{color:'#374151'}}, timeScale:{ borderColor:'#4b5563', visible:true, timeVisible:false, secondsVisible:false, tickMarkSpacing:60, tickMarkFormatter:(time)=>{ if(typeof time==='object'&&time&&'year'in time){ const yy=String(time.year%100).padStart(2,'0'); const mm=String(time.month).padStart(2,'0'); return `${yy}年${mm}月`; } const d=new Date((time+9*3600)*1000); const yy=String(d.getUTCFullYear()%100).padStart(2,'0'); const mm=String(d.getUTCMonth()+1).padStart(2,'0'); return `${yy}年${mm}月`; }}, localization:{ locale:'ja-JP' } }); chartRef.current=c; seriesRef.current=c.addLineSeries({ color:'#38bdf8', lineWidth:2 }); new ResizeObserver(([e])=>{ if(!e||!chartRef.current) return; chartRef.current.applyOptions({width:e.contentRect.width}); }).observe(el); }
