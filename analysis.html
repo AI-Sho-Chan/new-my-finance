@@ -188,24 +188,12 @@
     });
   }
   // --- Backtest: first entry events for Q1 buy / Q4 short ---
-  const MAX_HORIZON = 60; // days shown; underlying is computed as far as data allows
+  const MAX_HORIZON = 120; // up to ~6ヶ月（横スクロール回避のため抑制）
   function zByMap(map){ const xs=Object.values(map).filter(v=>Number.isFinite(v)); const n=xs.length; if(!n){ const out={}; for(const k in map) out[k]=NaN; return out; } const mean = xs.reduce((a,b)=>a+b,0)/n; const sd = Math.sqrt(xs.reduce((a,b)=>a+(b-mean)*(b-mean),0)/n)||1e-9; const out={}; for(const k in map){ const v=map[k]; out[k]=Number.isFinite(v)? Math.max(-3, Math.min(3,(v-mean)/sd)) : NaN; } return out; }
   async function openDB(){ return new Promise((res,rej)=>{ const req = indexedDB.open('nmy-analysis',1); req.onupgradeneeded = ()=>{ const db=req.result; if(!db.objectStoreNames.contains('events')) db.createObjectStore('events',{ keyPath:'id' }); }; req.onsuccess=()=>res(req.result); req.onerror=(e)=>rej(e); }); }
   async function putEvents(db, events){ return new Promise((res,rej)=>{ const tx=db.transaction('events','readwrite'); const st=tx.objectStore('events'); for(const ev of events){ st.put(ev); } tx.oncomplete=()=>res(); tx.onerror=(e)=>rej(e); }); }
   async function getAllEvents(db){ return new Promise((res,rej)=>{ const tx=db.transaction('events','readonly'); const st=tx.objectStore('events'); const req=st.getAll(); req.onsuccess=()=>res(req.result||[]); req.onerror=(e)=>rej(e); }); }
-  function renderBacktestTable(events){
-    try{
-      let card = document.getElementById('bt-card');
-      if(!card){ card=document.createElement('div'); card.className='card'; card.id='bt-card'; const wrap=document.querySelector('.wrap'); wrap.insertBefore(card, document.getElementById('heat').parentElement); }
-      const days = Array.from({length: Math.min(MAX_HORIZON, 60)}, (_,i)=>i+1);
-      const head = '<tr><th>Quad</th><th>Symbol</th><th>判定日</th><th>売買</th><th>執行日</th><th>執行価格</th>' + days.map(d=>`<th>${d}D</th>`).join('') + '</tr>';
-      const rows = events.sort((a,b)=>b.signalTs-a.signalTs).slice(0,100).map(ev=>{
-        const cells = days.map(d=>{ const r=ev.returns?.[d]; return (typeof r==='number' && isFinite(r))? (r*100).toFixed(2)+'%': '' });
-        return `<tr><td>${ev.quad}</td><td>${ev.symbol}</td><td>${fmtDate(ev.signalTs)}</td><td>${ev.side}</td><td>${fmtDate(ev.execTs)}</td><td>${Number(ev.execPrice||0).toFixed(2)}</td>${cells.map(c=>`<td>${c}</td>`).join('')}</tr>`;
-      }).join('');
-      card.innerHTML = '<div class="title">イベント検証（Q1買い/Q4売り）</div>' + '<div class="small">翌営業日の寄付き値で約定、以降の終値ベース損益率を表示</div>' + `<table style="width:100%"><thead>${head}</thead><tbody>${rows}</tbody></table>`;
-    }catch(_){ }
-  }
+  function renderBacktestTable(_events){ /* moved to backtest.html */ }
   async function buildAndRenderBacktest(series){
     // Build fast index per symbol
     const bySym = {}; for(const s of series){ bySym[s.symbol]=s; s.indexByTs={}; for(let i=0;i<(s.ts||[]).length;i++){ s.indexByTs[s.ts[i]]=i; } }

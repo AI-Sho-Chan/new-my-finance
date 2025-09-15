@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>バックテスト結果（Q1買い/Q4売り）</title>
+  <link rel="icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAFElEQVQoka3MMQ0AAAgDsKf9GQxgq0g1mHc3k3gAAAAASUVORK5CYII=" />
+  <style>
+    body{ background:#0f172a; color:#e5e7eb; font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial; }
+    .wrap{ max-width: 1200px; margin: 16px auto; padding: 0 12px; }
+    .card{ background:#111827; border:1px solid #374151; border-radius:8px; padding:12px; margin-bottom:16px; }
+    .title{ font-weight:700; margin-bottom:8px; }
+    .small{ color:#9ca3af; font-size:12px; }
+    table{ width:100%; border-collapse: collapse; }
+    th,td{ padding:6px 8px; border-top:1px solid #374151; text-align:right; white-space:nowrap; }
+    th{ color:#cbd5e1; font-weight:600; text-align:right; cursor:pointer; }
+    th.sticky{ position:sticky; left:0; background:#111827; z-index:1; text-align:left; }
+    td.sticky{ position:sticky; left:0; background:#111827; text-align:left; }
+    .toolbar{ display:flex; align-items:center; gap:8px; }
+    .btn{ display:inline-block; padding:6px 10px; background:#1f2937; border:1px solid #374151; border-radius:6px; color:#e5e7eb; text-decoration:none; }
+    .btn:hover{ background:#374151; }
+    .good{ color:#22c55e; }
+    .bad{ color:#ef4444; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="title">バックテスト結果（Q1買い/Q4売り）</div>
+      <div class="toolbar small">
+        <a href="/analysis.html" class="btn">分析ページへ</a>
+        <span id="meta">読み込み中...</span>
+        <label>列数:
+          <select id="horizon">
+            <option value="30">30D</option>
+            <option value="60" selected>60D</option>
+            <option value="120">120D</option>
+          </select>
+        </label>
+      </div>
+    </div>
+
+    <div class="card" style="overflow:auto;">
+      <div class="small" id="desc"></div>
+      <div id="table"></div>
+    </div>
+  </div>
+
+  <script>
+    const MAXD_DEFAULT = 60;
+    let SORT = { key: 'latest', dir: 'desc' };
+    let EVENTS = [];
+    let CURRENT_D = MAXD_DEFAULT;
+
+    function fmtDate(ts){ try{ const d=new Date(ts*1000); return isNaN(+d)? 'n/a': d.toISOString().slice(0,10); }catch(_){ return 'n/a'; } }
+    async function openDB(){ return new Promise((res,rej)=>{ const req = indexedDB.open('nmy-analysis',1); req.onupgradeneeded = ()=>{ const db=req.result; if(!db.objectStoreNames.contains('events')) db.createObjectStore('events',{ keyPath:'id' }); }; req.onsuccess=()=>res(req.result); req.onerror=(e)=>rej(e); }); }
+    async function getAllEvents(db){ return new Promise((res,rej)=>{ const tx=db.transaction('events','readonly'); const st=tx.objectStore('events'); const req=st.getAll(); req.onsuccess=()=>res(req.result||[]); req.onerror=(e)=>rej(e); }); }
+
+    function calcLatestDay(ev){ const ks=Object.keys(ev.returns||{}).map(k=>+k).filter(Number.isFinite); return ks.length? Math.max(...ks): 0; }
+    function comp(a,b,key,dir){ const s = (dir==='asc'? 1 : -1); const va = getVal(a,key), vb = getVal(b,key); if(va<vb) return -1*s; if(va>vb) return 1*s; return 0; }
+    function getVal(ev,key){ if(key==='quad') return ev.quad; if(key==='symbol') return ev.symbol; if(key==='signalTs') return ev.signalTs; if(key==='execTs') return ev.execTs; if(key==='execPrice') return +ev.execPrice || 0; if(key==='latest'){ const d = calcLatestDay(ev); const r = ev.returns?.[d]; return (typeof r==='number' && isFinite(r))? r: -Infinity; } if(/^D\d+$/.test(key)){ const d = +key.slice(1); const r = ev.returns?.[d]; return (typeof r==='number' && isFinite(r))? r: -Infinity; } return 0; }
+
+    function render(){
+      const container = document.getElementById('table'); container.innerHTML='';
+      const dmax = CURRENT_D;
+      const headCells = ['Quad','Symbol','判定日','売買','執行日','執行価格'].concat(Array.from({length:dmax},(_,i)=>`${i+1}D`));
+      const head = document.createElement('table'); const thead=document.createElement('thead'); const tr=document.createElement('tr');
+      headCells.forEach((label,idx)=>{ const th=document.createElement('th'); th.textContent=label; if(idx===0){ th.className='sticky'; th.style.left='0px'; } th.addEventListener('click',()=>{ if(idx<=5){ const keys=['quad','symbol','signalTs','side','execTs','execPrice']; const map= {side:'side'}; const k = keys[idx] || 'quad'; if(SORT.key===k) SORT.dir = (SORT.dir==='asc'?'desc':'asc'); else { SORT.key=k; SORT.dir='desc'; } } else { const k = 'D'+(idx-5); if(SORT.key===k) SORT.dir=(SORT.dir==='asc'?'desc':'asc'); else { SORT.key=k; SORT.dir='desc'; } } render(); }); tr.appendChild(th); });
+      thead.appendChild(tr); head.appendChild(thead); container.appendChild(head);
+
+      const table=document.createElement('table'); const tbody=document.createElement('tbody');
+      const rows=[...EVENTS].sort((a,b)=> comp(a,b, SORT.key==='latest'?'latest':SORT.key, SORT.dir));
+      rows.forEach(ev=>{
+        const tr=document.createElement('tr');
+        const sticky=document.createElement('td'); sticky.className='sticky'; sticky.textContent=ev.quad; tr.appendChild(sticky);
+        const cells=[ev.symbol, fmtDate(ev.signalTs), ev.side, fmtDate(ev.execTs), (Number(ev.execPrice||0)).toFixed(2)];
+        cells.forEach((v)=>{ const td=document.createElement('td'); td.textContent=v; tr.appendChild(td); });
+        for(let d=1; d<=dmax; d++){ const td=document.createElement('td'); const r=ev.returns?.[d]; if(typeof r==='number' && isFinite(r)){ const pct=(r*100).toFixed(2)+'%'; td.textContent=pct; td.className= r>=0 ? 'good' : 'bad'; } else td.textContent=''; tr.appendChild(td); }
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody); container.appendChild(table);
+      const latestAcross = Math.max( ...EVENTS.map(calcLatestDay).concat([0]) );
+      const meta = document.getElementById('meta'); meta.textContent = `イベント: ${EVENTS.length}件 / デフォルト並び: 直近D=${latestAcross}の損益(降順)`;
+      const desc = document.getElementById('desc'); desc.textContent = '各見出しクリックで昇順/降順切替。Symbol/判定日等でも整列できます。';
+    }
+
+    (async()=>{
+      try{
+        const db = await openDB();
+        const list = await getAllEvents(db);
+        EVENTS = Array.isArray(list)? list: [];
+        // default sort by latest available D across events
+        SORT = { key:'latest', dir:'desc' };
+        render();
+        document.getElementById('horizon').addEventListener('change', (e)=>{ CURRENT_D = Math.max(10, +e.target.value||MAXD_DEFAULT); render(); });
+      }catch(e){ document.getElementById('meta').textContent = '読み込み失敗'; }
+    })();
+  </script>
+</body>
+</html>
+
