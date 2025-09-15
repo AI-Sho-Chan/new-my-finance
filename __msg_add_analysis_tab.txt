@@ -1,0 +1,1 @@
+﻿feat(ui): re-enable Analysis tab and embed minimal analysis.html (Scatter+Heatmap)

@@ -1,0 +1,1 @@
+﻿chore(ui): temporarily remove Analysis tab and section from NMY.html to prevent mixed/legacy embed; will re-add with clean Scatter+Heatmap
