@@ -6,7 +6,7 @@ $ErrorActionPreference = 'SilentlyContinue'
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path | Split-Path -Parent
 $taskName = 'NewMyFinance-Autostart'
 $psExe = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
-$script = Join-Path $root 'tools\start-all.ps1'
+$script = Join-Path $root 'tools\keep-alive.ps1'
 $args = "-ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden -File `"$script`" -UiPort $UiPort"
 
 # Remove existing (ignore errors)
@@ -23,6 +23,8 @@ try {
 
 # Create a per-user interactive task that runs on logon
 cmd /c schtasks /Create /TN $taskName /TR "`"$psExe`" $args" /SC ONLOGON /RL $runLevel /IT /F 1>NUL 2>&1
+# Also create an 'At startup' task for when the machine boots
+cmd /c schtasks /Create /TN "$taskName-AtStartup" /TR "`"$psExe`" $args" /SC ONSTART /RL $runLevel /F 1>NUL 2>&1
 if ($LASTEXITCODE -ne 0) {
   # Fallback: Startup folder shortcut (per-user, no admin required)
   try {
@@ -39,4 +41,5 @@ if ($LASTEXITCODE -ne 0) {
   }
 } else {
   Write-Host "Autostart task installed: $taskName (RunLevel=$runLevel)"
+  Write-Host "Autostart task installed: $taskName-AtStartup (RunLevel=$runLevel)"
 }
