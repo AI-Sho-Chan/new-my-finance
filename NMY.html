@@ -105,9 +105,24 @@
             setData({ now:(typeof j.now==='number'? j.now: null), previousClose:(typeof j.previousClose==='number'? j.previousClose: null), history: hist });
           }catch(e){ /* noop */ } };
         load(); const t=setInterval(load, 5*60*1000); return ()=>{ alive=false; clearInterval(t); } },[]);
-      useEffect(()=>{ (async()=>{ if(!boxRef.current) return; const L=await ensureLightweightCharts(); await new Promise(r=>requestAnimationFrame(r)); if(!chartRef.current){ const el=boxRef.current; const c=L.createChart(el,{ width:el.clientWidth||600, height:120, layout:{background:{type:'solid',color:'#1f2937'},textColor:'rgba(255,255,255,0.9)'}, grid:{vertLines:{color:'#374151'},horzLines:{color:'#374151'}}, timeScale:{ borderColor:'#4b5563', visible:true, timeVisible:false, secondsVisible:false, tickMarkSpacing:60, tickMarkFormatter:(time)=>{ if(typeof time==='object'&&time&&'year'in time){ const yy=String(time.year%100).padStart(2,'0'); const mm=String(time.month).padStart(2,'0'); return `${yy}年${mm}月`; } const d=new Date((time+9*3600)*1000); const yy=String(d.getUTCFullYear()%100).padStart(2,'0'); const mm=String(d.getUTCMonth()+1).padStart(2,'0'); return `${yy}年${mm}月`; }}, localization:{ locale:'ja-JP' } }); chartRef.current=c; seriesRef.current=c.addLineSeries({ color:'#38bdf8', lineWidth:2 }); new ResizeObserver(([e])=>{ if(!e||!chartRef.current) return; chartRef.current.applyOptions({width:e.contentRect.width}); }).observe(el); }
-        const s=seriesRef.current; if(s){ const arr=(data.history||[]).map(x=>({ time: Math.floor((x.t||0)/1000), value: Number(x.v)||0 })); s.setData(arr); chartRef.current?.timeScale().fitContent(); }
-      })(); },[data.history]);
+      useEffect(()=>{ (async()=>{ if(!boxRef.current) return; const L=await ensureLightweightCharts(); await new Promise(r=>requestAnimationFrame(r)); if(!chartRef.current){ const el=boxRef.current; const c=L.createChart(el,{ width:el.clientWidth||600, height:120, layout:{background:{type:'solid',color:'#1f2937'},textColor:'rgba(255,255,255,0.9)'}, grid:{vertLines:{color:'#374151'},horzLines:{color:'#374151'}}, timeScale:{ borderColor:'#4b5563', visible:true, timeVisible:false, secondsVisible:false, tickMarkSpacing:60, tickMarkFormatter:(time)=>{ const d=(typeof time==='object'&&time&&'year'in time)? new Date(Date.UTC(time.year, (time.month||1)-1, time.day||1)) : new Date((time+9*3600)*1000); const yy=String(d.getUTCFullYear()%100).padStart(2,'0'); const mm=String(d.getUTCMonth()+1).padStart(2,'0'); const dd=String(d.getUTCDate()).padStart(1,''); return `${yy}年${mm}月`; }}, localization:{ locale:'ja-JP' } }); chartRef.current=c; seriesRef.current=c.addLineSeries({ color:'#38bdf8', lineWidth:2 }); new ResizeObserver(([e])=>{ if(!e||!chartRef.current) return; chartRef.current.applyOptions({width:e.contentRect.width}); }).observe(el); }
+        const s=seriesRef.current; if(s){
+          const base=(data.history||[]).map(x=>({ time: Math.floor((x.t||0)/1000), value: Number(x.v)||0 }));
+          const nowV = (typeof data.now==='number' && Number.isFinite(data.now)) ? data.now : null;
+          const lastT = base.length? base[base.length-1].time : 0;
+          const nowT = Math.floor(Date.now()/1000);
+          const arr = nowV!=null ? [...base, { time: Math.max(lastT+60, nowT), value: nowV }] : base;
+          s.setData(arr);
+          // Dynamic tick label: short range => M/D, long range => YY/MM
+          const useMD = arr.length < 90;
+          chartRef.current?.applyOptions({ timeScale: { tickMarkFormatter: (time)=>{
+            const d=(typeof time==='object'&&time&&'year'in time)? new Date(Date.UTC(time.year, (time.month||1)-1, time.day||1)) : new Date((time+9*3600)*1000);
+            const yy=String(d.getUTCFullYear()%100).padStart(2,'0'); const mm=String(d.getUTCMonth()+1).padStart(1,''); const dd=String(d.getUTCDate());
+            return useMD ? `${mm}/${dd}` : `${yy}/${String(d.getUTCMonth()+1).padStart(2,'0')}`;
+          } } });
+          chartRef.current?.timeScale().fitContent();
+        }
+      })(); },[data.history, data.now]);
       const score = (typeof data.now==='number' && Number.isFinite(data.now)) ? data.now : null;
       const prev = (typeof data.previousClose==='number' && Number.isFinite(data.previousClose)) ? data.previousClose : null;
       const label = (v)=> v==null? '-' : (v<=25?'極度恐怖': v<=45?'恐怖': v<55?'中立': v<75?'強欲': '極度強欲');
@@ -206,7 +221,6 @@
       {id:'GOOGL',   name:'Alphabet', symbol:'GOOGL'},
       {id:'MSFT',    name:'Microsoft', symbol:'MSFT'},
       {id:'META',    name:'Meta', symbol:'META'}
-      ,{id:'ZZTEST', name:J('%E3%82%B7%E3%82%B0%E3%83%8A%E3%83%AB%E3%83%86%E3%82%B9%E3%83%88'), symbol:'ZZTEST'}
     ];
     const NAME_MAP = Object.fromEntries(DEFAULT_ITEMS.map(x=>[x.symbol,x.name]));
 
@@ -757,14 +771,6 @@
             for (let i=close.length-1;i>=0;i--) { const v=close[i]; if (Number.isFinite(v)) { rec.price=v; rec.change=0; rec.changePercent=0; break; } }
           } catch {}
         }));
-        // Hardcode dummy ZZTEST for demo
-        if (symbols.includes('ZZTEST')) {
-          out['ZZTEST'] = out['ZZTEST'] || {};
-          if (!Number.isFinite(out['ZZTEST'].price)) out['ZZTEST'].price = 1500;
-          if (!('name' in out['ZZTEST'])) out['ZZTEST'].name = NAME_MAP['ZZTEST'] || 'シグナルテスト';
-          out['ZZTEST'].change = 50;
-          out['ZZTEST'].changePercent = 50/1450;
-        }
         return out;
       } catch(e){
         return symbols.reduce((a,s)=>{ a[s]={ price:0, change:0, changePercent:0, name:NAME_MAP[s]||s }; return a; },{});
@@ -1045,13 +1051,9 @@
                 const s = await r.json();
                 setSignals(s||{});
               } else {
-                const demo={}; if(uniqBase.some(x=>x.symbol==='ZZTEST')) demo['ZZTEST']={signals:[{type:'52H+',date:Math.floor(Date.now()/1000)-86400},{type:'押',date:Math.floor(Date.now()/1000)}]};
-                setSignals(demo);
+                setSignals({});
               }
-            } catch(_){
-              const demo={}; if(uniqBase.some(x=>x.symbol==='ZZTEST')) demo['ZZTEST']={signals:[{type:'52H+',date:Math.floor(Date.now()/1000)-86400},{type:'押',date:Math.floor(Date.now()/1000)}]};
-              setSignals(demo);
-            }
+            } catch(_){ setSignals({}); }
           } finally { setIsLoading(false); }
         })();
       },[watchItems, draftItems, sortMode]);
@@ -1074,9 +1076,9 @@
 
             {page==='analysis' && (
               <section className="bg-gray-800 rounded p-2">
-                <div className="font-semibold mb-2">{J('%E7%9B%B8%E5%AF%BE%E5%8A%9B%E3%83%80%E3%83%83%E3%82%B7%E3%83%A5%E3%83%9C%E3%83%BC%E3%83%89')}</div>
+                <div className="font-semibold mb-2">{J('%E5%88%86%E6%9E%90')}</div>
                 <div className="w-full">
-                  <iframe id="analysisFrame" src="/analysis.html" title="analysis" className="w-full bg-gray-900 rounded border border-gray-700" style={{ height: 600, overflow: 'hidden' }}></iframe>
+                  <iframe id="analysisFrame" src="/analysis.html" title="analysis" className="w-full bg-gray-900 rounded border border-gray-700" style={{ height: 600, overflow: 'hidden' }} onLoad={(e)=>{ try{ const el=e.target; const doc=el.contentDocument||el.contentWindow?.document; if(doc){ const h=Math.max(doc.body.scrollHeight, doc.documentElement.scrollHeight); if(h) el.style.height=(h+4)+'px'; } }catch(_){} }}></iframe>
                 </div>
               </section>
             )}

@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>分析（Scatter + Heatmap）</title>
+  <link rel="icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAFElEQVQoka3MMQ0AAAgDsKf9GQxgq0g1mHc3k3gAAAAASUVORK5CYII=" />
   <style>
     body{ background:#0f172a; color:#e5e7eb; font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial; }
     .wrap{ max-width: 1100px; margin: 16px auto; padding: 0 12px; }
@@ -18,10 +19,16 @@
     .legend span{ margin-right:8px; }
     a{ color:#93c5fd; }
   </style>
+  <script>
+    // Resize helper for iframe parent
+    function postSize(){ try{ var h=Math.max(document.documentElement.scrollHeight, document.body.scrollHeight); parent && parent.postMessage({ type:'analysisSize', height:h }, window.location.origin); }catch(e){} }
+    window.addEventListener('load', postSize);
+    window.addEventListener('resize', postSize);
+  </script>
 </head>
 <body>
   <div class="wrap">
-    <h1 style="font-size:20px; font-weight:800; margin:8px 0 12px;">相対力ダッシュボード（最小版）</h1>
+    <h1 style="font-size:20px; font-weight:800; margin:8px 0 12px;">分析（Scatter + Heatmap）</h1>
     <div class="card">
       <div class="title">Scatter（F × V） <span class="small" id="meta"></span></div>
       <div class="legend small" style="margin-bottom:6px;">
@@ -29,20 +36,34 @@
         <span class="chip q2">Q2</span>
         <span class="chip q3">Q3</span>
         <span class="chip q4">Q4</span>
-        <span class="small">（F: 63日リターンのZスコア／V: SMA50 乖離のZスコア）</span>
+        <span class="small">F: 63日リターンのZスコア／V: SMA50乖離のZスコア</span>
       </div>
-      <svg id="scatter" width="1040" height="420" style="background:#0b1220; border:1px solid #374151; border-radius:6px;"></svg>
+      <svg id="scatter" height="420" style="width:100%; background:#0b1220; border:1px solid #374151; border-radius:6px;"></svg>
     </div>
 
     <div class="card">
       <div class="title">Heatmap（F / V / A）</div>
       <table id="heat"></table>
     </div>
+
+    <div class="card">
+      <div class="title">用語と算出方法</div>
+      <div class="small">
+        <p><b>F（Force）:</b> 過去63営業日のリターンを各銘柄内で標準化したZスコア。例: F = zscore(close[t]/close[t-63] - 1)。投資家にとっては直近四半期の勢いを相対比較する指標。</p>
+        <p><b>V（Velocity）:</b> 50日移動平均（SMA50）に対する現在値の乖離率を各銘柄内で標準化したZスコア。ここでは dev = (SMA50 - 現在値) / SMA50 を使用し、V = zscore(dev)。値が低い（負に大きい）ほど上方乖離が大きい傾向。</p>
+        <p><b>A（Average）:</b> FとVの単純平均 A = (F + V)/2。モメンタムとトレンド位置の複合指標。</p>
+        <p><b>Q1〜Q4（象限）:</b> 散布図で F（縦）と V（横）の符号により分類。Q1: F≥0, V≥0、Q2: F≥0, V&lt;0、Q3: F&lt;0, V≥0、Q4: F&lt;0, V&lt;0。</p>
+        <p><b>Zスコア:</b> 値から平均を引き標準偏差で割った値。極端値の影響を抑えるため ±3 にクリップ。</p>
+        <p><b>Heatmapの色:</b> 同一列内のパーセンタイルで着色（低→高で赤→緑）。</p>
+      </div>
+      <div class="small" id="dataDate"></div>
+    </div>
   </div>
 
   <script type="module">
   const BASE = (window.__YF_PROXY__ || '/api/yf');
   const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
+  function fmtDate(ts){ try{ const d=new Date((Number(ts)||0)*1000); return isNaN(+d)? 'n/a' : d.toISOString().slice(0,10); }catch(_){ return 'n/a'; } }
   async function yf(path){
     const u = BASE + path + (path.includes('?')?'&':'?') + 'ts=' + Date.now();
     for(let i=0;i<2;i++){
@@ -65,11 +86,11 @@
       const j = await yf(`/history?symbol=${encodeURIComponent(s)}&interval=1d&range=1y`);
       const r = j?.chart?.result?.[0]||{}; const ts = r.timestamp||[]; const q=r.indicators?.quote?.[0]||{}; const close=q.close||[];
       const data = []; for(let i=0;i<ts.length;i++){ const c=close[i]; if(Number.isFinite(c)) data.push(c); }
-      return { symbol:s, data };
-    }catch{ return { symbol:s, data:[] } }}));
-    const R63 = []; const Vraw = []; const latest = new Map();
+      return { symbol:s, data, ts };
+    }catch{ return { symbol:s, data:[], ts:[] } }}));
+    const R63 = []; const Vraw = []; let latestTs=0;
     for(const s of series){ const d=s.data; const n=d.length; if(n===0){ R63.push(NaN); Vraw.push(NaN); continue; }
-      latest.set(s.symbol, d[n-1]);
+      if (Array.isArray(s.ts) && s.ts.length) latestTs = Math.max(latestTs, s.ts[s.ts.length-1]||0);
       const r63 = (n>63 && d[n-63]>0)? (d[n-1]/d[n-63] - 1) : NaN; R63.push(r63);
       const win = d.slice(Math.max(0,n-50)); const sma = win.reduce((a,b)=>a+b,0)/(win.length||1); const dev = (sma>0)? (sma - d[n-1])/sma : NaN; Vraw.push(dev);
     }
@@ -77,15 +98,17 @@
     try{ const q = await yf(`/quote?symbols=${encodeURIComponent(symbols.join(','))}`); const list = q?.quoteResponse?.result||[]; for(const item of list){ if(item?.symbol && item?.longName){ const it=watch.find(w=>w.symbol===item.symbol); if(it) it.name=item.longName; } } }catch{}
     const items = watch.map((w,i)=>({ id:w.symbol, name:w.name, symbol:w.symbol, F:F[i], V:V[i], A:A[i] }));
     renderScatter(items); renderHeat(items);
+    if(latestTs){ const at = document.getElementById('dataDate'); if(at) at.textContent = `使用データ最終日: ${fmtDate(latestTs)}（Yahoo Finance）`; }
+    setTimeout(postSize, 0);
   }
   function renderScatter(items){
     const svg = document.getElementById('scatter'); while(svg.firstChild) svg.removeChild(svg.firstChild);
-    const pad=40, W=+svg.getAttribute('width')||1040, H=+svg.getAttribute('height')||420;
+    const pad=40; const rect = svg.getBoundingClientRect(); const W = Math.max(360, Math.floor(rect.width)||1040); const H=+svg.getAttribute('height')||420;
     const w=W-2*pad, h=H-2*pad; const g = document.createElementNS('http://www.w3.org/2000/svg','g'); g.setAttribute('transform',`translate(${pad},${pad})`); svg.appendChild(g);
     const xs = (v)=> (v+3)/6 * w; const ys=(f)=> (1-(f+3)/6) * h;
     const axis = (x1,y1,x2,y2,color)=>{ const l=document.createElementNS('http://www.w3.org/2000/svg','line'); l.setAttribute('x1',x1);l.setAttribute('y1',y1);l.setAttribute('x2',x2);l.setAttribute('y2',y2); l.setAttribute('stroke',color); l.setAttribute('stroke-width','1'); l.setAttribute('opacity','0.6'); g.appendChild(l); };
     axis(0, ys(0), w, ys(0),'#374151'); axis(xs(0),0,xs(0),h,'#374151');
-    for(const it of items){ const cx=xs(it.V), cy=ys(it.F); const q = (it.F>=0 && it.V>=0)?'q1': (it.F>=0 && it.V<0)?'q2': (it.F<0 && it.V<0)?'q4':'q3'; const color = q==='q1'? '#22c55e': q==='q2'? '#f59e0b' : q==='q3'? '#3b82f6' : '#ef4444'; const c=document.createElementNS('http://www.w3.org/2000/svg','circle'); c.setAttribute('cx',cx); c.setAttribute('cy',cy); c.setAttribute('r',6); c.setAttribute('fill',color); c.setAttribute('fill-opacity','0.85'); c.setAttribute('stroke','#0b1220'); c.setAttribute('stroke-width','1'); const t=document.createElementNS('http://www.w3.org/2000/svg','title'); t.textContent = `${it.name} F=${it.F?.toFixed(2)} V=${it.V?.toFixed(2)}`; c.appendChild(t); g.appendChild(c); }
+    for(const it of items){ const cx=xs(it.V), cy=ys(it.F); const q = (it.F>=0 && it.V>=0)?'q1': (it.F>=0 && it.V<0)?'q2': (it.F<0 && it.V<0)?'q4':'q3'; const color = q==='q1'? '#22c55e': q==='q2'? '#f59e0b' : q==='q3'? '#3b82f6' : '#ef4444'; const c=document.createElementNS('http://www.w3.org/2000/svg','circle'); c.setAttribute('cx',cx); c.setAttribute('cy',cy); c.setAttribute('r',6); c.setAttribute('fill',color); c.setAttribute('fill-opacity','0.85'); c.setAttribute('stroke','#0b1220'); c.setAttribute('stroke-width','1'); const t=document.createElementNS('http://www.w3.org/2000/svg','title'); t.textContent = `${it.name} F=${Number.isFinite(it.F)?it.F.toFixed(2):'N/A'} V=${Number.isFinite(it.V)?it.V.toFixed(2):'N/A'}`; c.appendChild(t); g.appendChild(c); }
     document.getElementById('meta').textContent = `n=${items.length}`;
   }
   function pctColor(p){ const t=Math.max(0,Math.min(1,p??0.5)); const r=Math.round(239*(1-t)+34*t), g=Math.round(68*(1-t)+197*t), b=Math.round(68*(1-t)+94*t); return `rgb(${r},${g},${b})`; }
@@ -108,7 +131,9 @@
       tbody.appendChild(tr);
     });
   }
-  load().catch(e=>{ document.getElementById('meta').textContent = 'error'; console.error(e); });
+  load().catch(e=>{ document.getElementById('meta').textContent = 'error'; console.error(e); }).finally(()=>setTimeout(postSize,0));
+  window.addEventListener('resize', ()=>{ try{ renderScatter([]); }catch(_){}; setTimeout(postSize,0); });
   </script>
 </body>
 </html>
+
