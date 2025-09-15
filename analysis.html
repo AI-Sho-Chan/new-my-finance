@@ -18,6 +18,12 @@
     .q1{ background:#22c55e; } .q2{ background:#f59e0b; } .q3{ background:#3b82f6; } .q4{ background:#ef4444; }
     .legend span{ margin-right:8px; }
     a{ color:#93c5fd; }
+    .legend .shape { display:inline-block; width:10px; height:10px; margin-right:4px; vertical-align:middle; }
+    .legend .shape.circle{ border-radius:50%; background:currentColor; }
+    .legend .shape.square{ background:currentColor; }
+    .legend .shape.diamond{ transform: rotate(45deg); background:currentColor; width:8px; height:8px; margin:1px 6px 1px 2px; }
+    .legend .shape.triup{ width: 0; height: 0; border-left:6px solid transparent; border-right:6px solid transparent; border-bottom:10px solid currentColor; background:transparent; }
+    .legend .shape.tridown{ width: 0; height: 0; border-left:6px solid transparent; border-right:6px solid transparent; border-top:10px solid currentColor; background:transparent; }
   </style>
   <script>
     // Resize helper for iframe parent
@@ -79,6 +85,7 @@
     const mean = xs.reduce((a,b)=>a+b,0)/n; const sd = Math.sqrt(xs.reduce((a,b)=>a+(b-mean)*(b-mean),0)/n)||1e-9;
     return values.map(v=> Number.isFinite(v) ? Math.max(-3, Math.min(3, (v-mean)/sd )) : 0 );
   }
+  let __itemsCache = [];
   async function load(){
     const watch = readWatch();
     const symbols = watch.map(w=>w.symbol);
@@ -97,6 +104,7 @@
     const F = zscore(R63); const V = zscore(Vraw); const A = F.map((f,i)=>(f + V[i])/2);
     try{ const q = await yf(`/quote?symbols=${encodeURIComponent(symbols.join(','))}`); const list = q?.quoteResponse?.result||[]; for(const item of list){ if(item?.symbol && item?.longName){ const it=watch.find(w=>w.symbol===item.symbol); if(it) it.name=item.longName; } } }catch{}
     const items = watch.map((w,i)=>({ id:w.symbol, name:w.name, symbol:w.symbol, F:F[i], V:V[i], A:A[i] }));
+    __itemsCache = items;
     renderScatter(items); renderHeat(items);
     if(latestTs){ const at = document.getElementById('dataDate'); if(at) at.textContent = `使用データ最終日: ${fmtDate(latestTs)}（Yahoo Finance）`; }
     setTimeout(postSize, 0);
@@ -108,7 +116,26 @@
     const xs = (v)=> (v+3)/6 * w; const ys=(f)=> (1-(f+3)/6) * h;
     const axis = (x1,y1,x2,y2,color)=>{ const l=document.createElementNS('http://www.w3.org/2000/svg','line'); l.setAttribute('x1',x1);l.setAttribute('y1',y1);l.setAttribute('x2',x2);l.setAttribute('y2',y2); l.setAttribute('stroke',color); l.setAttribute('stroke-width','1'); l.setAttribute('opacity','0.6'); g.appendChild(l); };
     axis(0, ys(0), w, ys(0),'#374151'); axis(xs(0),0,xs(0),h,'#374151');
-    for(const it of items){ const cx=xs(it.V), cy=ys(it.F); const q = (it.F>=0 && it.V>=0)?'q1': (it.F>=0 && it.V<0)?'q2': (it.F<0 && it.V<0)?'q4':'q3'; const color = q==='q1'? '#22c55e': q==='q2'? '#f59e0b' : q==='q3'? '#3b82f6' : '#ef4444'; const c=document.createElementNS('http://www.w3.org/2000/svg','circle'); c.setAttribute('cx',cx); c.setAttribute('cy',cy); c.setAttribute('r',6); c.setAttribute('fill',color); c.setAttribute('fill-opacity','0.85'); c.setAttribute('stroke','#0b1220'); c.setAttribute('stroke-width','1'); const t=document.createElementNS('http://www.w3.org/2000/svg','title'); t.textContent = `${it.name} F=${Number.isFinite(it.F)?it.F.toFixed(2):'N/A'} V=${Number.isFinite(it.V)?it.V.toFixed(2):'N/A'}`; c.appendChild(t); g.appendChild(c); }
+    // axis labels
+    const tx = document.createElementNS('http://www.w3.org/2000/svg','text'); tx.setAttribute('x', w); tx.setAttribute('y', h+28); tx.setAttribute('fill','#9ca3af'); tx.setAttribute('text-anchor','end'); tx.setAttribute('font-size','12'); tx.textContent='V (Z)'; g.appendChild(tx);
+    const ty = document.createElementNS('http://www.w3.org/2000/svg','text'); ty.setAttribute('x', -8); ty.setAttribute('y', 0); ty.setAttribute('fill','#9ca3af'); ty.setAttribute('text-anchor','end'); ty.setAttribute('font-size','12'); ty.setAttribute('transform','rotate(-90)'); ty.textContent='F (Z)'; g.appendChild(ty);
+    // class -> shape
+    const assetClass=(sym)=>(/=X$/.test(sym)||/-JPY$/.test(sym)?'fx': sym==='BTC-JPY'?'crypto': /^\^/.test(sym)?'index': /\.T$/.test(sym)?'jp':'us');
+    for(const it of items){
+      const cx=xs(it.V), cy=ys(it.F); const q = (it.F>=0 && it.V>=0)?'q1': (it.F>=0 && it.V<0)?'q2': (it.F<0 && it.V<0)?'q4':'q3'; const color = q==='q1'? '#22c55e': q==='q2'? '#f59e0b' : q==='q3'? '#3b82f6' : '#ef4444'; const cls=assetClass(it.symbol);
+      let node;
+      if(cls==='us'){ node=document.createElementNS('http://www.w3.org/2000/svg','circle'); node.setAttribute('r',6); node.setAttribute('cx',cx); node.setAttribute('cy',cy); }
+      else if(cls==='jp'){ node=document.createElementNS('http://www.w3.org/2000/svg','rect'); node.setAttribute('width',12); node.setAttribute('height',12); node.setAttribute('x',cx-6); node.setAttribute('y',cy-6); node.setAttribute('rx',2); node.setAttribute('ry',2); }
+      else if(cls==='index'){ node=document.createElementNS('http://www.w3.org/2000/svg','rect'); node.setAttribute('width',10); node.setAttribute('height',10); node.setAttribute('x',cx-5); node.setAttribute('y',cy-5); node.setAttribute('transform',`rotate(45, ${cx}, ${cy})`); }
+      else if(cls==='fx'){ const p=document.createElementNS('http://www.w3.org/2000/svg','path'); p.setAttribute('d',`M ${cx} ${cy-6} L ${cx-6} ${cy+6} L ${cx+6} ${cy+6} Z`); node=p; }
+      else { const p=document.createElementNS('http://www.w3.org/2000/svg','path'); p.setAttribute('d',`M ${cx-6} ${cy-4} L ${cx} ${cy+6} L ${cx+6} ${cy-4} Z`); node=p; }
+      node.setAttribute('fill',color); node.setAttribute('fill-opacity','0.88'); node.setAttribute('stroke','#0b1220'); node.setAttribute('stroke-width','1');
+      const t=document.createElementNS('http://www.w3.org/2000/svg','title'); t.textContent = `${it.name} F=${Number.isFinite(it.F)?it.F.toFixed(2):'N/A'} V=${Number.isFinite(it.V)?it.V.toFixed(2):'N/A'}`; node.appendChild(t); g.appendChild(node);
+    }
+    // labels for Q1 & Q4 with overlap avoidance
+    const placed=[]; const overlap=(a,b)=>!(a.x+a.w<b.x || b.x+b.w<a.x || a.y+a.h<b.y || b.y+b.h<a.y);
+    function labelAt(x,y,txt){ const L=document.createElementNS('http://www.w3.org/2000/svg','text'); L.setAttribute('x',x+8); L.setAttribute('y',y-8); L.setAttribute('fill','#e5e7eb'); L.setAttribute('font-size','11'); L.setAttribute('paint-order','stroke'); L.setAttribute('stroke','#0b1220'); L.setAttribute('stroke-width','2'); L.textContent=txt; g.appendChild(L); const offs=[[8,-8],[8,8],[-8,-8],[-8,8],[12,0],[-12,0],[0,12],[0,-12],[16,16],[16,-16],[-16,16],[-16,-16]]; for(const [ox,oy] of offs){ L.setAttribute('x',x+ox); L.setAttribute('y',y+oy); const bb=L.getBBox(); const box={x:bb.x,y:bb.y,w:bb.width,h:bb.height}; if(!placed.some(p=>overlap(box,p))){ placed.push(box); return; } } const bb=L.getBBox(); placed.push({x:bb.x,y:bb.y,w:bb.width,h:bb.height}); }
+    for(const it of items){ const cx=xs(it.V), cy=ys(it.F); const q=(it.F>=0 && it.V>=0)?'q1':(it.F>=0 && it.V<0)?'q2':(it.F<0 && it.V<0)?'q4':'q3'; if(q==='q1'||q==='q4'){ labelAt(cx,cy,(it.name||it.symbol).slice(0,12)); } }
     document.getElementById('meta').textContent = `n=${items.length}`;
   }
   function pctColor(p){ const t=Math.max(0,Math.min(1,p??0.5)); const r=Math.round(239*(1-t)+34*t), g=Math.round(68*(1-t)+197*t), b=Math.round(68*(1-t)+94*t); return `rgb(${r},${g},${b})`; }
@@ -117,6 +144,8 @@
     const heat = document.getElementById('heat'); heat.innerHTML='';
     const head = document.createElement('thead'); head.innerHTML = '<tr><th>Asset</th><th>F</th><th>V</th><th>A</th><th>Quad</th></tr>'; heat.appendChild(head);
     const tbody=document.createElement('tbody'); heat.appendChild(tbody);
+    const rank = (i)=> (i.F>=0 && i.V>=0)?4: (i.F>=0 && i.V<0)?3: (i.F<0 && i.V>=0)?2: 1;
+    items = [...items].sort((a,b)=> rank(b)-rank(a));
     const fp = toPct(items.map(i=>i.F)); const vp = toPct(items.map(i=>i.V)); const ap = toPct(items.map(i=>i.A));
     const fmt=(v)=> Number.isFinite(v)? v.toFixed(2): 'N/A';
     items.forEach((it,idx)=>{
@@ -131,9 +160,34 @@
       tbody.appendChild(tr);
     });
   }
-  load().catch(e=>{ document.getElementById('meta').textContent = 'error'; console.error(e); }).finally(()=>setTimeout(postSize,0));
-  window.addEventListener('resize', ()=>{ try{ renderScatter([]); }catch(_){}; setTimeout(postSize,0); });
+  // Keep in sync with parent app's watchlist and resize with cache
+  window.addEventListener('message', (ev)=>{
+    try{
+      if(!ev || ev.origin !== window.location.origin) return;
+      if(ev.data && ev.data.type==='nmy.watch.update' && Array.isArray(ev.data.items)){
+        try{ localStorage.setItem('nmy.watch.items', JSON.stringify(ev.data.items)); }catch(_){ }
+        load();
+      }
+    }catch(_){ }
+  });
+  function injectExtraInfo(){
+    try{
+      const wrap=document.querySelector('.wrap'); if(!wrap) return;
+      const card=document.createElement('div'); card.className='card';
+      card.innerHTML = '<div class="title">象限の意味と推奨アクション</div>'+
+        '<div class="small">'+
+        '<p><b>Q1:</b> 勢いも位置も良好（F≥0, V≥0）。順張りでの押し目買いの検討。</p>'+
+        '<p><b>Q2:</b> 勢いは良好だが上方乖離（F≥0, V&lt;0）。短期の利食い・縮小や調整待ちの検討。</p>'+
+        '<p><b>Q3:</b> 勢いは弱いが割安寄り（F&lt;0, V≥0）。逆張りの打診・監視強化。</p>'+
+        '<p><b>Q4:</b> 勢いも位置も弱い（F&lt;0, V&lt;0）。回避・縮小、戻り売りの検討。</p>'+
+        '<p><b>軸の意味:</b> 縦=F（63日リターンのZスコア）、横=V（SMA50乖離のZスコア）。境界線はF=0, V=0。</p>'+
+        '<p><b>資産クラスの形状:</b> US株=丸、日本株=四角、指数/指標=菱形、為替=▲、暗号資産=▼。</p>'+
+        '</div>';
+      wrap.appendChild(card);
+    }catch(_){ }
+  }
+  load().catch(e=>{ document.getElementById('meta').textContent = 'error'; console.error(e); }).finally(()=>{ setTimeout(postSize,0); injectExtraInfo(); });
+  window.addEventListener('resize', ()=>{ try{ renderScatter(__itemsCache||[]); }catch(_){}; setTimeout(postSize,0); });
   </script>
 </body>
 </html>
-
