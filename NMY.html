@@ -1005,7 +1005,7 @@
 
     const App=()=>{
       const uniqueBySymbol = (arr=[])=>{ const seen=new Set(); const out=[]; for(const x of arr){ const s=x?.symbol; if(!s||seen.has(s)) continue; seen.add(s); out.push({ id: x.id||s, ...x }); } return out; };
-      const loadItems = ()=>{ try{ const j=JSON.parse(localStorage.getItem(LS.items)||'[]'); if(Array.isArray(j)&&j.length) return uniqueBySymbol(j); }catch(_){} return uniqueBySymbol(DEFAULT_ITEMS); };
+      const loadItems = ()=>{ try{ const j=JSON.parse(localStorage.getItem(LS.items)||'[]'); let arr = Array.isArray(j)? j: []; const before = arr.length; arr = arr.filter(w=>w && w.symbol !== 'ZZTEST'); if(arr.length!==before){ try{ localStorage.setItem(LS.items, JSON.stringify(arr)); }catch(_){} } if(arr.length) return uniqueBySymbol(arr); }catch(_){} return uniqueBySymbol(DEFAULT_ITEMS); };
       const [watchItems,setWatchItems]=useState(()=> loadItems());
       const [draftItems,setDraftItems]=useState(()=> loadItems());
       const [watchlist,setWatchlist]=useState([]);

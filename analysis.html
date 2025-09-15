@@ -37,11 +37,18 @@
     <h1 style="font-size:20px; font-weight:800; margin:8px 0 12px;">分析（Scatter + Heatmap）</h1>
     <div class="card">
       <div class="title">Scatter（F × V） <span class="small" id="meta"></span></div>
-      <div class="legend small" style="margin-bottom:6px;">
+      <div class="legend small" style="margin-bottom:6px; display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
         <span class="chip q1">Q1</span>
         <span class="chip q2">Q2</span>
         <span class="chip q3">Q3</span>
         <span class="chip q4">Q4</span>
+        <span class="small" style="margin-left:12px; color:#cbd5e1;">凡例:
+          <span style="color:#9ca3af"><span class="shape circle"></span>US株</span>
+          <span style="color:#9ca3af; margin-left:8px"><span class="shape square"></span>日本株</span>
+          <span style="color:#9ca3af; margin-left:8px"><span class="shape diamond"></span>指数/指標</span>
+          <span style="color:#9ca3af; margin-left:8px"><span class="shape triup"></span>為替</span>
+          <span style="color:#9ca3af; margin-left:8px"><span class="shape tridown"></span>暗号資産</span>
+        </span>
         <span class="small">F: 63日リターンのZスコア／V: SMA50乖離のZスコア</span>
       </div>
       <svg id="scatter" height="420" style="width:100%; background:#0b1220; border:1px solid #374151; border-radius:6px;"></svg>
@@ -91,9 +98,9 @@
     const symbols = watch.map(w=>w.symbol);
     const series = await Promise.all(symbols.map(async s=>{ try{
       const j = await yf(`/history?symbol=${encodeURIComponent(s)}&interval=1d&range=1y`);
-      const r = j?.chart?.result?.[0]||{}; const ts = r.timestamp||[]; const q=r.indicators?.quote?.[0]||{}; const close=q.close||[];
+      const r = j?.chart?.result?.[0]||{}; const ts = r.timestamp||[]; const q=r.indicators?.quote?.[0]||{}; const close=q.close||[]; const open=q.open||[];
       const data = []; for(let i=0;i<ts.length;i++){ const c=close[i]; if(Number.isFinite(c)) data.push(c); }
-      return { symbol:s, data, ts };
+      return { symbol:s, data, ts, close, open };
     }catch{ return { symbol:s, data:[], ts:[] } }}));
     const R63 = []; const Vraw = []; let latestTs=0;
     for(const s of series){ const d=s.data; const n=d.length; if(n===0){ R63.push(NaN); Vraw.push(NaN); continue; }
@@ -106,6 +113,7 @@
     const items = watch.map((w,i)=>({ id:w.symbol, name:w.name, symbol:w.symbol, F:F[i], V:V[i], A:A[i] }));
     __itemsCache = items;
     renderScatter(items); renderHeat(items);
+    try { await buildAndRenderBacktest(series); } catch(_) {}
     if(latestTs){ const at = document.getElementById('dataDate'); if(at) at.textContent = `使用データ最終日: ${fmtDate(latestTs)}（Yahoo Finance）`; }
     setTimeout(postSize, 0);
   }
@@ -134,7 +142,26 @@
     }
     // labels for Q1 & Q4 with overlap avoidance
     const placed=[]; const overlap=(a,b)=>!(a.x+a.w<b.x || b.x+b.w<a.x || a.y+a.h<b.y || b.y+b.h<a.y);
-    function labelAt(x,y,txt){ const L=document.createElementNS('http://www.w3.org/2000/svg','text'); L.setAttribute('x',x+8); L.setAttribute('y',y-8); L.setAttribute('fill','#e5e7eb'); L.setAttribute('font-size','11'); L.setAttribute('paint-order','stroke'); L.setAttribute('stroke','#0b1220'); L.setAttribute('stroke-width','2'); L.textContent=txt; g.appendChild(L); const offs=[[8,-8],[8,8],[-8,-8],[-8,8],[12,0],[-12,0],[0,12],[0,-12],[16,16],[16,-16],[-16,16],[-16,-16]]; for(const [ox,oy] of offs){ L.setAttribute('x',x+ox); L.setAttribute('y',y+oy); const bb=L.getBBox(); const box={x:bb.x,y:bb.y,w:bb.width,h:bb.height}; if(!placed.some(p=>overlap(box,p))){ placed.push(box); return; } } const bb=L.getBBox(); placed.push({x:bb.x,y:bb.y,w:bb.width,h:bb.height}); }
+    function labelAt(x,y,txt){
+      const L=document.createElementNS('http://www.w3.org/2000/svg','text');
+      L.setAttribute('x',x+8); L.setAttribute('y',y-8);
+      L.setAttribute('fill','#e5e7eb'); L.setAttribute('font-size','11');
+      L.setAttribute('paint-order','stroke'); L.setAttribute('stroke','#0b1220'); L.setAttribute('stroke-width','2');
+      L.textContent=txt; g.appendChild(L);
+      const offs=[[10,-10],[10,10],[-10,-10],[-10,10],[14,0],[-14,0],[0,14],[0,-14],[18,18],[18,-18],[-18,18],[-18,-18]];
+      let final={x:x+8,y:y-8};
+      for(const [ox,oy] of offs){
+        L.setAttribute('x',x+ox); L.setAttribute('y',y+oy);
+        const bb=L.getBBox(); const box={x:bb.x,y:bb.y,w:bb.width,h:bb.height};
+        if(!placed.some(p=>overlap(box,p))){ placed.push(box); final={x:x+ox,y:y+oy}; break; }
+      }
+      // leader line
+      const line=document.createElementNS('http://www.w3.org/2000/svg','line');
+      line.setAttribute('x1',x); line.setAttribute('y1',y);
+      line.setAttribute('x2',final.x-2); line.setAttribute('y2',final.y-10);
+      line.setAttribute('stroke','#64748b'); line.setAttribute('stroke-width','1'); line.setAttribute('opacity','0.7');
+      g.insertBefore(line,L);
+    }
     for(const it of items){ const cx=xs(it.V), cy=ys(it.F); const q=(it.F>=0 && it.V>=0)?'q1':(it.F>=0 && it.V<0)?'q2':(it.F<0 && it.V<0)?'q4':'q3'; if(q==='q1'||q==='q4'){ labelAt(cx,cy,(it.name||it.symbol).slice(0,12)); } }
     document.getElementById('meta').textContent = `n=${items.length}`;
   }
@@ -151,7 +178,7 @@
     items.forEach((it,idx)=>{
       const tr=document.createElement('tr');
       const q = (it.F>=0 && it.V>=0)?'q1': (it.F>=0 && it.V<0)?'q2': (it.F<0 && it.V<0)?'q4':'q3';
-      const qlabel = q==='q1'? 'Q1':'Q2'===q? 'Q2': q==='q3'? 'Q3':'Q4';
+      const qlabel = q==='q1'? 'Q1' : q==='q2'? 'Q2' : q==='q3'? 'Q3' : 'Q4';
       tr.innerHTML = `<td>${it.name}</td>`+
         `<td><span class="chip" style="background:${pctColor(fp[idx])}">${fmt(it.F)}</span></td>`+
         `<td><span class="chip" style="background:${pctColor(vp[idx])}">${fmt(it.V)}</span></td>`+
@@ -159,6 +186,51 @@
         `<td><span class="chip ${q}">${qlabel}</span></td>`;
       tbody.appendChild(tr);
     });
+  }
+  // --- Backtest: first entry events for Q1 buy / Q4 short ---
+  const MAX_HORIZON = 60; // days shown; underlying is computed as far as data allows
+  function zByMap(map){ const xs=Object.values(map).filter(v=>Number.isFinite(v)); const n=xs.length; if(!n){ const out={}; for(const k in map) out[k]=NaN; return out; } const mean = xs.reduce((a,b)=>a+b,0)/n; const sd = Math.sqrt(xs.reduce((a,b)=>a+(b-mean)*(b-mean),0)/n)||1e-9; const out={}; for(const k in map){ const v=map[k]; out[k]=Number.isFinite(v)? Math.max(-3, Math.min(3,(v-mean)/sd)) : NaN; } return out; }
+  async function openDB(){ return new Promise((res,rej)=>{ const req = indexedDB.open('nmy-analysis',1); req.onupgradeneeded = ()=>{ const db=req.result; if(!db.objectStoreNames.contains('events')) db.createObjectStore('events',{ keyPath:'id' }); }; req.onsuccess=()=>res(req.result); req.onerror=(e)=>rej(e); }); }
+  async function putEvents(db, events){ return new Promise((res,rej)=>{ const tx=db.transaction('events','readwrite'); const st=tx.objectStore('events'); for(const ev of events){ st.put(ev); } tx.oncomplete=()=>res(); tx.onerror=(e)=>rej(e); }); }
+  async function getAllEvents(db){ return new Promise((res,rej)=>{ const tx=db.transaction('events','readonly'); const st=tx.objectStore('events'); const req=st.getAll(); req.onsuccess=()=>res(req.result||[]); req.onerror=(e)=>rej(e); }); }
+  function renderBacktestTable(events){
+    try{
+      let card = document.getElementById('bt-card');
+      if(!card){ card=document.createElement('div'); card.className='card'; card.id='bt-card'; const wrap=document.querySelector('.wrap'); wrap.insertBefore(card, document.getElementById('heat').parentElement); }
+      const days = Array.from({length: Math.min(MAX_HORIZON, 60)}, (_,i)=>i+1);
+      const head = '<tr><th>Quad</th><th>Symbol</th><th>判定日</th><th>売買</th><th>執行日</th><th>執行価格</th>' + days.map(d=>`<th>${d}D</th>`).join('') + '</tr>';
+      const rows = events.sort((a,b)=>b.signalTs-a.signalTs).slice(0,100).map(ev=>{
+        const cells = days.map(d=>{ const r=ev.returns?.[d]; return (typeof r==='number' && isFinite(r))? (r*100).toFixed(2)+'%': '' });
+        return `<tr><td>${ev.quad}</td><td>${ev.symbol}</td><td>${fmtDate(ev.signalTs)}</td><td>${ev.side}</td><td>${fmtDate(ev.execTs)}</td><td>${Number(ev.execPrice||0).toFixed(2)}</td>${cells.map(c=>`<td>${c}</td>`).join('')}</tr>`;
+      }).join('');
+      card.innerHTML = '<div class="title">イベント検証（Q1買い/Q4売り）</div>' + '<div class="small">翌営業日の寄付き値で約定、以降の終値ベース損益率を表示</div>' + `<table style="width:100%"><thead>${head}</thead><tbody>${rows}</tbody></table>`;
+    }catch(_){ }
+  }
+  async function buildAndRenderBacktest(series){
+    // Build fast index per symbol
+    const bySym = {}; for(const s of series){ bySym[s.symbol]=s; s.indexByTs={}; for(let i=0;i<(s.ts||[]).length;i++){ s.indexByTs[s.ts[i]]=i; } }
+    // Union of timestamps (sorted)
+    const setTs=new Set(); for(const s of series){ for(const t of (s.ts||[])) setTs.add(t); }
+    const tsAll=[...setTs].sort((a,b)=>a-b);
+    const prevQ = {}; const events=[];
+    for(const t of tsAll){
+      const rmap={}; const vmap={};
+      for(const s of series){ const idx=s.indexByTs[t]; if(idx==null) continue; const n=(s.close||[]).length; if(idx>=n) continue; const close=s.close||[]; if(idx>=63 && close[idx-63]>0){ rmap[s.symbol] = close[idx]/close[idx-63]-1; } else { rmap[s.symbol]=NaN; } const winStart=Math.max(0, idx-49); const win = close.slice(winStart, idx+1); const sma = win.reduce((a,b)=>a+(Number.isFinite(b)?b:0),0)/(win.filter(Number.isFinite).length||1); vmap[s.symbol] = (sma>0 && Number.isFinite(close[idx])) ? (sma - close[idx])/sma : NaN; }
+      const Fz = zByMap(rmap); const Vz = zByMap(vmap);
+      for(const s of series){ const f=Fz[s.symbol], v=Vz[s.symbol]; if(!Number.isFinite(f) || !Number.isFinite(v)) continue; const q = (f>=0 && v>=0)?'Q1': (f>=0 && v<0)?'Q2': (f<0 && v>=0)?'Q3':'Q4'; const prev=prevQ[s.symbol]; prevQ[s.symbol]=q; if((q==='Q1'||q==='Q4') && prev!==q){ // first day entering this quad
+          const idx=s.indexByTs[t]; if(idx==null) continue; const nextIdx = idx+1; if(nextIdx >= (s.ts||[]).length) continue; const execTs = s.ts[nextIdx]; const op=(s.open||[])[nextIdx]; const cl=(s.close||[])[nextIdx]; const execPrice = Number.isFinite(op)? op: cl; if(!Number.isFinite(execPrice)) continue; const side = (q==='Q1')? 'BUY':'SHORT';
+          const retMap={}; // day -> return
+          for(let d=1; d<=365 && nextIdx+d < (s.close||[]).length; d++){ const px = s.close[nextIdx+d]; if(!Number.isFinite(px)) break; const r = (side==='BUY')? (px/execPrice - 1) : (execPrice/px - 1); retMap[d]=r; }
+          events.push({ id: `${s.symbol}:${q}:${execTs}`, symbol:s.symbol, quad:q, side, signalTs:t, execTs, execPrice, returns: retMap });
+        }
+      }
+    }
+    // Persist and render
+    const db = await openDB();
+    const existing = await getAllEvents(db); const exSet = new Set(existing.map(e=>e.id));
+    const fresh = events.filter(e=>!exSet.has(e.id)); if(fresh.length) await putEvents(db, fresh);
+    const all = [...existing, ...fresh];
+    renderBacktestTable(all);
   }
   // Keep in sync with parent app's watchlist and resize with cache
   window.addEventListener('message', (ev)=>{
