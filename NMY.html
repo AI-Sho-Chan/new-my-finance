@@ -11,13 +11,29 @@
   <script>
     // Use same-origin reverse proxy by default (works over tunnel)
     window.__YF_PROXY__ = window.__YF_PROXY__ || (window.location.origin + '/api/yf');
-    window.yfGetJSON = async function(pathWithQuery) {
-      const base = window.__YF_PROXY__ || (window.location.origin + '/api/yf');
-      const u = base + pathWithQuery + (pathWithQuery.includes('?') ? '&' : '?') + 'ts=' + Date.now();
-      const res = await fetch(u, { cache: 'no-store', headers: { 'Accept': 'application/json' } });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      return res.json();
-    }
+    (function(){
+      const sleep = (ms)=> new Promise(r=>setTimeout(r,ms));
+      const fetchWithTimeout = async (url, opts={})=>{
+        const controller = new AbortController();
+        const t = setTimeout(()=>controller.abort(), opts.timeout||8000);
+        try{
+          return await fetch(url, { ...opts, signal: controller.signal });
+        } finally { clearTimeout(t); }
+      };
+      window.yfGetJSON = async function(pathWithQuery) {
+        const base = window.__YF_PROXY__ || (window.location.origin + '/api/yf');
+        const u = base + pathWithQuery + (pathWithQuery.includes('?') ? '&' : '?') + 'ts=' + Date.now();
+        let lastErr;
+        for (let i=0;i<3;i++){
+          try{
+            const res = await fetchWithTimeout(u, { cache: 'no-store', headers: { 'Accept': 'application/json' }, timeout: 8000 });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            return await res.json();
+          }catch(e){ lastErr=e; await sleep(300+ i*300); }
+        }
+        throw lastErr || new Error('fetch failed');
+      }
+    })();
   </script>
   <style>
     .animate-spin{animation:spin 1s linear infinite}@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}

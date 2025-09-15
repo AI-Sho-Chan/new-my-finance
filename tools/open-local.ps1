@@ -20,6 +20,30 @@ try {
   Pop-Location
 }
 
+# Ensure Tailwind CLI is available and build CSS for NMY.html
+try {
+  npx tailwindcss -v 2>$null | Out-Null
+} catch {
+  Push-Location $root
+  try { npm i tailwindcss@3 autoprefixer@10 postcss@8 --no-audit --no-fund -D } catch {}
+  Pop-Location
+}
+
+# Prepare minimal Tailwind config and input if missing
+if (-not (Test-Path (Join-Path $root 'tools/tailwind-local.config.js'))) {
+  $cfg = "module.exports = { content: ['NMY.html'], theme: { extend: {} }, plugins: [] };"
+  Set-Content -Path (Join-Path $root 'tools/tailwind-local.config.js') -Value $cfg -Encoding UTF8
+}
+if (-not (Test-Path (Join-Path $root 'tools/tailwind-local.css'))) {
+  $css = "@tailwind base;`n@tailwind components;`n@tailwind utilities;`n"
+  Set-Content -Path (Join-Path $root 'tools/tailwind-local.css') -Value $css -Encoding UTF8
+}
+
+# Build Tailwind CSS
+Push-Location $root
+try { npx tailwindcss -c tools/tailwind-local.config.js -i tools/tailwind-local.css -o local-dist/tailwind.css --minify } catch {}
+Pop-Location
+
 Push-Location $root
 node tools/build-local-nmy.mjs
 Pop-Location
@@ -39,4 +63,3 @@ try {
 }
 
 Start-Process "http://127.0.0.1:$UiPort/local-dist/NMY.local.html"
-
