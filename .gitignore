@@ -23,3 +23,10 @@ cf-worker/node_modules/
 
 # Secrets (do not commit)
 tools/.secrets/
+
+# Local junk
+*.bak
+tmp_*
+VAR_view
+web/package.json.txt
+
