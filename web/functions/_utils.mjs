@@ -1,4 +1,4 @@
-export const CORS = {
+﻿export const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type,Authorization',
@@ -22,9 +22,12 @@ export async function textOrEmpty(resp) {
 
 export function tryParseJSON(t) { try { return JSON.parse(t); } catch { return null; } }
 
+export const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36 NMY-Pages/1.0';
+
 export async function fetchJson(url, init) {
-  const r = await fetch(url, { headers: { 'Accept': 'application/json,*/*' }, ...init });
-  if (!r.ok) throw new Error(`Upstream ${r.status}`);
+  const baseHeaders = { 'Accept': 'application/json,*/*', 'Accept-Language': 'ja,en;q=0.9', 'User-Agent': UA, 'Referer': 'https://finance.yahoo.com/' };
+  const r = await fetch(url, { headers: { ...baseHeaders, ...(init?.headers||{}) }, ...(init||{}) });
+  if (!r.ok) throw new Error(Upstream );
   return r.json();
 }
 
@@ -56,4 +59,5 @@ export function normalizeQuote(q) {
     marketCap: q.marketCap ?? null,
   };
 }
+
 

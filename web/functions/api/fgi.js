@@ -1,9 +1,9 @@
-import { json, text, textOrEmpty, tryParseJSON } from '../_utils.mjs';
+﻿import { json, text, textOrEmpty, tryParseJSON, UA } from '../_utils.mjs';
 
 export async function onRequest({ request }) {
   if (request.method === 'OPTIONS') return text('', { status: 204 });
   try {
-    const headers = { 'Accept': 'application/json,*/*', 'Accept-Language': 'ja,en;q=0.9' };
+    const headers = { 'Accept': 'application/json,*/*', 'Accept-Language': 'ja,en;q=0.9', 'User-Agent': UA };
     const curU = 'https://production.dataviz.cnn.io/index/fearandgreed/current';
     const graphU = 'https://production.dataviz.cnn.io/index/fearandgreed/graphdata';
     const [cr, gr] = await Promise.all([
@@ -21,4 +21,6 @@ export async function onRequest({ request }) {
     return json({ now: null, previousClose: null, history: [] });
   }
 }
+
+
 
