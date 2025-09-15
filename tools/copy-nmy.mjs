@@ -33,3 +33,16 @@ try {
 } catch (e) {
   console.warn("Post-build tweak failed:", e?.message || e);
 }
+
+// 3) Copy static data files needed by NMY (if present)
+try {
+  const dataSrc = path.join(root, "data", "jp-stocks.json");
+  const dataDestDir = path.join(distDir, "data");
+  if (fs.existsSync(dataSrc)) {
+    fs.mkdirSync(dataDestDir, { recursive: true });
+    fs.copyFileSync(dataSrc, path.join(dataDestDir, "jp-stocks.json"));
+    console.log("Copied data/jp-stocks.json -> web/dist/data/jp-stocks.json");
+  }
+} catch (e) {
+  console.warn("Data copy skipped:", e?.message || e);
+}

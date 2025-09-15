@@ -31,10 +31,7 @@ export async function fetchJson(url, init) {
   return r.json();
 }
 
-export async function fetchJsonTry(urls, init) {
-  let last = null;
-  for (const u of urls) {
-    try { return await fetchJson(u, init); } catch (e) { last = e; }
+export async function fetchJsonTry(urls, init) {\n  let last = null;\n  for (let i=0; i<urls.length; i++) {\n    const u = urls[i];\n    try {\n      return await fetchJson(u, init);\n    } catch (e) {\n      last = e;\n      const msg = String(e?.message||e);\n      if (msg.includes('429')) { await new Promise(r=>setTimeout(r, 400*(i+1))); }\n    }\n  }\n  throw last || new Error('all upstream failed');\n} catch (e) { last = e; }
   }
   throw last || new Error('all upstream failed');
 }
@@ -59,5 +56,6 @@ export function normalizeQuote(q) {
     marketCap: q.marketCap ?? null,
   };
 }
+
 
 
