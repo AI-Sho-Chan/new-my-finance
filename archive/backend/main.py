@@ -222,4 +222,3 @@ def history(
 @app.get("/")
 def root():
     return {"ok": True, "service": "yfinance-proxy"}
-

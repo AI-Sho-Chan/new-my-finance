@@ -23,4 +23,3 @@ Deploy (optional)
 - wrangler login
 - wrangler deploy
 - Use: https://yf-proxy.<account>.workers.dev/api/yf as window.__YF_PROXY__
-
