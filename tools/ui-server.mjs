@@ -84,11 +84,11 @@ const server = http.createServer((req, res) => {
       }
       return send(res, 404, 'React dist not found');
     }
-    // Legacy analysis single-file app at /analysis
+    // Minimal analysis page at /analysis
     if (pathname === '/analysis') {
-      const p = path.join(ROOT, 'asset_manager_app.html');
+      const p = path.join(ROOT, 'analysis.html');
       if (fs.existsSync(p)) {
-        let html = fs.readFileSync(p, 'utf8');
+        const html = fs.readFileSync(p, 'utf8');
         return send(res, 200, html, { 'Content-Type': 'text/html; charset=utf-8' });
       }
       return send(res, 404, 'Not Found');
