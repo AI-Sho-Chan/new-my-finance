@@ -687,7 +687,9 @@
           const prev = asNum(q.regularMarketPreviousClose);
           const change = (price!=null && prev!=null) ? price - prev : 0;
           const changePercent = (price!=null && prev>0) ? (price-prev)/prev : 0;
-          out[q.symbol] = { price, change, changePercent, name: q.longName || q.shortName || NAME_MAP[q.symbol] || q.symbol };
+          const tCandidates = [q.postMarketTime, q.regularMarketTime, q.preMarketTime].map(asNum).filter(x=>x!=null);
+          const lastTs = tCandidates.length ? Math.max(...tCandidates) : undefined;
+          out[q.symbol] = { price, change, changePercent, name: q.longName || q.shortName || NAME_MAP[q.symbol] || q.symbol, lastTs };
         }
         for(const s of symbols){ if(!out[s]) out[s] = { price:0, change:0, changePercent:0, name:NAME_MAP[s]||s }; }
         const s24 = symbols.filter(is24hSymbol);
@@ -977,10 +979,11 @@
             const uniqBase = Array.from(new Map(base.map(x=>[x.symbol,x])).values());
             setWatchlist(uniqBase.map(i=>{
               const d=market[i.symbol]||{}; const h=histBy[i.symbol]||{}; const f=fundBy[i.symbol]||{};
+              const ts = d.lastTs || h.lastTs || null;
               return { ...i, ...d,
                 name: f.longName || f.shortName || d.name || NAME_MAP[i.symbol] || i.name,
                 trend:h.trend,
-                lastUpdated: h.lastTs? new Date(h.lastTs*1000): null };
+                lastUpdated: ts? new Date(ts*1000): null };
             }));
             // Fetch signals for these symbols
             try {
