@@ -53,6 +53,7 @@
       const score = (typeof data.now==='number' && Number.isFinite(data.now)) ? data.now : null;
       const prev = (typeof data.previousClose==='number' && Number.isFinite(data.previousClose)) ? data.previousClose : null;
       const label = (v)=> v==null? '-' : (v<=25?'極度恐怖': v<=45?'恐怖': v<55?'中立': v<75?'強欲': '極度強欲');
+    return null;
     };
     let __lwcPromise=null;
     const ensureLightweightCharts=()=>{
