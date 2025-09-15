@@ -33,6 +33,7 @@ export default function App() {
       return inIframe || e === '1' || e === 'true' || e === 'analysis' || e === 'bare';
     } catch { return false; }
   }, []);
+  const isBare = isEmbed && tab === 'analysis';
 
   const saveSnap = useStore((s) => s.savePortfolioSnapshot);
   useEffect(() => {
@@ -69,25 +70,24 @@ export default function App() {
     try { if (typeof window !== 'undefined') window.location.hash = '#' + tab; } catch {}
   }, [tab]);
 
-  if (isEmbed && tab === 'analysis') {
-    useEffect(() => {
-      try {
-        const ro = new (window as any).ResizeObserver?.(() => {
-          const h = document.body.scrollHeight || document.documentElement.scrollHeight || 0;
-          window.parent?.postMessage({ type: 'analysisSize', height: h }, window.location.origin);
-        });
-        if (ro) ro.observe(document.body);
-        const tick = () => {
-          const h = document.body.scrollHeight || document.documentElement.scrollHeight || 0;
-          window.parent?.postMessage({ type: 'analysisSize', height: h }, window.location.origin);
-        };
-        const id = window.setInterval(tick, 500);
-        tick();
-        return () => { if (ro) ro.disconnect(); window.clearInterval(id); };
-      } catch {}
-    }, []);
-    return <div className="px-2 py-2"><Analysis bare /></div>;
-  }
+  useEffect(() => {
+    if (!isBare) return;
+    try {
+      const ro = new (window as any).ResizeObserver?.(() => {
+        const h = document.body.scrollHeight || document.documentElement.scrollHeight || 0;
+        window.parent?.postMessage({ type: 'analysisSize', height: h }, window.location.origin);
+      });
+      if (ro) ro.observe(document.body);
+      const tick = () => {
+        const h = document.body.scrollHeight || document.documentElement.scrollHeight || 0;
+        window.parent?.postMessage({ type: 'analysisSize', height: h }, window.location.origin);
+      };
+      const id = window.setInterval(tick, 500);
+      tick();
+      return () => { if (ro) ro.disconnect(); window.clearInterval(id); };
+    } catch {}
+  }, [isBare]);
+  if (isBare) return <div className="px-2 py-2"><Analysis bare /></div>;
 
   return (
     <div className="min-h-screen">
@@ -113,4 +113,3 @@ function Header() {
     </header>
   );
 }
-
