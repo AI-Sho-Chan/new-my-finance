@@ -117,8 +117,8 @@
           const useMD = arr.length < 90;
           chartRef.current?.applyOptions({ timeScale: { tickMarkFormatter: (time)=>{
             const d=(typeof time==='object'&&time&&'year'in time)? new Date(Date.UTC(time.year, (time.month||1)-1, time.day||1)) : new Date((time+9*3600)*1000);
-            const yy=String(d.getUTCFullYear()%100).padStart(2,'0'); const mm=String(d.getUTCMonth()+1).padStart(1,''); const dd=String(d.getUTCDate());
-            return useMD ? `${mm}/${dd}` : `${yy}/${String(d.getUTCMonth()+1).padStart(2,'0')}`;
+            const yy=String(d.getUTCFullYear()%100).padStart(2,'0'); const mm=String(d.getUTCMonth()+1); const dd=String(d.getUTCDate());
+            return useMD ? `${mm}/${dd}` : `${yy}/${mm}`;
           } } });
           chartRef.current?.timeScale().fitContent();
         }
