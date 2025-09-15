@@ -106,7 +106,7 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
       const dd = String(d.getUTCDate()).padStart(2,'0');
       const hh = String(d.getUTCHours()).padStart(2,'0');
       const mi = String(d.getUTCMinutes()).padStart(2,'0');
-      return ${d.getUTCFullYear()}-- : JST;
+      return `${d.getUTCFullYear()}-${mm}-${dd} ${hh}:${mi} JST`;
     } catch { return null; }
   }, [trails]);
 
@@ -295,6 +295,7 @@ function QList({ items }: { items: SnapshotItem[] }) {
     </div>
   );
 }
+
 
 
 
