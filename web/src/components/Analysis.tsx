@@ -91,6 +91,20 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
     return { f:[fmin,fmax] as [number,number], v:[vmin,vmax] as [number,number] };
   }, [JSON.stringify(items)]);
 
+  // Bare mode: only Scatter + Heatmap (for iframe embed)
+  if (bare) {
+    if (loading || !items) return <div className="text-gray-400 text-sm">Loading...</div>;
+    return (
+      <div className="space-y-4">
+        <LegendQuadrant />
+        {/* Scatter (F x V) */}
+        <Scatter items={items} trails={trails || {}} domain={domain} />
+        {/* Heatmap (F/V/A) */}
+        <Heatmap items={items} />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 text-sm">
