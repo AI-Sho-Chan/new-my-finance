@@ -703,6 +703,16 @@
         for(const s of symbols){ if(!out[s]) out[s] = { price:0, change:0, changePercent:0, name:NAME_MAP[s]||s }; }
         const s24 = symbols.filter(is24hSymbol);
         await Promise.all(s24.map(async s=>{ const d = await fetch24hDelta(s); if(d && out[s]) { out[s].change=d.change; out[s].changePercent=d.changePercent; } }));
+        // Enrich lastTs with intraday (15m, 5d) so we don't stick to open time
+        await Promise.all(symbols.map(async (s)=>{
+          try{
+            const h = await yfGetJSON(`/history?symbol=${encodeURIComponent(s)}&interval=15m&range=5d`);
+            const r = h?.chart?.result?.[0];
+            const ts = r?.timestamp || [];
+            const close = r?.indicators?.quote?.[0]?.close || [];
+            for(let i=ts.length-1;i>=0;i--){ const c=close[i]; if(Number.isFinite(c)){ const t=ts[i]; if(!out[s]) out[s]={}; out[s].lastTs = Math.max(out[s].lastTs||0, t); break; } }
+          }catch(_){ }
+        }));
         // Fallback: use last daily close from history when price is 0/null (e.g., ZZTEST dummy)
         await Promise.all(symbols.map(async (s) => {
           const rec = out[s]; if (!rec || (rec.price && Number.isFinite(rec.price))) return;

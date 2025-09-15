@@ -57,6 +57,16 @@ const server = http.createServer((req, res) => {
     if (pathname.startsWith('/api/yf/')) {
       return proxy(req, res, PROXY_BASE + pathname + (u.search || ''));
     }
+    // Compatibility: React app expects same-origin /api/*
+    if (pathname === '/api/quote' || pathname.startsWith('/api/quote/')) {
+      return proxy(req, res, PROXY_BASE + '/api/yf/quote' + (u.search || ''));
+    }
+    if (pathname === '/api/history' || pathname.startsWith('/api/history/')) {
+      return proxy(req, res, PROXY_BASE + '/api/yf/history' + (u.search || ''));
+    }
+    if (pathname === '/api/fund' || pathname.startsWith('/api/fund/')) {
+      return proxy(req, res, PROXY_BASE + '/api/yf/fund' + (u.search || ''));
+    }
     if (pathname === '/api/signals') {
       return proxy(req, res, PROXY_BASE + '/api/signals');
     }
@@ -66,7 +76,7 @@ const server = http.createServer((req, res) => {
       const indexPath = path.join(REACT_DIST, 'react', 'index.html');
       if (fs.existsSync(indexPath)) {
         let html = fs.readFileSync(indexPath, 'utf8');
-        const inject = '<script>try{window.__REACT_DEVTOOLS_GLOBAL_HOOK__=undefined;}catch(e){}</script>';
+        const inject = '<script>try{window.__REACT_DEVTOOLS_GLOBAL_HOOK__=undefined;}catch(e){}; window.__YF_PROXY__ =\'/api/yf\';</script>';
         if (!html.includes('__REACT_DEVTOOLS_GLOBAL_HOOK__')) {
           html = html.replace('<head>', '<head>' + inject);
         }
