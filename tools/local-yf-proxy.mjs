@@ -368,7 +368,28 @@ const server = http.createServer(async (req, res) => {
         const now = Number(cj?.fear_and_greed?.now?.value ?? cj?.fear_and_greed?.now ?? cj?.now ?? cj?.score ?? null);
         const previousClose = Number(cj?.fear_and_greed?.previous_close?.value ?? cj?.fear_and_greed?.previous_close ?? cj?.previous_close ?? null);
         const hist = Array.isArray(gj?.fear_and_greed_historical) ? gj.fear_and_greed_historical : [];
-        const history = hist.map(x => ({ t: Number(x.x) || null, v: Number(x.y) || null })).filter(x => Number.isFinite(x.t) && Number.isFinite(x.v));
+        const remote = hist.map(x => ({ t: Number(x.x) || null, v: Number(x.y) || null })).filter(x => Number.isFinite(x.t) && Number.isFinite(x.v));
+
+        // Persist daily value to local file (keep ~3 years)
+        const fs = await import('node:fs');
+        const pathMod = await import('node:path');
+        const dataDir = pathMod.join(process.cwd(), 'data', 'fgi');
+        const file = pathMod.join(dataDir, 'history.json');
+        try { fs.mkdirSync(dataDir, { recursive: true }); } catch {}
+        let local = [];
+        try { const txt = fs.readFileSync(file, 'utf8'); const j = JSON.parse(txt); if (Array.isArray(j)) local = j; } catch {}
+
+        const byDay = (t)=> Math.floor(t / 86400000) * 86400000;
+        const map = new Map();
+        for (const x of local) { if (Number.isFinite(x.x) && Number.isFinite(x.y)) map.set(byDay(Number(x.x)), { x:Number(x.x), y:Number(x.y) }); }
+        for (const x of remote) { map.set(byDay(x.t), { x: byDay(x.t), y: x.v }); }
+        if (Number.isFinite(now)) { map.set(byDay(Date.now()), { x: byDay(Date.now()), y: now }); }
+        // Keep last 3 years
+        const cutoff = Date.now() - 3*365*86400000;
+        const combined = Array.from(map.values()).filter(r => Number(r.x) >= cutoff).sort((a,b)=>a.x-b.x);
+        try { fs.writeFileSync(file, JSON.stringify(combined, null, 2), 'utf8'); } catch {}
+
+        const history = combined.map(r => ({ t: Number(r.x), v: Number(r.y) }));
         return send(res, 200, { now, previousClose, history });
       } catch (e) {
         return send(res, 200, { now: null, previousClose: null, history: [] });

@@ -63,7 +63,7 @@ const server = http.createServer((req, res) => {
 
     // React app (built) under /react and /assets
     if (pathname === '/react' || pathname.startsWith('/react/')) {
-      const indexPath = path.join(REACT_DIST, 'index.html');
+      const indexPath = path.join(REACT_DIST, 'react', 'index.html');
       if (fs.existsSync(indexPath)) {
         let html = fs.readFileSync(indexPath, 'utf8');
         const inject = '<script>try{window.__REACT_DEVTOOLS_GLOBAL_HOOK__=undefined;}catch(e){}</script>';
