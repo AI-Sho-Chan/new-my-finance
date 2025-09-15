@@ -1,0 +1,1 @@
+﻿fix: close FearGreedWidget and add LWC_URL constant

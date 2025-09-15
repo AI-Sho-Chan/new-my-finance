@@ -1,0 +1,1 @@
+﻿chore(clean): remove legacy analysis single-file and temp artifacts; standardize analysis to /react; remove unused copy-nmy.js and web/package.json.bak

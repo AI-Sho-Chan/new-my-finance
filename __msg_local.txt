@@ -1,0 +1,1 @@
+﻿local: ローカル完成版 自動起動と常駐スクリプト追加 (keep-alive, autostart)

@@ -1,0 +1,1 @@
+﻿fix(analysis): use existing asset_manager_app.html as analysis iframe source; add /analysis route in ui-server (fallback via direct file)

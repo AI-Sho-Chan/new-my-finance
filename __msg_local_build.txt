@@ -1,0 +1,1 @@
+﻿local: add esbuild-based bundling for NMY (remove inline Babel at runtime) and one-click opener

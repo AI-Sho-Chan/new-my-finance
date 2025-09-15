@@ -1,0 +1,1 @@
+﻿feat(fgi): widget falls back to local data/fgi/history.json; proxy reads/writes both {x,y} and {t,v}

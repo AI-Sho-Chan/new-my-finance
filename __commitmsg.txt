@@ -1,0 +1,1 @@
+﻿build: pages build script runs copy-nmy after vite build

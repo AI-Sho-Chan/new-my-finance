@@ -1,0 +1,75 @@
+﻿<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MyFinance</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script>
+    // Use same-origin reverse proxy by default (works over tunnel)
+    window.__YF_PROXY__ = window.__YF_PROXY__ || (window.location.origin + '/api/yf');
+    (function(){
+      const sleep = (ms)=> new Promise(r=>setTimeout(r,ms));
+      const fetchWithTimeout = async (url, opts={})=>{
+        const controller = new AbortController();
+        const t = setTimeout(()=>controller.abort(), opts.timeout||8000);
+        try{
+          return await fetch(url, { ...opts, signal: controller.signal });
+        } finally { clearTimeout(t); }
+      };
+      window.yfGetJSON = async function(pathWithQuery) {
+        const base = window.__YF_PROXY__ || (window.location.origin + '/api/yf');
+        const u = base + pathWithQuery + (pathWithQuery.includes('?') ? '&' : '?') + 'ts=' + Date.now();
+        let lastErr;
+        for (let i=0;i<3;i++){
+          try{
+            const res = await fetchWithTimeout(u, { cache: 'no-store', headers: { 'Accept': 'application/json' }, timeout: 8000 });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            return await res.json();
+          }catch(e){ lastErr=e; await sleep(300+ i*300); }
+        }
+        throw lastErr || new Error('fetch failed');
+      }
+    })();
+  </script>
+  <style>
+    .animate-spin{animation:spin 1s linear infinite}@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+  </style>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900">
+  <div id="root"></div>
+  <script defer src="/local-dist/nmy.bundle.js"></script>
+  <script>
+    (function(){
+      try {
+        window.addEventListener('message', function(ev){
+          try {
+            if(!ev || !ev.data) return;
+            if (ev.origin !== window.location.origin) return;
+            if (ev.data.type === 'analysisSize' && typeof ev.data.height === 'number') {
+              var el = document.getElementById('analysisFrame');
+              if (el) { el.style.height = Math.max(400, ev.data.height + 4) + 'px'; }
+            }
+          } catch(e) {}
+        });
+      } catch(e) {}
+    })();
+  </script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+

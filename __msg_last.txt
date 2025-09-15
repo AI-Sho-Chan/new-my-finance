@@ -1,0 +1,1 @@
+﻿fix(ui): proxy /api/{quote,history,fund} to local /api/yf/* and inject __YF_PROXY__ for /react; feat: lastUpdated enriched via intraday 15m timestamps; fgi: widget fallback to local data

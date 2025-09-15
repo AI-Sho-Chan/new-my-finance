@@ -1,0 +1,1 @@
+﻿fix: lastUpdated uses freshest quote timestamp from quote API; feat: FGI history persistence (~3y) for chart; dev: /react serves React app (avoid nesting)

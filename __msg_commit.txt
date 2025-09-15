@@ -1,0 +1,1 @@
+﻿feat: FGI persistent history (3y rolling) and chart; UI: analysis shows React app at /react (no nesting); stock card link "指標" in gray; last updated shows 日付+時刻

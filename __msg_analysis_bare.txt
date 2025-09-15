@@ -1,0 +1,1 @@
+﻿feat(analysis): bare mode renders only Scatter + Heatmap for /react?tab=analysis&embed=1; fix(ui): proxy/inject for React embed

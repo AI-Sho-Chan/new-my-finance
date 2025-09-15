@@ -1,0 +1,1 @@
+﻿fix: close FearGreedWidget correctly (return null); inline Babel parse OK

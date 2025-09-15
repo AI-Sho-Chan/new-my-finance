@@ -1,0 +1,1476 @@
+const { useState, useEffect, useMemo, useRef } = React;
+const J = (s) => decodeURIComponent(s);
+const TrendingUp = () => /* @__PURE__ */ React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", width: "20", height: "20", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("polyline", { points: "23 6 13.5 15.5 8.5 10.5 1 18" }), /* @__PURE__ */ React.createElement("polyline", { points: "17 6 23 6 23 12" }));
+const TrendingDown = () => /* @__PURE__ */ React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", width: "20", height: "20", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("polyline", { points: "23 18 13.5 8.5 8.5 13.5 1 6" }), /* @__PURE__ */ React.createElement("polyline", { points: "17 18 23 18 23 12" }));
+const Loader = () => /* @__PURE__ */ React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", width: "24", height: "24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", className: "animate-spin" }, /* @__PURE__ */ React.createElement("line", { x1: "12", y1: "2", x2: "12", y2: "6" }), /* @__PURE__ */ React.createElement("line", { x1: "12", y1: "18", x2: "12", y2: "22" }), /* @__PURE__ */ React.createElement("line", { x1: "4.93", y1: "4.93", x2: "7.76", y2: "7.76" }), /* @__PURE__ */ React.createElement("line", { x1: "16.24", y1: "16.24", x2: "19.07", y2: "19.07" }), /* @__PURE__ */ React.createElement("line", { x1: "2", y1: "12", x2: "6", y2: "12" }), /* @__PURE__ */ React.createElement("line", { x1: "18", y1: "12", x2: "22", y2: "12" }), /* @__PURE__ */ React.createElement("line", { x1: "4.93", y1: "19.07", x2: "7.76", y2: "16.24" }), /* @__PURE__ */ React.createElement("line", { x1: "16.24", y1: "7.76", x2: "19.07", y2: "4.93" }));
+const FearGreedWidget = () => {
+  const [data, setData] = useState({ now: null, previousClose: null, history: [] });
+  const boxRef = useRef(null);
+  const chartRef = useRef(null);
+  const seriesRef = useRef(null);
+  useEffect(() => {
+    let alive = true;
+    const load = async () => {
+      try {
+        const u = "/api/fgi?ts=" + Date.now();
+        const r = await fetch(u, { headers: { "Accept": "application/json" } });
+        if (!r.ok) throw new Error("fgi http " + r.status);
+        const j = await r.json();
+        if (!alive) return;
+        setData({ now: typeof j.now === "number" ? j.now : null, previousClose: typeof j.previousClose === "number" ? j.previousClose : null, history: Array.isArray(j.history) ? j.history : [] });
+      } catch (e) {
+      }
+    };
+    load();
+    const t = setInterval(load, 5 * 60 * 1e3);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, []);
+  useEffect(() => {
+    (async () => {
+      if (!boxRef.current) return;
+      const L = await ensureLightweightCharts();
+      await new Promise((r) => requestAnimationFrame(r));
+      if (!chartRef.current) {
+        const el = boxRef.current;
+        const c = L.createChart(el, { width: el.clientWidth || 600, height: 120, layout: { background: { type: "solid", color: "#1f2937" }, textColor: "rgba(255,255,255,0.9)" }, grid: { vertLines: { color: "#374151" }, horzLines: { color: "#374151" } }, timeScale: { borderColor: "#4b5563", visible: true, timeVisible: false, secondsVisible: false, tickMarkSpacing: 60, tickMarkFormatter: (time) => {
+          if (typeof time === "object" && time && "year" in time) {
+            const yy2 = String(time.year % 100).padStart(2, "0");
+            const mm2 = String(time.month).padStart(2, "0");
+            return `${yy2}\u5E74${mm2}\u6708`;
+          }
+          const d = new Date((time + 9 * 3600) * 1e3);
+          const yy = String(d.getUTCFullYear() % 100).padStart(2, "0");
+          const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+          return `${yy}\u5E74${mm}\u6708`;
+        } }, localization: { locale: "ja-JP" } });
+        chartRef.current = c;
+        seriesRef.current = c.addLineSeries({ color: "#38bdf8", lineWidth: 2 });
+        new ResizeObserver(([e]) => {
+          if (!e || !chartRef.current) return;
+          chartRef.current.applyOptions({ width: e.contentRect.width });
+        }).observe(el);
+      }
+      const s = seriesRef.current;
+      if (s) {
+        const arr = (data.history || []).map((x) => ({ time: Math.floor((x.t || 0) / 1e3), value: Number(x.v) || 0 }));
+        s.setData(arr);
+        chartRef.current?.timeScale().fitContent();
+      }
+    })();
+  }, [data.history]);
+  const score = typeof data.now === "number" && Number.isFinite(data.now) ? data.now : null;
+  const prev = typeof data.previousClose === "number" && Number.isFinite(data.previousClose) ? data.previousClose : null;
+  const label = (v) => v == null ? "-" : v <= 25 ? "\u6975\u5EA6\u6050\u6016" : v <= 45 ? "\u6050\u6016" : v < 55 ? "\u4E2D\u7ACB" : v < 75 ? "\u5F37\u6B32" : "\u6975\u5EA6\u5F37\u6B32";
+  const color = (v) => v == null ? "text-gray-400" : v <= 25 ? "text-red-400" : v <= 45 ? "text-orange-400" : v < 55 ? "text-gray-300" : v < 75 ? "text-green-400" : "text-emerald-400";
+  const delta = score != null && prev != null ? score - prev : null;
+  const prog = Math.max(0, Math.min(100, score != null ? score : 0));
+  const R = 34, C = 2 * Math.PI * R, off = C * (1 - prog / 100);
+  return /* @__PURE__ */ React.createElement("div", { className: "bg-gray-800 rounded p-3 grid grid-cols-1 md:grid-cols-3 gap-3 items-center" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center space-x-3" }, /* @__PURE__ */ React.createElement("div", { className: "relative w-28 h-28" }, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 80 80", className: "w-28 h-28" }, /* @__PURE__ */ React.createElement("circle", { cx: "40", cy: "40", r: "34", fill: "none", stroke: "#374151", strokeWidth: "8" }), /* @__PURE__ */ React.createElement("circle", { cx: "40", cy: "40", r: "34", fill: "none", stroke: "currentColor", strokeWidth: "8", strokeLinecap: "round", className: color(score), style: { strokeDasharray: C, strokeDashoffset: off, transform: "rotate(-90deg)", transformOrigin: "40px 40px" } })), /* @__PURE__ */ React.createElement("div", { className: "absolute inset-0 flex flex-col items-center justify-center" }, /* @__PURE__ */ React.createElement("div", { className: `text-2xl font-bold ${color(score)}` }, score != null ? Math.round(score) : "-"), /* @__PURE__ */ React.createElement("div", { className: "text-[10px] text-gray-400" }, label(score)), /* @__PURE__ */ React.createElement("div", { className: "text-[10px] text-gray-500" }, delta != null ? `${delta >= 0 ? "+" : ""}${Math.round(delta)}` : ""))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "text-sm text-gray-300" }, "Fear & Greed Index"), /* @__PURE__ */ React.createElement("div", { className: "text-xs text-gray-500" }, "CNN (5\u5206\u6BCE\u66F4\u65B0)"))), /* @__PURE__ */ React.createElement("div", { className: "md:col-span-2" }, /* @__PURE__ */ React.createElement("div", { ref: boxRef, className: "w-full h-[120px]" })));
+};
+const IndicatorsStrip = () => {
+  const [q, setQ] = useState({});
+  const syms = ["^VIX", "^GSPC", "^TNX"];
+  useEffect(() => {
+    (async () => {
+      try {
+        const m = await fetchMarketData(syms);
+        setQ(m);
+      } catch {
+      }
+    })();
+    const t = setInterval(async () => {
+      try {
+        const m = await fetchMarketData(syms);
+        setQ(m);
+      } catch {
+      }
+    }, 6e4);
+    return () => clearInterval(t);
+  }, []);
+  const Card = ({ sym, title, format }) => {
+    const x = q[sym] || {};
+    const price = x.price;
+    const cp = x.changePercent;
+    const up = (cp ?? 0) >= 0;
+    const display = format ? format(price) : price != null ? price.toFixed(2) : "-";
+    return /* @__PURE__ */ React.createElement("a", { href: externalLinkFor(sym), target: "_blank", rel: "noreferrer", className: "flex-1 min-w-[140px] bg-gray-800 rounded p-3 hover:bg-gray-700 transition" }, /* @__PURE__ */ React.createElement("div", { className: "text-xs text-gray-400 mb-1" }, title), /* @__PURE__ */ React.createElement("div", { className: "text-lg font-bold" }, display), /* @__PURE__ */ React.createElement("div", { className: `text-sm ${up ? "text-green-400" : "text-red-400"}` }, Number.isFinite(cp) ? `${up ? "+" : ""}${(cp * 100).toFixed(2)}%` : "-"));
+  };
+  return /* @__PURE__ */ React.createElement("div", { className: "flex flex-wrap gap-3" }, /* @__PURE__ */ React.createElement(Card, { sym: "^VIX", title: "VIX" }), /* @__PURE__ */ React.createElement(Card, { sym: "^GSPC", title: "S&P500" }), /* @__PURE__ */ React.createElement(Card, { sym: "^TNX", title: "US10Y", format: (p) => p != null ? (p / 10).toFixed(2) + "%" : "-" }));
+};
+const LWC_URL = "https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js";
+let __lwcPromise = null;
+const ensureLightweightCharts = () => {
+  if (window.LightweightCharts?.createChart) return Promise.resolve(window.LightweightCharts);
+  if (__lwcPromise) return __lwcPromise;
+  __lwcPromise = new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.id = "lightweight-charts-standalone";
+    s.src = LWC_URL;
+    s.async = true;
+    s.crossOrigin = "anonymous";
+    s.addEventListener("load", () => resolve(window.LightweightCharts), { once: true });
+    s.addEventListener("error", () => reject(new Error("Failed to load Lightweight Charts")), { once: true });
+    document.head.appendChild(s);
+  });
+  return __lwcPromise;
+};
+const DEFAULT_ITEMS = [
+  { id: "^N225", name: J("%E6%97%A5%E7%B5%8C%E5%B9%B3%E5%9D%87"), symbol: "^N225" },
+  { id: "^GSPC", name: "S&P500", symbol: "^GSPC" },
+  { id: "7203.T", name: J("%E3%83%88%E3%83%A8%E3%82%BF%E8%87%AA%E5%8B%95%E8%BB%8A"), symbol: "7203.T" },
+  { id: "AAPL", name: "Apple", symbol: "AAPL" },
+  { id: "JPY=X", name: J("%E3%83%89%E3%83%AB%E5%86%86"), symbol: "JPY=X" },
+  { id: "^VIX", name: J("VIX%E6%8C%87%E6%95%B0"), symbol: "^VIX" },
+  { id: "BTC-JPY", name: J("%E3%83%93%E3%83%83%E3%83%88%E3%82%B3%E3%82%A4%E3%83%B3(%E5%86%86)"), symbol: "BTC-JPY" },
+  { id: "^IXIC", name: J("NASDAQ%E7%B7%8F%E5%90%88"), symbol: "^IXIC" },
+  { id: "^RUT", name: J("%E3%83%A9%E3%83%83%E3%82%BB%E3%83%AB2000"), symbol: "^RUT" },
+  { id: "GC=F", name: J("%E9%87%91"), symbol: "GC=F" },
+  { id: "CL=F", name: J("%E5%8E%9F%E6%B2%B9"), symbol: "CL=F" },
+  { id: "1343.T", name: J("%E6%9D%B1%E8%A8%BCREIT"), symbol: "1343.T" },
+  { id: "8306.T", name: J("%E4%B8%89%E8%8F%B1UFJFG"), symbol: "8306.T" },
+  { id: "8316.T", name: J("%E4%B8%89%E4%BA%95%E4%BD%8F%E5%8F%8BFG"), symbol: "8316.T" },
+  { id: "7011.T", name: J("%E4%B8%89%E8%8F%B1%E9%87%8D%E5%B7%A5"), symbol: "7011.T" },
+  { id: "6501.T", name: J("%E6%97%A5%E7%AB%8B"), symbol: "6501.T" },
+  { id: "6702.T", name: J("%E5%AF%8C%E5%A3%AB%E9%80%9A"), symbol: "6702.T" },
+  { id: "6920.T", name: J("%E3%83%AC%E3%83%BC%E3%82%B6%E3%83%BC%E3%83%86%E3%83%83%E3%82%AF"), symbol: "6920.T" },
+  { id: "8035.T", name: J("%E6%9D%B1%E4%BA%AC%E3%82%A8%E3%83%AC%E3%82%AF%E3%83%88%E3%83%AD%E3%83%B3"), symbol: "8035.T" },
+  { id: "8584.T", name: J("%E3%82%B8%E3%83%A3%E3%83%83%E3%82%AF%E3%82%B9"), symbol: "8584.T" },
+  { id: "7741.T", name: "HOYA", symbol: "7741.T" },
+  { id: "5401.T", name: J("%E6%97%A5%E6%9C%AC%E8%A3%BD%E9%89%84"), symbol: "5401.T" },
+  { id: "NVDA", name: "NVIDIA", symbol: "NVDA" },
+  { id: "AVGO", name: J("%E3%83%96%E3%83%AD%E3%83%BC%E3%83%89%E3%82%B3%E3%83%A0"), symbol: "AVGO" },
+  { id: "GOOGL", name: "Alphabet", symbol: "GOOGL" },
+  { id: "MSFT", name: "Microsoft", symbol: "MSFT" },
+  { id: "META", name: "Meta", symbol: "META" },
+  { id: "ZZTEST", name: J("%E3%82%B7%E3%82%B0%E3%83%8A%E3%83%AB%E3%83%86%E3%82%B9%E3%83%88"), symbol: "ZZTEST" }
+];
+const NAME_MAP = Object.fromEntries(DEFAULT_ITEMS.map((x) => [x.symbol, x.name]));
+let JP_INDEX = [];
+(async () => {
+  try {
+    const res = await fetch("/data/jp-stocks.json?ts=" + Date.now(), { cache: "no-store" });
+    const j = await res.json();
+    if (Array.isArray(j)) {
+      JP_INDEX = j.map((x) => ({ code: String(x.code), symbol: String(x.code) + ".T", name: String(x.name || "") }));
+      for (const it of JP_INDEX) {
+        if (it.name) NAME_MAP[it.symbol] = it.name;
+      }
+    }
+  } catch (e) {
+    JP_INDEX = [];
+  }
+})();
+const SETTINGS_LS = "nmy.settings";
+const defaultSettings = { chart: { defaultTF: "D", showBB: true }, yfProxy: "" };
+const loadSettings = () => {
+  try {
+    const j = JSON.parse(localStorage.getItem(SETTINGS_LS) || "null");
+    return j && typeof j === "object" ? { ...defaultSettings, ...j, chart: { ...defaultSettings.chart, ...j.chart || {} } } : defaultSettings;
+  } catch (_) {
+    return defaultSettings;
+  }
+};
+const saveSettings = (s) => {
+  try {
+    localStorage.setItem(SETTINGS_LS, JSON.stringify(s));
+  } catch (_) {
+  }
+};
+try {
+  const s = loadSettings();
+  if (s.yfProxy && typeof s.yfProxy === "string") {
+    window.__YF_PROXY__ = s.yfProxy;
+  }
+} catch (_) {
+}
+const externalLinkFor = (symbol) => /\.T$/.test(symbol) ? `https://kabutan.jp/stock/?code=${symbol.replace(".T", "")}` : `https://finance.yahoo.com/quote/${encodeURIComponent(symbol)}`;
+const is24hSymbol = (s) => s === "JPY=X" || /-JPY$/.test(s) || /=X$/.test(s) || s === "BTC-JPY";
+const currencyFor = (s) => s?.endsWith?.(".T") || s === "BTC-JPY" || /=X$/.test(s) ? "JPY" : "USD";
+const toKatakana = (str) => String(str || "").replace(/[\u3041-\u3096]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) + 96));
+const romajiToKatakana = (input) => {
+  let s = String(input || "").toLowerCase();
+  const map = {
+    "kyo": "\u30AD\u30E7",
+    "kya": "\u30AD\u30E3",
+    "kyu": "\u30AD\u30E5",
+    "gya": "\u30AE\u30E3",
+    "gyu": "\u30AE\u30E5",
+    "gyo": "\u30AE\u30E7",
+    "sha": "\u30B7\u30E3",
+    "shu": "\u30B7\u30E5",
+    "sho": "\u30B7\u30E7",
+    "sya": "\u30B7\u30E3",
+    "syu": "\u30B7\u30E5",
+    "syo": "\u30B7\u30E7",
+    "jya": "\u30B8\u30E3",
+    "jyu": "\u30B8\u30E5",
+    "jyo": "\u30B8\u30E7",
+    "ja": "\u30B8\u30E3",
+    "ju": "\u30B8\u30E5",
+    "jo": "\u30B8\u30E7",
+    "cha": "\u30C1\u30E3",
+    "chu": "\u30C1\u30E5",
+    "cho": "\u30C1\u30E7",
+    "cya": "\u30C1\u30E3",
+    "cyu": "\u30C1\u30E5",
+    "cyo": "\u30C1\u30E7",
+    "nya": "\u30CB\u30E3",
+    "nyu": "\u30CB\u30E5",
+    "nyo": "\u30CB\u30E7",
+    "hya": "\u30D2\u30E3",
+    "hyu": "\u30D2\u30E5",
+    "hyo": "\u30D2\u30E7",
+    "bya": "\u30D3\u30E3",
+    "byu": "\u30D3\u30E5",
+    "byo": "\u30D3\u30E7",
+    "pya": "\u30D4\u30E3",
+    "pyu": "\u30D4\u30E5",
+    "pyo": "\u30D4\u30E7",
+    "mya": "\u30DF\u30E3",
+    "myu": "\u30DF\u30E5",
+    "myo": "\u30DF\u30E7",
+    "rya": "\u30EA\u30E3",
+    "ryu": "\u30EA\u30E5",
+    "ryo": "\u30EA\u30E7",
+    "shi": "\u30B7",
+    "chi": "\u30C1",
+    "tsu": "\u30C4",
+    "ti": "\u30C6\u30A3",
+    "di": "\u30C7\u30A3",
+    "du": "\u30C9\u30A5",
+    "dzu": "\u30C5",
+    "fu": "\u30D5",
+    "wi": "\u30A6\u30A3",
+    "we": "\u30A6\u30A7",
+    "who": "\u30D5\u30AA",
+    "whi": "\u30D5\u30A3",
+    "xa": "\u30A1",
+    "xi": "\u30A3",
+    "xu": "\u30A5",
+    "xe": "\u30A7",
+    "xo": "\u30A9"
+  };
+  const basic = { a: "\u30A2", i: "\u30A4", u: "\u30A6", e: "\u30A8", o: "\u30AA", ka: "\u30AB", ki: "\u30AD", ku: "\u30AF", ke: "\u30B1", ko: "\u30B3", ga: "\u30AC", gi: "\u30AE", gu: "\u30B0", ge: "\u30B2", go: "\u30B4", sa: "\u30B5", si: "\u30B7", su: "\u30B9", se: "\u30BB", so: "\u30BD", za: "\u30B6", zi: "\u30B8", zu: "\u30BA", ze: "\u30BC", zo: "\u30BE", ta: "\u30BF", tu: "\u30C4", te: "\u30C6", to: "\u30C8", da: "\u30C0", de: "\u30C7", do: "\u30C9", na: "\u30CA", ni: "\u30CB", nu: "\u30CC", ne: "\u30CD", no: "\u30CE", ha: "\u30CF", hi: "\u30D2", hu: "\u30D5", he: "\u30D8", ho: "\u30DB", ba: "\u30D0", bi: "\u30D3", bu: "\u30D6", be: "\u30D9", bo: "\u30DC", pa: "\u30D1", pi: "\u30D4", pu: "\u30D7", pe: "\u30DA", po: "\u30DD", ma: "\u30DE", mi: "\u30DF", mu: "\u30E0", me: "\u30E1", mo: "\u30E2", ya: "\u30E4", yu: "\u30E6", yo: "\u30E8", ra: "\u30E9", ri: "\u30EA", ru: "\u30EB", re: "\u30EC", ro: "\u30ED", wa: "\u30EF", wo: "\u30F2", n: "\u30F3" };
+  let out = "";
+  const doubleCons = /([bcdfghjklmnpqrstvwxyz])\1/;
+  while (s.length) {
+    if (doubleCons.test(s)) {
+      out += "\u30C3";
+      s = s.replace(doubleCons, (m, p) => p);
+      continue;
+    }
+    let hit = null;
+    for (const len of [3, 2, 1]) {
+      const seg = s.slice(0, len);
+      if (map[seg]) {
+        out += map[seg];
+        s = s.slice(len);
+        hit = true;
+        break;
+      }
+      if (basic[seg]) {
+        out += basic[seg];
+        s = s.slice(len);
+        hit = true;
+        break;
+      }
+    }
+    if (!hit) {
+      out += s[0].match(/[a-z]/) ? "" : s[0];
+      s = s.slice(1);
+    }
+  }
+  return out || input;
+};
+const normalizeJP = (str) => {
+  const t = String(str || "").normalize("NFKC");
+  if (/[a-z]/i.test(t)) return toKatakana(romajiToKatakana(t));
+  return toKatakana(t);
+};
+const searchSymbols = async (q) => {
+  if (!q || !q.trim()) return [];
+  const query = q.trim();
+  const qN = normalizeJP(query);
+  const qlen = query.length;
+  const out = /* @__PURE__ */ new Map();
+  const put = (sym, name, rank) => {
+    const cur = out.get(sym);
+    if (!cur || rank < cur.rank) out.set(sym, { symbol: sym, name, rank });
+  };
+  const isAsciiTicker = /^[A-Za-z][A-Za-z0-9.\-=]{0,9}$/.test(query);
+  try {
+    const j = await yfGetJSON(`/search?q=${encodeURIComponent(query)}&quotesCount=40&newsCount=0&lang=ja-JP&region=JP`);
+    const qs = Array.isArray(j?.quotes) ? j.quotes : [];
+    for (const x of qs) {
+      const sym = x?.symbol;
+      if (!sym) continue;
+      const name = x?.longname || x?.shortname || sym;
+      let rank = 3;
+      const nN = normalizeJP(name || "");
+      if (nN.startsWith(qN) || sym.toLowerCase().startsWith(query.toLowerCase())) rank = 2;
+      put(sym, name, rank);
+    }
+  } catch {
+  }
+  try {
+    if (isAsciiTicker || out.size < 3) {
+      const u = `/search?q=${encodeURIComponent(query)}&quotesCount=40&newsCount=0&lang=en-US&region=US`;
+      const j2 = await yfGetJSON(u);
+      const qs2 = Array.isArray(j2?.quotes) ? j2.quotes : [];
+      for (const x of qs2) {
+        const sym = x?.symbol;
+        if (!sym) continue;
+        const name = x?.longname || x?.shortname || sym;
+        let rank = isAsciiTicker && sym.toLowerCase().startsWith(query.toLowerCase()) ? 1 : 4;
+        put(sym, name, rank);
+      }
+    }
+  } catch {
+  }
+  const is4 = /^\d{4}$/.test(query);
+  if (is4) {
+    const hit = JP_INDEX.find((i) => i.code === query);
+    if (hit) put(hit.symbol, hit.name || hit.symbol, 0);
+  }
+  for (const it of JP_INDEX) {
+    const nm = it.name || "";
+    if (!nm) continue;
+    const nN = normalizeJP(nm);
+    if (qlen === 1) {
+      if (nN.startsWith(qN)) put(it.symbol, nm, 1);
+    } else if (qlen >= 2) {
+      if (nN.includes(qN)) put(it.symbol, nm, 3);
+    }
+  }
+  for (const it of DEFAULT_ITEMS) {
+    const nm = it.name || "";
+    const sym = it.symbol || "";
+    const nameHit = qlen === 1 ? normalizeJP(nm).startsWith(qN) : normalizeJP(nm).includes(qN);
+    const symHit = sym.toLowerCase().startsWith(query.toLowerCase());
+    if (nameHit || symHit) put(sym, nm || sym, symHit ? 2 : qlen === 1 ? 1 : 3);
+  }
+  return [...out.values()].sort((a, b) => a.rank - b.rank || a.symbol.localeCompare(b.symbol));
+};
+const AssetsPage = ({ watchItems = [], persistItems = (x) => {
+} }) => {
+  const LS_ASSETS = "nmy.assets";
+  const uid = () => "id" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+  const load = () => {
+    try {
+      const j = JSON.parse(localStorage.getItem(LS_ASSETS) || "{}");
+      return j && typeof j === "object" ? j : {};
+    } catch (_) {
+      return {};
+    }
+  };
+  const init = load();
+  const [cash, setCash] = useState(Array.isArray(init.cash) ? init.cash : [{ id: uid(), label: "\u73FE\u91D1", currency: "JPY", amount: 0 }]);
+  const [holdings, setHoldings] = useState(Array.isArray(init.holdings) ? init.holdings : []);
+  const [quotes, setQuotes] = useState({});
+  const [rate, setRate] = useState(null);
+  const saveLS = () => {
+    try {
+      localStorage.setItem(LS_ASSETS, JSON.stringify({ cash, holdings }));
+    } catch (_) {
+    }
+  };
+  useEffect(() => {
+    saveLS();
+  }, [cash, holdings]);
+  const lastDailyClose = async (symbol) => {
+    try {
+      const j = await yfGetJSON(`/history?symbol=${encodeURIComponent(symbol)}&interval=1d&range=6mo`);
+      const r2 = j?.chart?.result?.[0];
+      const close = r2?.indicators?.quote?.[0]?.close || [];
+      for (let i = close.length - 1; i >= 0; i--) {
+        const v = close[i];
+        if (Number.isFinite(v)) return v;
+      }
+    } catch (_) {
+    }
+    return null;
+  };
+  const refreshQuotes = async () => {
+    const syms = Array.from(new Set(holdings.map((h) => h.symbol).filter(Boolean)));
+    const [m, closes, fxClose] = await Promise.all([
+      syms.length ? fetchMarketData(syms) : Promise.resolve({}),
+      Promise.all(syms.map((s) => lastDailyClose(s))),
+      lastDailyClose("USDJPY=X")
+    ]);
+    const out = { ...quotes };
+    syms.forEach((s, idx) => {
+      const name = m?.[s]?.name || out?.[s]?.name || NAME_MAP[s] || s;
+      const price = Number.isFinite(closes[idx]) ? closes[idx] : out?.[s]?.price ?? null;
+      out[s] = { price, change: 0, changePercent: 0, name };
+    });
+    setQuotes(out);
+    if (Number.isFinite(fxClose)) setRate(fxClose);
+  };
+  useEffect(() => {
+    refreshQuotes();
+  }, [holdings.map((h) => h.symbol).join(",")]);
+  useEffect(() => {
+    const t = setInterval(refreshQuotes, 6e4);
+    return () => clearInterval(t);
+  }, []);
+  const r = rate ?? quotes["USDJPY=X"]?.price ?? 150;
+  const cashJPYSum = useMemo(() => cash.filter((c) => c.currency === "JPY").reduce((a, c) => a + (Number(c.amount) || 0), 0), [cash]);
+  const cashUSDSum = useMemo(() => cash.filter((c) => c.currency === "USD").reduce((a, c) => a + (Number(c.amount) || 0), 0), [cash]);
+  const cashTotalJPY = useMemo(() => cashJPYSum + cashUSDSum * r, [cashJPYSum, cashUSDSum, r]);
+  const stocksJPJPY = useMemo(() => holdings.reduce((a, h) => {
+    const cur = currencyFor(h.symbol);
+    if (cur !== "JPY") return a;
+    const q = quotes[h.symbol] || {};
+    const p = q.price || 0;
+    const qty = Number(h.qty) || 0;
+    return a + p * qty;
+  }, 0), [holdings, quotes]);
+  const stocksUSJPY = useMemo(() => holdings.reduce((a, h) => {
+    const cur = currencyFor(h.symbol);
+    if (cur !== "USD") return a;
+    const q = quotes[h.symbol] || {};
+    const p = q.price || 0;
+    const qty = Number(h.qty) || 0;
+    return a + p * qty * r;
+  }, 0), [holdings, quotes, r]);
+  const stocksTotalJPY = useMemo(() => stocksJPJPY + stocksUSJPY, [stocksJPJPY, stocksUSJPY]);
+  const totalJPY = useMemo(() => cashTotalJPY + stocksTotalJPY, [cashTotalJPY, stocksTotalJPY]);
+  const addCash = (cur = "JPY") => setCash([...cash, { id: uid(), label: cur === "USD" ? "USD\u73FE\u91D1" : "JPY\u73FE\u91D1", currency: cur, amount: 0 }]);
+  const removeCash = (id) => setCash(cash.filter((c) => c.id !== id));
+  const moveRow = (arr, setArr, from, to) => {
+    const a = [...arr];
+    const [m] = a.splice(from, 1);
+    a.splice(to, 0, m);
+    setArr(a);
+  };
+  const LS_ASSETS_HIST = "nmy.assets.history";
+  const [history, setHistory] = useState(() => {
+    try {
+      const j = JSON.parse(localStorage.getItem(LS_ASSETS_HIST) || "[]");
+      return Array.isArray(j) ? j : [];
+    } catch (_) {
+      return [];
+    }
+  });
+  const saveHistory = (h) => {
+    try {
+      localStorage.setItem(LS_ASSETS_HIST, JSON.stringify(h));
+    } catch (_) {
+    }
+  };
+  const dayKey = (d) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const da = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${da}`;
+  };
+  useEffect(() => {
+    const now = /* @__PURE__ */ new Date();
+    const key = dayKey(now);
+    const ts = Math.floor(new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() / 1e3);
+    setHistory((prev) => {
+      const h = Array.isArray(prev) ? [...prev] : [];
+      const snap = { key, ts, cashJPY: cashJPYSum, cashUSD: cashUSDSum * r, cashTotal: cashTotalJPY, stocksJP: stocksJPJPY, stocksUS: stocksUSJPY, stocksTotal: stocksTotalJPY, total: totalJPY };
+      const i = h.findIndex((x) => x.key === key);
+      if (i >= 0) {
+        h[i] = snap;
+      } else {
+        h.push(snap);
+      }
+      saveHistory(h);
+      return h;
+    });
+  }, [cashJPYSum, cashUSDSum, r, stocksJPJPY, stocksUSJPY, cashTotalJPY, stocksTotalJPY, totalJPY]);
+  const latest = history.length ? history[history.length - 1] : null;
+  const prevDay = (() => {
+    if (!latest) return null;
+    for (let i = history.length - 2; i >= 0; i--) {
+      if (history[i].key !== latest.key) return history[i];
+    }
+    return null;
+  })();
+  const pct = (cur, prev) => prev && prev > 0 ? (cur - prev) / prev * 100 : null;
+  const pctCash = pct(latest?.cashTotal || 0, prevDay?.cashTotal || 0);
+  const pctStocks = pct(latest?.stocksTotal || 0, prevDay?.stocksTotal || 0);
+  const pctTotal = pct(latest?.total || 0, prevDay?.total || 0);
+  const [tfAssets, setTfAssets] = useState("D");
+  const cashBoxRef = useRef(null), cashChartRef = useRef(null), cashSeriesRef = useRef({});
+  const stockBoxRef = useRef(null), stockChartRef = useRef(null), stockSeriesRef = useRef({});
+  const aggSeries = (hist, tf) => {
+    if (!Array.isArray(hist) || hist.length === 0) return { cashTotal: [], cashJPY: [], cashUSD: [], stocksTotal: [], stocksJP: [], stocksUS: [] };
+    const byKey = /* @__PURE__ */ new Map();
+    const push = (k, rec) => {
+      const ex = byKey.get(k) || rec;
+      if (!ex || rec.ts >= ex.ts) byKey.set(k, rec);
+    };
+    const pad2 = (n) => String(n).padStart(2, "0");
+    for (const r2 of hist) {
+      const d = new Date(r2.ts * 1e3);
+      let k;
+      if (tf === "M") k = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`;
+      else if (tf === "W") {
+        const dt = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+        const day = dt.getUTCDay() || 7;
+        dt.setUTCDate(dt.getUTCDate() + 4 - day);
+        const y = dt.getUTCFullYear();
+        const y0 = new Date(Date.UTC(y, 0, 1));
+        const wn = Math.ceil(((dt - y0) / 864e5 + 1) / 7);
+        k = `${y}-W${pad2(wn)}`;
+      } else {
+        k = dayKey(d);
+      }
+      push(k, { ...r2 });
+    }
+    const outKeys = Array.from(byKey.keys()).sort();
+    const toTime = (k) => {
+      if (tf === "M") {
+        const [y, m] = k.split("-");
+        return Math.floor(new Date(Number(y), Number(m) - 1, 1).getTime() / 1e3);
+      }
+      if (tf === "W") {
+        const [y, w] = k.split("-W");
+        const jan1 = new Date(Date.UTC(Number(y), 0, 1));
+        const ts = jan1.getTime() + (Number(w) - 1) * 7 * 864e5;
+        return Math.floor(ts / 1e3);
+      }
+      return Math.floor(new Date(k).getTime() / 1e3);
+    };
+    const cashTotal = [], cashJPY = [], cashUSD = [], stocksTotal = [], stocksJP = [], stocksUS = [];
+    for (const k of outKeys) {
+      const r2 = byKey.get(k);
+      const t = toTime(k);
+      cashTotal.push({ time: t, value: Math.round(r2.cashTotal) });
+      cashJPY.push({ time: t, value: Math.round(r2.cashJPY) });
+      cashUSD.push({ time: t, value: Math.round(r2.cashUSD) });
+      stocksTotal.push({ time: t, value: Math.round(r2.stocksTotal) });
+      stocksJP.push({ time: t, value: Math.round(r2.stocksJP) });
+      stocksUS.push({ time: t, value: Math.round(r2.stocksUS) });
+    }
+    return { cashTotal, cashJPY, cashUSD, stocksTotal, stocksJP, stocksUS };
+  };
+  useEffect(() => {
+    let disposed = false;
+    let ro1, ro2;
+    (async () => {
+      const L = await ensureLightweightCharts();
+      await new Promise((r2) => requestAnimationFrame(r2));
+      if (disposed) return;
+      const create = (el) => L.createChart(el, { width: el.clientWidth || 800, height: 260, layout: { background: { type: "solid", color: "#1f2937" }, textColor: "rgba(255,255,255,0.9)" }, grid: { vertLines: { color: "#374151" }, horzLines: { color: "#374151" } }, timeScale: { borderColor: "#4b5563", visible: true, timeVisible: true, secondsVisible: false, tickMarkSpacing: 75, tickMarkFormatter: (time) => {
+        if (typeof time === "object" && time && "year" in time) {
+          const yy2 = String(time.year % 100).padStart(2, "0");
+          const mm2 = String(time.month).padStart(2, "0");
+          return `${yy2}\u5E74${mm2}\u6708`;
+        }
+        const d = new Date((time + 9 * 3600) * 1e3);
+        const yy = String(d.getUTCFullYear() % 100).padStart(2, "0");
+        const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+        return `${yy}\u5E74${mm}\u6708`;
+      } }, localization: { locale: "ja-JP" } });
+      if (cashChartRef.current) cashChartRef.current.remove();
+      if (stockChartRef.current) stockChartRef.current.remove();
+      cashChartRef.current = create(cashBoxRef.current);
+      stockChartRef.current = create(stockBoxRef.current);
+      const cc = cashChartRef.current;
+      const sc = stockChartRef.current;
+      cashSeriesRef.current = { total: cc.addLineSeries({ color: "#38bdf8", lineWidth: 2 }), jpy: cc.addLineSeries({ color: "rgba(74,222,128,0.9)", lineWidth: 1, lineStyle: L.LineStyle.Dotted }), usd: cc.addLineSeries({ color: "rgba(234,179,8,0.9)", lineWidth: 1, lineStyle: L.LineStyle.Dotted }) };
+      stockSeriesRef.current = { total: sc.addLineSeries({ color: "#a78bfa", lineWidth: 2 }), jp: sc.addLineSeries({ color: "rgba(59,130,246,0.9)", lineWidth: 1, lineStyle: L.LineStyle.Dotted }), us: sc.addLineSeries({ color: "rgba(244,63,94,0.9)", lineWidth: 1, lineStyle: L.LineStyle.Dotted }) };
+      ro1 = new ResizeObserver(([e]) => {
+        if (!e || !cashChartRef.current) return;
+        const { width } = e.contentRect;
+        cashChartRef.current.applyOptions({ width });
+      });
+      ro2 = new ResizeObserver(([e]) => {
+        if (!e || !stockChartRef.current) return;
+        const { width } = e.contentRect;
+        stockChartRef.current.applyOptions({ width });
+      });
+      ro1.observe(cashBoxRef.current);
+      ro2.observe(stockBoxRef.current);
+    })();
+    return () => {
+      disposed = true;
+      if (ro1) ro1.disconnect();
+      if (ro2) ro2.disconnect();
+      if (cashChartRef.current) {
+        cashChartRef.current.remove();
+        cashChartRef.current = null;
+        cashSeriesRef.current = {};
+      }
+      if (stockChartRef.current) {
+        stockChartRef.current.remove();
+        stockChartRef.current = null;
+        stockSeriesRef.current = {};
+      }
+    };
+  }, []);
+  useEffect(() => {
+    const agg = aggSeries(history, tfAssets);
+    if (cashSeriesRef.current.total) {
+      cashSeriesRef.current.total.setData(agg.cashTotal);
+      cashSeriesRef.current.jpy.setData(agg.cashJPY);
+      cashSeriesRef.current.usd.setData(agg.cashUSD);
+      cashChartRef.current?.timeScale().fitContent();
+    }
+    if (stockSeriesRef.current.total) {
+      stockSeriesRef.current.total.setData(agg.stocksTotal);
+      stockSeriesRef.current.jp.setData(agg.stocksJP);
+      stockSeriesRef.current.us.setData(agg.stocksUS);
+      stockChartRef.current?.timeScale().fitContent();
+    }
+  }, [history, tfAssets]);
+  const SymbolEditor = ({ row, onChange }) => {
+    const [q, setQ] = useState(row.symbol || "");
+    const [sugs, setSugs] = useState([]);
+    const [open, setOpen] = useState(false);
+    const [hi, setHi] = useState(0);
+    const enrichTimer = useRef(null);
+    useEffect(() => {
+      let alive = true;
+      const t = setTimeout(async () => {
+        if (!q) {
+          setSugs([]);
+          return;
+        }
+        try {
+          const r2 = await searchSymbols(q);
+          if (alive) setSugs(r2);
+        } catch {
+          if (alive) setSugs([]);
+        }
+      }, 200);
+      return () => {
+        clearTimeout(t);
+        alive = false;
+      };
+    }, [q]);
+    useEffect(() => {
+      if (!open || sugs.length === 0) return;
+      if (enrichTimer.current) {
+        clearTimeout(enrichTimer.current);
+        enrichTimer.current = null;
+      }
+      const need = sugs.filter((s) => s.symbol?.endsWith?.(".T"));
+      let alive = true;
+      enrichTimer.current = setTimeout(async () => {
+        try {
+          const ups = await Promise.all(need.map(async (s) => {
+            try {
+              const f = await yfGetJSON(`/fund?symbol=${encodeURIComponent(s.symbol)}`);
+              return { sym: s.symbol, name: f?.longName || f?.shortName || s.name };
+            } catch {
+              return { sym: s.symbol, name: s.name };
+            }
+          }));
+          if (!alive) return;
+          const map = new Map(sugs.map((x) => [x.symbol, { ...x }]));
+          for (const u of ups) {
+            const x = map.get(u.sym);
+            if (x) {
+              x.name = u.name || x.name;
+              map.set(u.sym, x);
+            }
+          }
+          setSugs(Array.from(map.values()));
+        } catch {
+        }
+      }, 150);
+      return () => {
+        alive = false;
+        if (enrichTimer.current) {
+          clearTimeout(enrichTimer.current);
+          enrichTimer.current = null;
+        }
+      };
+    }, [sugs, open]);
+    const choose = (s) => {
+      onChange({ symbol: s.symbol });
+      setQ(s.symbol);
+      setOpen(false);
+    };
+    const onKey = (e) => {
+      if (!open || sugs.length === 0) return;
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setHi((hi + 1) % sugs.length);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setHi((hi - 1 + sugs.length) % sugs.length);
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        choose(sugs[hi]);
+      }
+    };
+    return /* @__PURE__ */ React.createElement("div", { className: "relative" }, /* @__PURE__ */ React.createElement("input", { value: q, onFocus: () => setOpen(true), onBlur: () => setTimeout(() => setOpen(false), 150), onKeyDown: onKey, onChange: (e) => setQ(e.target.value), className: "w-56 bg-gray-900 text-gray-100 rounded px-2 py-1", placeholder: "AAPL / 7203 / \u30C8\u30E8\u30BF" }), open && sugs.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "absolute z-10 mt-1 w-80 max-h-60 overflow-auto bg-gray-800 border border-gray-700 rounded shadow" }, sugs.map((s, idx) => /* @__PURE__ */ React.createElement("button", { key: s.symbol, className: `block w-full text-left px-2 py-1 text-sm ${idx === hi ? "bg-gray-700" : ""}`, onMouseEnter: () => setHi(idx), onMouseDown: (e) => {
+      e.preventDefault();
+    }, onClick: () => choose(s) }, /* @__PURE__ */ React.createElement("span", { className: "text-gray-200 mr-2" }, s.symbol), /* @__PURE__ */ React.createElement("span", { className: "text-gray-400" }, s.name)))));
+  };
+  const addHolding = () => setHoldings([...holdings, { id: uid(), symbol: "", qty: 0, avgPrice: 0 }]);
+  const removeHolding = (id) => setHoldings(holdings.filter((h) => h.id !== id));
+  const saveAndSyncDashboard = async () => {
+    saveLS();
+    try {
+      const existing = new Set((watchItems || []).map((w) => w.symbol));
+      const addSyms = holdings.map((h) => h.symbol).filter((s) => s && !existing.has(s));
+      if (addSyms.length === 0) return;
+      const items = [...watchItems];
+      for (const s of addSyms) {
+        try {
+          const f = await fetchFundamentals(s);
+          const display = f.longName || f.shortName || NAME_MAP[s] || s;
+          items.push({ id: s, symbol: s, name: display });
+        } catch {
+          items.push({ id: s, symbol: s, name: NAME_MAP[s] || s });
+        }
+      }
+      persistItems(items);
+    } catch {
+    }
+  };
+  const fmt = (n) => Number.isFinite(n) ? Math.round(n).toLocaleString("ja-JP") : "-";
+  const Card = ({ title, amount, pct: pct2 }) => /* @__PURE__ */ React.createElement("div", { className: "bg-gray-800 rounded p-3" }, /* @__PURE__ */ React.createElement("div", { className: "text-xs text-gray-400 mb-1" }, title), /* @__PURE__ */ React.createElement("div", { className: "text-xl font-bold" }, Math.round(amount).toLocaleString("ja-JP"), " JPY"), /* @__PURE__ */ React.createElement("div", { className: `text-sm ${pct2 == null ? "text-gray-400" : pct2 >= 0 ? "text-green-400" : "text-red-400"}` }, pct2 == null ? "-" : `${pct2 >= 0 ? "+" : ""}${pct2.toFixed(2)}%`, " ", J("%E5%89%8D%E6%97%A5%E6%AF%94")));
+  return /* @__PURE__ */ React.createElement("div", { className: "space-y-6" }, /* @__PURE__ */ React.createElement("section", null, /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-1 md:grid-cols-3 gap-3" }, /* @__PURE__ */ React.createElement(Card, { title: J("%E7%B7%8F%E8%B3%87%E7%94%A3"), amount: totalJPY, pct: pctTotal }), /* @__PURE__ */ React.createElement(Card, { title: J("%E7%8F%BE%E9%87%91%E9%A0%90%E9%87%91"), amount: cashTotalJPY, pct: pctCash }), /* @__PURE__ */ React.createElement(Card, { title: J("%E6%A0%AA%E5%BC%8F%E8%B3%87%E7%94%A3"), amount: stocksTotalJPY, pct: pctStocks }))), /* @__PURE__ */ React.createElement("section", { className: "bg-gray-800 rounded p-4" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between mb-2" }, /* @__PURE__ */ React.createElement("h2", { className: "font-bold" }, J("%E7%8F%BE%E9%87%91%2F%E5%82%99%E5%84%98%20%E6%99%82%E7%B3%BB%E5%88%97")), /* @__PURE__ */ React.createElement("div", { className: "bg-gray-700 rounded-md p-1 flex space-x-1" }, ["D", "W", "M"].map((tf) => /* @__PURE__ */ React.createElement("button", { key: tf, onClick: () => setTfAssets(tf), className: `px-2 py-1 text-xs rounded ${tfAssets === tf ? "bg-indigo-600 text-white" : "text-gray-300"}` }, tf === "D" ? J("%E6%97%A5") : tf === "W" ? J("%E9%80%B1") : J("%E6%9C%88"))))), /* @__PURE__ */ React.createElement("div", { ref: cashBoxRef, className: "w-full h-[260px]" }), /* @__PURE__ */ React.createElement("div", { className: "text-xs text-gray-400 mt-1" }, J("%E5%90%88%E8%A8%88"), ": ", Math.round(cashTotalJPY).toLocaleString("ja-JP"), " JPY \uFF0F ", J("%E5%86%86%E9%A0%90%E9%87%91"), ": ", Math.round(cashJPYSum).toLocaleString("ja-JP"), " \uFF0F ", J("%E3%83%89%E3%83%AB%E9%A0%90%E9%87%91%28JPY%20%E6%8F%9B%E7%AE%97%29"), ": ", Math.round(cashUSDSum * r).toLocaleString("ja-JP"))), /* @__PURE__ */ React.createElement("section", { className: "bg-gray-800 rounded p-4" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between mb-2" }, /* @__PURE__ */ React.createElement("h2", { className: "font-bold" }, J("%E6%A0%AA%E5%BC%8F%20%E6%99%82%E7%B3%BB%E5%88%97")), /* @__PURE__ */ React.createElement("div", { className: "bg-gray-700 rounded-md p-1 flex space-x-1" }, ["D", "W", "M"].map((tf) => /* @__PURE__ */ React.createElement("button", { key: tf, onClick: () => setTfAssets(tf), className: `px-2 py-1 text-xs rounded ${tfAssets === tf ? "bg-indigo-600 text-white" : "text-gray-300"}` }, tf === "D" ? J("%E6%97%A5") : tf === "W" ? J("%E9%80%B1") : J("%E6%9C%88"))))), /* @__PURE__ */ React.createElement("div", { ref: stockBoxRef, className: "w-full h-[260px]" }), /* @__PURE__ */ React.createElement("div", { className: "text-xs text-gray-400 mt-1" }, J("%E5%90%88%E8%A8%88"), ": ", Math.round(stocksTotalJPY).toLocaleString("ja-JP"), " JPY \uFF0F ", J("%E6%97%A5%E6%9C%AC%E6%A0%AA"), ": ", Math.round(stocksJPJPY).toLocaleString("ja-JP"), " \uFF0F ", J("%E7%B1%B3%E5%9B%BD%E6%A0%AA"), ": ", Math.round(stocksUSJPY).toLocaleString("ja-JP"))), /* @__PURE__ */ React.createElement("section", { className: "bg-gray-800 rounded p-4" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between mb-2" }, /* @__PURE__ */ React.createElement("h2", { className: "font-bold" }, J("%E7%8F%BE%E9%87%91%E3%83%BB%E9%A0%90%E9%87%91")), /* @__PURE__ */ React.createElement("div", { className: "space-x-2" }, /* @__PURE__ */ React.createElement("button", { className: "px-2 py-1 bg-gray-700 rounded", onClick: () => addCash("JPY") }, J("%E8%BF%BD%E5%8A%A0%28JPY%29")), /* @__PURE__ */ React.createElement("button", { className: "px-2 py-1 bg-gray-700 rounded", onClick: () => addCash("USD") }, J("%E8%BF%BD%E5%8A%A0%28USD%29")))), /* @__PURE__ */ React.createElement("div", { className: "overflow-auto" }, /* @__PURE__ */ React.createElement("table", { className: "w-full text-sm" }, /* @__PURE__ */ React.createElement("thead", { className: "text-gray-400" }, /* @__PURE__ */ React.createElement("tr", { className: "text-left" }, /* @__PURE__ */ React.createElement("th", { className: "px-2 py-1" }, J("%E5%90%8D%E7%A7%B0")), /* @__PURE__ */ React.createElement("th", { className: "px-2 py-1" }, J("%E9%80%9A%E8%B2%A8")), /* @__PURE__ */ React.createElement("th", { className: "px-2 py-1" }, J("%E9%A1%8D")), /* @__PURE__ */ React.createElement("th", { className: "px-2 py-1 text-right" }, J("%E5%90%88%E8%A8%88%28JPY%29")), /* @__PURE__ */ React.createElement("th", { className: "px-2 py-1" }))), /* @__PURE__ */ React.createElement("tbody", null, cash.map((c, idx) => {
+    const valJPY = (Number(c.amount) || 0) * (c.currency === "USD" ? r : 1);
+    return /* @__PURE__ */ React.createElement("tr", { key: c.id, className: "border-t border-gray-700", draggable: true, onDragStart: (e) => {
+      e.dataTransfer.setData("text/plain", String(idx));
+    }, onDragOver: (e) => {
+      e.preventDefault();
+    }, onDrop: (e) => {
+      const from = Number(e.dataTransfer.getData("text/plain"));
+      moveRow(cash, setCash, from, idx);
+    } }, /* @__PURE__ */ React.createElement("td", { className: "px-2 py-1" }, /* @__PURE__ */ React.createElement("input", { className: "w-48 bg-gray-900 text-gray-100 rounded px-2 py-1", value: c.label, onChange: (e) => {
+      const a = [...cash];
+      a[idx] = { ...c, label: e.target.value };
+      setCash(a);
+    } })), /* @__PURE__ */ React.createElement("td", { className: "px-2 py-1" }, /* @__PURE__ */ React.createElement("select", { className: "bg-gray-900 text-gray-100 rounded px-2 py-1", value: c.currency, onChange: (e) => {
+      const a = [...cash];
+      a[idx] = { ...c, currency: e.target.value };
+      setCash(a);
+    } }, /* @__PURE__ */ React.createElement("option", { value: "JPY" }, "JPY"), /* @__PURE__ */ React.createElement("option", { value: "USD" }, "USD"))), /* @__PURE__ */ React.createElement("td", { className: "px-2 py-1" }, /* @__PURE__ */ React.createElement("input", { type: "number", className: "w-36 bg-gray-900 text-gray-100 rounded px-2 py-1", value: c.amount, onChange: (e) => {
+      const a = [...cash];
+      a[idx] = { ...c, amount: Number(e.target.value) || 0 };
+      setCash(a);
+    } })), /* @__PURE__ */ React.createElement("td", { className: "px-2 py-1 text-right text-gray-100" }, fmt(valJPY)), /* @__PURE__ */ React.createElement("td", { className: "px-2 py-1" }, /* @__PURE__ */ React.createElement("button", { className: "px-2 py-1 bg-red-600 hover:bg-red-500 rounded text-white text-xs", onClick: () => removeCash(c.id) }, J("%E5%89%8A%E9%99%A4"))));
+  })))), /* @__PURE__ */ React.createElement("div", { className: "text-sm text-gray-400 mt-2" }, "USD/JPY: ", r ? Number(r).toFixed(2) : "-"), /* @__PURE__ */ React.createElement("div", { className: "text-right text-sm text-gray-300 mt-2" }, J("%E7%8F%BE%E9%87%91%E5%90%88%E8%A8%88"), " : ", fmt(cashTotalJPY), " JPY")), /* @__PURE__ */ React.createElement("section", { className: "bg-gray-800 rounded p-4" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between mb-2" }, /* @__PURE__ */ React.createElement("h2", { className: "font-bold" }, J("%E6%A0%AA%E5%BC%8F%E4%BF%9D%E6%9C%89")), /* @__PURE__ */ React.createElement("div", { className: "flex space-x-2" }, /* @__PURE__ */ React.createElement("button", { className: "px-2 py-1 bg-gray-700 rounded", onClick: addHolding }, J("%E8%BF%BD%E5%8A%A0")))), /* @__PURE__ */ React.createElement("div", { className: "overflow-auto" }, /* @__PURE__ */ React.createElement("table", { className: "w-full text-sm" }, /* @__PURE__ */ React.createElement("thead", { className: "text-gray-400" }, /* @__PURE__ */ React.createElement("tr", { className: "text-left" }, /* @__PURE__ */ React.createElement("th", { className: "px-2 py-1" }, J("%E9%8A%98%E6%9F%84")), /* @__PURE__ */ React.createElement("th", { className: "px-2 py-1" }, J("%E6%95%B0%E9%87%8F")), /* @__PURE__ */ React.createElement("th", { className: "px-2 py-1" }, J("%E5%B9%B3%E5%9D%87%E5%8F%96%E5%BE%97%E5%8D%98%E4%BE%A1")), /* @__PURE__ */ React.createElement("th", { className: "px-2 py-1 text-right" }, J("%E7%8F%BE%E5%80%A4")), /* @__PURE__ */ React.createElement("th", { className: "px-2 py-1 text-right" }, J("%E9%A8%B0%E8%90%BD%E7%8E%87")), /* @__PURE__ */ React.createElement("th", { className: "px-2 py-1 text-right" }, J("%E8%A9%95%E4%BE%A1%E9%A1%8D%28JPY%29")), /* @__PURE__ */ React.createElement("th", { className: "px-2 py-1" }))), /* @__PURE__ */ React.createElement("tbody", null, holdings.map((h, idx) => {
+    const q = quotes[h.symbol] || {};
+    const price = q.price || 0;
+    const qty = Number(h.qty) || 0;
+    const cur = currencyFor(h.symbol);
+    const rr = cur === "USD" ? r : 1;
+    const valJPY = price * qty * rr;
+    const name = q.name || NAME_MAP[h.symbol] || "";
+    const avg = Number(h.avgPrice) || 0;
+    const chgPct = avg > 0 ? (price - avg) / avg * 100 : null;
+    return /* @__PURE__ */ React.createElement("tr", { key: h.id, className: "border-t border-gray-700", draggable: true, onDragStart: (e) => {
+      e.dataTransfer.setData("text/plain", String(idx));
+    }, onDragOver: (e) => {
+      e.preventDefault();
+    }, onDrop: (e) => {
+      const from = Number(e.dataTransfer.getData("text/plain"));
+      moveRow(holdings, setHoldings, from, idx);
+    } }, /* @__PURE__ */ React.createElement("td", { className: "px-2 py-1" }, /* @__PURE__ */ React.createElement("div", { className: "flex flex-col" }, /* @__PURE__ */ React.createElement(SymbolEditor, { row: h, onChange: (upd) => {
+      const a = [...holdings];
+      a[idx] = { ...h, ...upd };
+      setHoldings(a);
+    } }), /* @__PURE__ */ React.createElement("div", { className: "text-xs text-gray-400 truncate max-w-[18rem]", title: name }, name))), /* @__PURE__ */ React.createElement("td", { className: "px-2 py-1" }, /* @__PURE__ */ React.createElement("input", { type: "number", className: "w-24 bg-gray-900 text-gray-100 rounded px-2 py-1", value: h.qty, onChange: (e) => {
+      const a = [...holdings];
+      a[idx] = { ...h, qty: Number(e.target.value) || 0 };
+      setHoldings(a);
+    } })), /* @__PURE__ */ React.createElement("td", { className: "px-2 py-1" }, /* @__PURE__ */ React.createElement("input", { type: "number", className: "w-28 bg-gray-900 text-gray-100 rounded px-2 py-1", value: h.avgPrice, onChange: (e) => {
+      const a = [...holdings];
+      a[idx] = { ...h, avgPrice: Number(e.target.value) || 0 };
+      setHoldings(a);
+    } })), /* @__PURE__ */ React.createElement("td", { className: "px-2 py-1 text-right text-gray-200" }, price ? price.toFixed(2) : "-"), /* @__PURE__ */ React.createElement("td", { className: `px-2 py-1 text-right ${chgPct == null ? "text-gray-400" : chgPct >= 0 ? "text-green-400" : "text-red-400"}` }, chgPct == null ? "-" : `${chgPct >= 0 ? "+" : ""}${chgPct.toFixed(2)}%`), /* @__PURE__ */ React.createElement("td", { className: "px-2 py-1 text-right text-gray-100" }, fmt(valJPY)), /* @__PURE__ */ React.createElement("td", { className: "px-2 py-1" }, /* @__PURE__ */ React.createElement("button", { className: "px-2 py-1 bg-red-600 hover:bg-red-500 rounded text-white text-xs", onClick: () => removeHolding(h.id) }, J("%E5%89%8A%E9%99%A4"))));
+  })))), /* @__PURE__ */ React.createElement("div", { className: "text-right text-sm text-gray-300 mt-2" }, J("%E6%A0%AA%E5%BC%8F%E5%90%88%E8%A8%88"), " : ", fmt(stocksTotalJPY), " JPY")), /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between" }, /* @__PURE__ */ React.createElement("div", { className: "text-sm text-gray-300" }, J("%E5%90%88%E8%A8%88"), " : ", fmt(totalJPY), " JPY"), /* @__PURE__ */ React.createElement("div", { className: "space-x-2" }, /* @__PURE__ */ React.createElement("button", { className: "px-3 py-2 bg-indigo-600 rounded", onClick: saveAndSyncDashboard }, J("%E4%BF%9D%E5%AD%98")), /* @__PURE__ */ React.createElement("button", { className: "px-3 py-2 bg-gray-700 rounded", onClick: refreshQuotes }, J("%E6%9C%80%E6%96%B0%E5%8C%96")))));
+};
+const SettingsPage = ({ settings, setSettings }) => {
+  const [local, setLocal] = useState(() => ({ ...settings }));
+  const update = (path, val) => {
+    const next = { ...local };
+    if (path === "yfProxy") next.yfProxy = val;
+    if (path === "defaultTF") next.chart = { ...next.chart, defaultTF: val };
+    if (path === "showBB") next.chart = { ...next.chart, showBB: !!val };
+    setLocal(next);
+  };
+  return /* @__PURE__ */ React.createElement("div", { className: "space-y-6" }, /* @__PURE__ */ React.createElement("section", { className: "bg-gray-800 rounded p-4" }, /* @__PURE__ */ React.createElement("h2", { className: "font-bold mb-2" }, J("%E8%A8%AD%E5%AE%9A")), /* @__PURE__ */ React.createElement("label", { className: "block text-sm text-gray-300 mb-2" }, "YF Proxy URL", /* @__PURE__ */ React.createElement("input", { className: "mt-1 w-full bg-gray-900 text-gray-100 rounded px-3 py-2", value: local.yfProxy, onChange: (e) => update("yfProxy", e.target.value), placeholder: "http://127.0.0.1:8787/api/yf" })), /* @__PURE__ */ React.createElement("div", { className: "flex items-center space-x-4 mt-2" }, /* @__PURE__ */ React.createElement("div", { className: "text-sm text-gray-300" }, J("%E3%83%87%E3%83%95%E3%82%A9%E3%83%AB%E3%83%88TF")), ["D", "W", "M"].map((tf) => /* @__PURE__ */ React.createElement("label", { key: tf, className: `px-2 py-1 rounded cursor-pointer ${local.chart.defaultTF === tf ? "bg-indigo-600" : ""}` }, /* @__PURE__ */ React.createElement("input", { type: "radio", className: "mr-1", checked: local.chart.defaultTF === tf, onChange: () => update("defaultTF", tf) }), tf))), /* @__PURE__ */ React.createElement("label", { className: "mt-3 inline-flex items-center space-x-2 text-sm text-gray-300" }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: !!local.chart.showBB, onChange: (e) => update("showBB", e.target.checked) }), /* @__PURE__ */ React.createElement("span", null, J("%E3%83%9C%E3%83%AA%E3%83%B3%E3%82%B8%E3%83%A3%E3%83%BC%E3%81%AE%E8%A1%A8%E7%A4%BA"))), /* @__PURE__ */ React.createElement("div", { className: "mt-4 space-x-2" }, /* @__PURE__ */ React.createElement("button", { className: "px-3 py-2 bg-indigo-600 rounded", onClick: () => {
+    setSettings(local);
+    saveSettings(local);
+    if (local.yfProxy) window.__YF_PROXY__ = local.yfProxy;
+  } }, J("%E4%BF%9D%E5%AD%98")), /* @__PURE__ */ React.createElement("button", { className: "px-3 py-2 bg-gray-700 rounded", onClick: () => {
+    const d = loadSettings();
+    setLocal(d);
+  } }, J("%E5%85%83%E3%81%AB%E6%88%BB%E3%81%99")))));
+};
+const asNum = (x) => typeof x === "number" && Number.isFinite(x) ? x : void 0;
+const fetch24hDelta = async (symbol) => {
+  try {
+    const j = await yfGetJSON(`/history?symbol=${encodeURIComponent(symbol)}&interval=1h&range=2d`);
+    const r = j?.chart?.result?.[0] || {};
+    const ts = r?.timestamp || [];
+    const qt = r?.indicators?.quote?.[0] || {};
+    const close = qt?.close || [];
+    let iLast = -1;
+    for (let i = ts.length - 1; i >= 0; i--) {
+      const c = close[i];
+      if (Number.isFinite(c)) {
+        iLast = i;
+        break;
+      }
+    }
+    if (iLast < 0) throw new Error("no last");
+    const iPrev = Math.max(0, iLast - 24);
+    const last = close[iLast];
+    const prev = close[iPrev];
+    if (!Number.isFinite(last) || !Number.isFinite(prev) || prev <= 0) throw new Error("bad 24h");
+    return { change: last - prev, changePercent: (last - prev) / prev };
+  } catch (e) {
+    return null;
+  }
+};
+const fetchMarketData = async (symbols) => {
+  try {
+    const j = await yfGetJSON(`/quote?symbols=${encodeURIComponent(symbols.join(","))}`);
+    const list = j?.quoteResponse?.result || [];
+    const out = {};
+    for (const q of list) {
+      const price = asNum(q.regularMarketPrice);
+      const prev = asNum(q.regularMarketPreviousClose);
+      const change = price != null && prev != null ? price - prev : 0;
+      const changePercent = price != null && prev > 0 ? (price - prev) / prev : 0;
+      out[q.symbol] = { price, change, changePercent, name: q.longName || q.shortName || NAME_MAP[q.symbol] || q.symbol };
+    }
+    for (const s of symbols) {
+      if (!out[s]) out[s] = { price: 0, change: 0, changePercent: 0, name: NAME_MAP[s] || s };
+    }
+    const s24 = symbols.filter(is24hSymbol);
+    await Promise.all(s24.map(async (s) => {
+      const d = await fetch24hDelta(s);
+      if (d && out[s]) {
+        out[s].change = d.change;
+        out[s].changePercent = d.changePercent;
+      }
+    }));
+    await Promise.all(symbols.map(async (s) => {
+      const rec = out[s];
+      if (!rec || rec.price && Number.isFinite(rec.price)) return;
+      try {
+        const h = await yfGetJSON(`/history?symbol=${encodeURIComponent(s)}&interval=1d&range=1mo`);
+        const r = h?.chart?.result?.[0];
+        const close = r?.indicators?.quote?.[0]?.close || [];
+        for (let i = close.length - 1; i >= 0; i--) {
+          const v = close[i];
+          if (Number.isFinite(v)) {
+            rec.price = v;
+            rec.change = 0;
+            rec.changePercent = 0;
+            break;
+          }
+        }
+      } catch {
+      }
+    }));
+    if (symbols.includes("ZZTEST")) {
+      out["ZZTEST"] = out["ZZTEST"] || {};
+      if (!Number.isFinite(out["ZZTEST"].price)) out["ZZTEST"].price = 1500;
+      if (!("name" in out["ZZTEST"])) out["ZZTEST"].name = NAME_MAP["ZZTEST"] || "\u30B7\u30B0\u30CA\u30EB\u30C6\u30B9\u30C8";
+      out["ZZTEST"].change = 50;
+      out["ZZTEST"].changePercent = 50 / 1450;
+    }
+    return out;
+  } catch (e) {
+    return symbols.reduce((a, s) => {
+      a[s] = { price: 0, change: 0, changePercent: 0, name: NAME_MAP[s] || s };
+      return a;
+    }, {});
+  }
+};
+const fetchHistorySummary = async (symbol) => {
+  try {
+    const j = await yfGetJSON(`/history?symbol=${encodeURIComponent(symbol)}&interval=1d&range=1y`);
+    const r = j?.chart?.result?.[0] || {};
+    const ts = r?.timestamp || [];
+    const qt = r?.indicators?.quote?.[0] || {};
+    const close = qt?.close || [];
+    let lastTs = null;
+    const closes = [];
+    for (let i = 0; i < ts.length; i++) {
+      const c = close[i];
+      if (Number.isFinite(c)) {
+        closes.push(c);
+        lastTs = ts[i];
+      }
+    }
+    const ma = (arr, n) => {
+      if (arr.length < n) return null;
+      let s = 0;
+      for (let i = arr.length - n; i < arr.length; i++) s += arr[i];
+      return s / n;
+    };
+    const ma50 = ma(closes, 50);
+    const ma200 = ma(closes, 200);
+    let trend = "flat";
+    if (Number.isFinite(ma50) && Number.isFinite(ma200)) {
+      const diff = (ma50 - ma200) / ma200;
+      trend = diff > 1e-3 ? "up" : diff < -1e-3 ? "down" : "flat";
+    }
+    return { lastTs, trend };
+  } catch (e) {
+    return { lastTs: null, trend: "flat" };
+  }
+};
+const fetchHistoricalData = async (symbol, timeframe) => {
+  const tf = timeframe === "W" ? { interval: "1wk", range: "10y" } : timeframe === "M" ? { interval: "1mo", range: "max" } : { interval: "1d", range: "5y" };
+  const j = await yfGetJSON(`/history?symbol=${encodeURIComponent(symbol)}&interval=${tf.interval}&range=${tf.range}`);
+  const r = j?.chart?.result?.[0];
+  const ts = r?.timestamp || [];
+  const qt = r?.indicators?.quote?.[0] || {};
+  const open = qt.open || [], high = qt.high || [], low = qt.low || [], close = qt.close || [], volume = qt.volume || [];
+  const out = [];
+  for (let i = 0; i < ts.length; i++) {
+    const o = open[i], h = high[i], l = low[i], c = close[i], v = volume[i];
+    if ([o, h, l, c].some((x) => x == null || !isFinite(x))) continue;
+    out.push({ time: ts[i], open: o, high: h, low: l, close: c, value: isFinite(v) ? v : 0, color: c >= o ? "rgba(0,150,136,0.2)" : "rgba(255,82,82,0.2)" });
+  }
+  return out;
+};
+const fetchFundamentals = async (symbol) => {
+  try {
+    const f = await yfGetJSON(`/fund?symbol=${encodeURIComponent(symbol)}`);
+    return { longName: f?.longName || null, shortName: f?.shortName || null };
+  } catch {
+    return { longName: null, shortName: null };
+  }
+};
+const TrendingIcon = ({ trend }) => trend === "up" ? /* @__PURE__ */ React.createElement(TrendingUp, null) : trend === "down" ? /* @__PURE__ */ React.createElement(TrendingDown, null) : /* @__PURE__ */ React.createElement("span", { className: "text-gray-400 text-xs" }, "\u2014");
+const StockCard = ({ item, onClick, onRemove, draggable, onDragStart, onDragOver, onDrop, signalsMap }) => {
+  const changeAbs = Math.abs(item.changePercent ?? 0);
+  const hasTrend = typeof item.trend === "string" && item.trend.length > 0;
+  const bigMove = changeAbs >= 0.04;
+  const isUp = (item.changePercent ?? 0) >= 0;
+  const ringClass = bigMove ? isUp ? " ring-2 ring-green-400/50 shadow-[0_0_12px_rgba(34,197,94,0.35)] " : " ring-2 ring-red-400/50 shadow-[0_0_12px_rgba(248,113,113,0.35)] " : "";
+  return /* @__PURE__ */ React.createElement("div", { className: ("bg-gray-800 rounded-lg p-3 shadow-lg cursor-pointer relative " + ringClass).trim(), onClick, draggable, onDragStart, onDragOver, onDrop }, bigMove && /* @__PURE__ */ React.createElement("div", { className: `pointer-events-none absolute inset-y-0 left-0 w-1 ${isUp ? "bg-green-400/80" : "bg-red-400/80"} rounded-l` }), /* @__PURE__ */ React.createElement("button", { className: "absolute right-2 top-2 text-gray-500 hover:text-white text-lg", title: J("%E5%89%8A%E9%99%A4"), onClick: (e) => {
+    e.stopPropagation();
+    onRemove?.();
+  } }, "\xD7"), /* @__PURE__ */ React.createElement("div", { className: "flex justify-between items-start pr-6" }, /* @__PURE__ */ React.createElement("div", { className: "min-w-0" }, /* @__PURE__ */ React.createElement("h3", { className: "text-sm font-bold text-gray-100 truncate", title: item.name }, item.name), /* @__PURE__ */ React.createElement("p", { className: "text-xs text-gray-400" }, item.symbol), Array.isArray(signalsMap?.[item.symbol]?.signals) && signalsMap[item.symbol].signals.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "mt-1 flex flex-wrap gap-1" }, signalsMap[item.symbol].signals.slice(-3).map((sg, idx) => /* @__PURE__ */ React.createElement("span", { key: idx, className: `text-[10px] px-1.5 py-0.5 rounded border ${sg.type === "\u62BC" ? "bg-indigo-500/10 text-indigo-300 border-indigo-500/30" : sg.type === "52H+" ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/30" : "bg-amber-500/10 text-amber-300 border-amber-500/30"}` }, sg.type)))), /* @__PURE__ */ React.createElement("div", { className: "flex flex-col items-end" }, /* @__PURE__ */ React.createElement("div", { className: `text-lg ${hasTrend ? item.trend === "up" ? "text-green-400" : "text-red-400" : "text-gray-400"}` }, /* @__PURE__ */ React.createElement(TrendingIcon, { trend: hasTrend ? item.trend : "flat" })), /* @__PURE__ */ React.createElement("div", { className: "text-[10px] text-gray-400" }, item.lastUpdated ? `${J("%E6%9C%80%E7%B5%82")} ${new Intl.DateTimeFormat("ja-JP", { hour: "2-digit", minute: "2-digit", hour12: false }).format(item.lastUpdated)}` : ""))), /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-center py-2" }, /* @__PURE__ */ React.createElement("div", { className: `text-3xl font-bold ${(item.changePercent ?? 0) >= 0 ? "text-green-500" : "text-red-500"}` }, (item.changePercent ?? 0) >= 0 ? "+" : "-", (changeAbs * 100).toFixed(1), "%")), /* @__PURE__ */ React.createElement("div", { className: "text-xs text-gray-400 pt-2 border-t border-gray-700" }, /* @__PURE__ */ React.createElement("a", { href: externalLinkFor(item.symbol), target: "_blank", rel: "noreferrer", className: "text-indigo-400 hover:underline" }, J("%E6%8C%87%E6%A8%99%E3%82%92%E8%A6%8B%E3%82%8B%EF%BC%88%E5%A4%96%E9%83%A8%E3%82%B5%E3%82%A4%E3%83%88%EF%BC%89"))));
+};
+const LS = { items: "nmy.watch.items", sort: "nmy.watch.sort" };
+const SearchAdd = ({ onPick }) => {
+  const [q, setQ] = useState("");
+  const [sugs, setSugs] = useState([]);
+  const enrichTimer = useRef(null);
+  useEffect(() => {
+    let alive = true;
+    const t = setTimeout(async () => {
+      if (!q.trim()) {
+        setSugs([]);
+        return;
+      }
+      try {
+        const r = await searchSymbols(q.trim());
+        if (alive) setSugs(r);
+      } catch (e) {
+        if (alive) setSugs([]);
+      }
+    }, 300);
+    return () => {
+      clearTimeout(t);
+      alive = false;
+    };
+  }, [q]);
+  useEffect(() => {
+    if (!sugs || sugs.length === 0) return;
+    if (enrichTimer.current) {
+      clearTimeout(enrichTimer.current);
+      enrichTimer.current = null;
+    }
+    const hasJP = (s) => /[\u3040-\u30ff\u3400-\u9fff]/.test(s || "");
+    const need = sugs.filter((s) => s.symbol?.endsWith?.(".T") && !hasJP(s.name || ""));
+    if (need.length === 0) return;
+    let alive = true;
+    enrichTimer.current = setTimeout(async () => {
+      try {
+        const updates = await Promise.all(need.map(async (s) => {
+          try {
+            const f = await yfGetJSON(`/fund?symbol=${encodeURIComponent(s.symbol)}`);
+            const name = f?.longName || f?.shortName || s.name;
+            return { sym: s.symbol, name };
+          } catch {
+            return { sym: s.symbol, name: s.name };
+          }
+        }));
+        if (!alive) return;
+        const map = new Map(sugs.map((x) => [x.symbol, { ...x }]));
+        for (const u of updates) {
+          const x = map.get(u.sym);
+          if (x) {
+            x.name = u.name || x.name;
+            map.set(u.sym, x);
+          }
+        }
+        setSugs(Array.from(map.values()));
+      } catch {
+      }
+    }, 150);
+    return () => {
+      alive = false;
+      if (enrichTimer.current) {
+        clearTimeout(enrichTimer.current);
+        enrichTimer.current = null;
+      }
+    };
+  }, [sugs]);
+  return /* @__PURE__ */ React.createElement("div", { className: "relative w-full max-w-md" }, /* @__PURE__ */ React.createElement("input", { value: q, onChange: (e) => setQ(e.target.value), placeholder: J("%E9%8A%98%E6%9F%84%E5%90%8D%2F%E3%83%86%E3%82%A3%E3%83%83%E3%82%AB%E3%83%BC%2F%E3%82%B3%E3%83%BC%E3%83%89%E3%81%A7%E8%BF%BD%E5%8A%A0"), className: "w-full bg-gray-800 text-gray-200 placeholder-gray-500 rounded px-3 py-2 outline-none" }), sugs.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "absolute z-10 mt-1 w-full bg-gray-800 border border-gray-700 rounded shadow-lg max-h-64 overflow-auto" }, sugs.map((s) => /* @__PURE__ */ React.createElement("button", { key: s.symbol, onClick: () => {
+    onPick(s.symbol, s.name);
+    setQ("");
+    setSugs([]);
+  }, className: "w-full text-left px-3 py-2 hover:bg-gray-700 text-sm" }, /* @__PURE__ */ React.createElement("span", { className: "text-gray-200 font-semibold mr-2" }, s.symbol), /* @__PURE__ */ React.createElement("span", { className: "text-gray-400" }, s.name)))));
+};
+const JPStockAdd = ({ onPick }) => {
+  const [q, setQ] = useState("");
+  const [sugs, setSugs] = useState([]);
+  useEffect(() => {
+    const v = q.trim();
+    if (!v) {
+      setSugs([]);
+      return;
+    }
+    let list = [];
+    if (/^\d{4}$/.test(v)) {
+      const code = v;
+      const hit = JP_INDEX.find((i) => i.code === code);
+      list = hit ? [hit] : [{ code, symbol: `${code}.T`, name: NAME_MAP[`${code}.T`] || code }];
+    } else {
+      const vN = normalizeJP(v);
+      const starts = (s) => normalizeJP(s).startsWith(vN);
+      const contains = (s) => normalizeJP(s).includes(vN);
+      const calcRank = (nm, sym) => {
+        if (!nm) return 9999;
+        if (starts(nm)) return 0;
+        if (v.length >= 2 && contains(nm)) {
+          const idx = nm.indexOf(v);
+          return 10 + Math.max(0, idx);
+        }
+        return 9999;
+      };
+      list = JP_INDEX.filter((i) => v.length <= 1 ? starts(i.name || "") : contains(i.name || "")).map((i) => ({ ...i, _rank: calcRank(i.name, i.symbol) - (NAME_MAP[i.symbol] ? 2 : 0) })).sort((a, b) => a._rank - b._rank || (a.name || "").length - (b.name || "").length || a.code.localeCompare(b.code));
+    }
+    (async () => {
+      let out = list;
+      if (out.length === 0 && !/^\d{4}$/.test(v)) {
+        try {
+          const remote = await searchSymbols(v);
+          const jpOnly = remote.filter((s) => s.symbol?.endsWith?.(".T"));
+          const filt = v.length <= 1 ? jpOnly.filter((s) => normalizeJP(s.name || "").startsWith(normalizeJP(v))) : jpOnly.filter((s) => normalizeJP(s.name || "").includes(normalizeJP(v)));
+          out = filt.map((s) => ({ code: s.symbol.replace(/\.T$/, ""), symbol: s.symbol, name: s.name, _rank: (s.name || "").startsWith(v) ? 0 : 10 + Math.max(0, (s.name || "").indexOf(v)) })).sort((a, b) => a._rank - b._rank || (a.name || "").length - (b.name || "").length || a.code.localeCompare(b.code));
+        } catch {
+        }
+      }
+      setSugs(out);
+    })();
+  }, [q]);
+  useEffect(() => {
+    if (!sugs || sugs.length === 0) return;
+    let alive = true;
+    const hasJP = (s) => /[\u3040-\u30ff\u3400-\u9fff]/.test(s || "");
+    const need = sugs.filter((s) => s.symbol?.endsWith?.(".T") && !hasJP(s.name || ""));
+    (async () => {
+      try {
+        const updates = await Promise.all(need.map(async (s) => {
+          try {
+            const f = await yfGetJSON(`/fund?symbol=${encodeURIComponent(s.symbol)}`);
+            const name = f?.longName || f?.shortName || s.name;
+            return { sym: s.symbol, name };
+          } catch {
+            return { sym: s.symbol, name: s.name };
+          }
+        }));
+        if (!alive) return;
+        const map = new Map(sugs.map((x) => [x.symbol, { ...x }]));
+        for (const u of updates) {
+          const x = map.get(u.sym);
+          if (x) {
+            x.name = u.name || x.name;
+            map.set(u.sym, x);
+          }
+        }
+        setSugs(Array.from(map.values()));
+      } catch {
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [sugs]);
+  return /* @__PURE__ */ React.createElement("div", { className: "relative w-full max-w-md" }, /* @__PURE__ */ React.createElement("input", { value: q, onChange: (e) => setQ(e.target.value), placeholder: J("%E6%97%A5%E6%9C%AC%E6%A0%AA%EF%BC%9A%E8%A8%BC%E5%88%B8%E3%82%B3%E3%83%BC%E3%83%89%2F%E6%97%A5%E6%9C%AC%E8%AA%9E%E5%90%8D%E6%A4%9C%E7%B4%A2"), className: "w-full bg-gray-800 text-gray-200 placeholder-gray-500 rounded px-3 py-2 outline-none" }), sugs.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "absolute z-10 mt-1 w-full bg-gray-800 border border-gray-700 rounded shadow-lg max-h-64 overflow-auto" }, sugs.map((s) => /* @__PURE__ */ React.createElement("button", { key: s.symbol, onClick: () => {
+    onPick(s.symbol, s.name);
+    setQ("");
+    setSugs([]);
+  }, className: "w-full text-left px-3 py-2 hover:bg-gray-700 text-sm" }, /* @__PURE__ */ React.createElement("span", { className: "text-gray-200 font-semibold mr-2" }, s.code), /* @__PURE__ */ React.createElement("span", { className: "text-gray-400" }, s.name)))));
+};
+function __notifyAnalysisWatch(items) {
+  try {
+    var f = document.getElementById("analysisFrame");
+    if (!f || !f.contentWindow) return;
+    var payload = { type: "nmy.watch.update", items: (Array.isArray(items) ? items : []).map(function(w) {
+      return { symbol: String(w.symbol || ""), name: String(w.name || w.symbol || "") };
+    }) };
+    f.contentWindow.postMessage(payload, window.location.origin);
+  } catch (_) {
+  }
+}
+const App = () => {
+  const uniqueBySymbol = (arr = []) => {
+    const seen = /* @__PURE__ */ new Set();
+    const out = [];
+    for (const x of arr) {
+      const s = x?.symbol;
+      if (!s || seen.has(s)) continue;
+      seen.add(s);
+      out.push({ id: x.id || s, ...x });
+    }
+    return out;
+  };
+  const loadItems = () => {
+    try {
+      const j = JSON.parse(localStorage.getItem(LS.items) || "[]");
+      if (Array.isArray(j) && j.length) return uniqueBySymbol(j);
+    } catch (_) {
+    }
+    return uniqueBySymbol(DEFAULT_ITEMS);
+  };
+  const [watchItems, setWatchItems] = useState(() => loadItems());
+  const [draftItems, setDraftItems] = useState(() => loadItems());
+  const [watchlist, setWatchlist] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [sortMode, setSortMode] = useState(() => localStorage.getItem(LS.sort) || "none");
+  const [dragIndex, setDragIndex] = useState(null);
+  const [selected, setSelected] = useState(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [signals, setSignals] = useState({});
+  const [page, setPage] = useState("dashboard");
+  const [settings, setSettings] = useState(() => loadSettings());
+  useEffect(() => {
+    document.title = J("%E3%83%9E%E3%83%8D%E3%83%BC%E3%83%9E%E3%83%8D%E3%83%BC%E3%82%B8%E3%83%A3%E3%83%BC");
+  }, []);
+  const persistItems = (items) => {
+    const clean = uniqueBySymbol(items);
+    setWatchItems(clean);
+    setDraftItems(clean);
+    try {
+      localStorage.setItem(LS.items, JSON.stringify(clean));
+    } catch (_) {
+    }
+    try {
+      __notifyAnalysisWatch(clean);
+    } catch (_) {
+    }
+  };
+  useEffect(() => {
+    (async () => {
+      setIsLoading(true);
+      try {
+        const syms = (sortMode === "none" ? draftItems : watchItems).map((i) => i.symbol);
+        const market = await fetchMarketData(syms);
+        const [hist, funds] = await Promise.all([
+          Promise.all(syms.map((s) => fetchHistorySummary(s))),
+          Promise.all(syms.map((s) => fetchFundamentals(s)))
+        ]);
+        const histBy = Object.fromEntries(syms.map((s, i) => [s, hist[i]]));
+        const fundBy = Object.fromEntries(syms.map((s, i) => [s, funds[i]]));
+        const base = sortMode === "none" ? draftItems : watchItems;
+        const uniqBase = Array.from(new Map(base.map((x) => [x.symbol, x])).values());
+        setWatchlist(uniqBase.map((i) => {
+          const d = market[i.symbol] || {};
+          const h = histBy[i.symbol] || {};
+          const f = fundBy[i.symbol] || {};
+          return {
+            ...i,
+            ...d,
+            name: f.longName || f.shortName || d.name || NAME_MAP[i.symbol] || i.name,
+            trend: h.trend,
+            lastUpdated: h.lastTs ? new Date(h.lastTs * 1e3) : null
+          };
+        }));
+        try {
+          const r = await fetch("/api/signals", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ symbols: uniqBase.map((x) => x.symbol) }) });
+          if (r.ok) {
+            const s = await r.json();
+            setSignals(s || {});
+          } else {
+            const demo = {};
+            if (uniqBase.some((x) => x.symbol === "ZZTEST")) demo["ZZTEST"] = { signals: [{ type: "52H+", date: Math.floor(Date.now() / 1e3) - 86400 }, { type: "\u62BC", date: Math.floor(Date.now() / 1e3) }] };
+            setSignals(demo);
+          }
+        } catch (_) {
+          const demo = {};
+          if (uniqBase.some((x) => x.symbol === "ZZTEST")) demo["ZZTEST"] = { signals: [{ type: "52H+", date: Math.floor(Date.now() / 1e3) - 86400 }, { type: "\u62BC", date: Math.floor(Date.now() / 1e3) }] };
+          setSignals(demo);
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    })();
+  }, [watchItems, draftItems, sortMode]);
+  return /* @__PURE__ */ React.createElement("div", { className: "bg-gray-900 text-white min-h-screen" }, /* @__PURE__ */ React.createElement("div", { className: "container mx-auto px-4 pb-20" }, /* @__PURE__ */ React.createElement("header", { className: "py-4 flex items-center justify-between" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", { className: "text-2xl font-bold text-gray-100" }, J("%E3%83%9E%E3%83%8D%E3%83%BC%E3%83%9E%E3%83%8D%E3%83%BC%E3%82%B8%E3%83%A3%E3%83%BC")), /* @__PURE__ */ React.createElement("p", { className: "text-sm text-gray-400" }, J("%E3%81%82%E3%81%AA%E3%81%9F%E3%81%AE%E8%B3%87%E7%94%A3%E3%81%A8%E7%9B%B8%E5%A0%B4%E3%82%92%E3%80%81%E6%89%8B%E5%85%83%E3%81%A7%E6%8A%8A%E6%8F%A1%E3%80%82"))), /* @__PURE__ */ React.createElement("nav", { className: "flex space-x-2" }, /* @__PURE__ */ React.createElement("button", { onClick: () => setPage("dashboard"), className: `px-3 py-2 rounded ${page === "dashboard" ? "bg-indigo-600 text-white" : "bg-gray-800 text-gray-300"}` }, J("%E3%83%80%E3%83%83%E3%82%B7%E3%83%A5%E3%83%9C%E3%83%BC%E3%83%89")), /* @__PURE__ */ React.createElement("button", { onClick: () => setPage("assets"), className: `px-3 py-2 rounded ${page === "assets" ? "bg-indigo-600 text-white" : "bg-gray-800 text-gray-300"}` }, J("%E8%B3%87%E7%94%A3")), /* @__PURE__ */ React.createElement("button", { onClick: () => setPage("analysis"), className: `px-3 py-2 rounded ${page === "analysis" ? "bg-indigo-600 text-white" : "bg-gray-800 text-gray-300"}` }, J("%E5%88%86%E6%9E%90")), /* @__PURE__ */ React.createElement("button", { onClick: () => setPage("settings"), className: `px-3 py-2 rounded ${page === "settings" ? "bg-indigo-600 text-white" : "bg-gray-800 text-gray-300"}` }, J("%E8%A8%AD%E5%AE%9A")))), page === "analysis" && /* @__PURE__ */ React.createElement("section", { className: "bg-gray-800 rounded p-2" }, /* @__PURE__ */ React.createElement("div", { className: "font-semibold mb-2" }, J("%E7%9B%B8%E5%AF%BE%E5%8A%9B%E3%83%80%E3%83%83%E3%82%B7%E3%83%A5%E3%83%9C%E3%83%BC%E3%83%89")), /* @__PURE__ */ React.createElement("div", { className: "w-full" }, /* @__PURE__ */ React.createElement("iframe", { id: "analysisFrame", src: "/react?tab=analysis&embed=1", title: "analysis", className: "w-full bg-gray-900 rounded border border-gray-700", style: { height: 600, overflow: "hidden" } }))), page === "dashboard" && /* @__PURE__ */ React.createElement("div", { className: "mb-3 space-y-3" }, /* @__PURE__ */ React.createElement(FearGreedWidget, null), /* @__PURE__ */ React.createElement(IndicatorsStrip, null)), page === "dashboard" && /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between mb-3" }, /* @__PURE__ */ React.createElement("div", { className: "flex flex-col md:flex-row md:space-x-2 gap-2 w-full" }, /* @__PURE__ */ React.createElement(SearchAdd, { onPick: async (symbol, name) => {
+    const exists = watchItems.some((w) => w.symbol === symbol);
+    if (exists) return;
+    const f = await fetchFundamentals(symbol);
+    const display = f.longName || f.shortName || name || NAME_MAP[symbol] || symbol;
+    const next = [...watchItems, { id: symbol, symbol, name: display }];
+    setWatchItems(next);
+    setDraftItems(next);
+    try {
+      localStorage.setItem(LS.items, JSON.stringify(next));
+    } catch (_) {
+    }
+    try {
+      __notifyAnalysisWatch(next);
+    } catch (_) {
+    }
+  } }), /* @__PURE__ */ React.createElement(JPStockAdd, { onPick: async (symbol, name) => {
+    const exists = watchItems.some((w) => w.symbol === symbol);
+    if (exists) return;
+    const f = await fetchFundamentals(symbol);
+    const display = f.longName || f.shortName || name || NAME_MAP[symbol] || symbol;
+    const next = [...watchItems, { id: symbol, symbol, name: display }];
+    setWatchItems(next);
+    setDraftItems(next);
+    try {
+      localStorage.setItem(LS.items, JSON.stringify(next));
+    } catch (_) {
+    }
+    try {
+      __notifyAnalysisWatch(next);
+    } catch (_) {
+    }
+  } })), /* @__PURE__ */ React.createElement("div", { className: "flex items-center space-x-2" }, /* @__PURE__ */ React.createElement("select", { value: sortMode, onChange: (e) => {
+    const v = e.target.value;
+    setSortMode(v);
+    try {
+      localStorage.setItem(LS.sort, v);
+    } catch (_) {
+    }
+  }, className: "bg-gray-800 text-gray-200 text-sm px-3 py-2 rounded" }, /* @__PURE__ */ React.createElement("option", { value: "none" }, J("%E6%89%8B%E5%8B%95%E9%A0%86")), /* @__PURE__ */ React.createElement("option", { value: "changeAsc" }, J("%E5%AF%BE%E5%89%8D%E6%97%A5%E6%AF%94%20%E6%98%87%E9%A0%86")), /* @__PURE__ */ React.createElement("option", { value: "changeDesc" }, J("%E5%AF%BE%E5%89%8D%E6%97%A5%E6%AF%94%20%E9%99%8D%E9%A0%86")), /* @__PURE__ */ React.createElement("option", { value: "trendUpFirst" }, J("%E4%B8%8A%E6%98%87%E3%83%88%E3%83%AC%E3%83%B3%E3%83%89%E5%84%AA%E5%85%88")), /* @__PURE__ */ React.createElement("option", { value: "trendDownFirst" }, J("%E4%B8%8B%E9%99%8D%E3%83%88%E3%83%AC%E3%83%B3%E3%83%89%E5%84%AA%E5%85%88"))), /* @__PURE__ */ React.createElement("button", { onClick: () => persistItems(draftItems), className: "px-3 py-2 bg-indigo-600 rounded text-sm" }, J("%E4%B8%A6%E3%81%B3%E9%A0%86%E3%82%92%E4%BF%9D%E5%AD%98")), /* @__PURE__ */ React.createElement("button", { onClick: () => {
+    let list = [...watchlist];
+    const num = (v) => typeof v === "number" && isFinite(v) ? v : 0;
+    if (sortMode === "changeAsc") list.sort((a, b) => num(a.changePercent) - num(b.changePercent));
+    else if (sortMode === "changeDesc") list.sort((a, b) => num(b.changePercent) - num(a.changePercent));
+    else if (sortMode === "trendUpFirst") {
+      const up = list.filter((x) => x.trend === "up").sort((a, b) => num(a.changePercent) - num(b.changePercent));
+      const rest = list.filter((x) => x.trend !== "up");
+      list = [...up, ...rest];
+    } else if (sortMode === "trendDownFirst") {
+      const down = list.filter((x) => x.trend === "down").sort((a, b) => num(b.changePercent) - num(a.changePercent));
+      const rest = list.filter((x) => x.trend !== "down");
+      list = [...down, ...rest];
+    }
+    const ordered = list.map((it) => ({ id: it.symbol, symbol: it.symbol, name: it.name }));
+    setDraftItems(ordered);
+    setSortMode("none");
+  }, className: "px-3 py-2 bg-gray-700 rounded text-sm" }, J("%E5%85%83%E3%81%AB%E6%88%BB%E3%81%99")))), page === "dashboard" && /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3" }, isLoading ? /* @__PURE__ */ React.createElement("div", { className: "col-span-2 md:col-span-3 lg:col-span-4 flex justify-center items-center h-40" }, /* @__PURE__ */ React.createElement(Loader, null), /* @__PURE__ */ React.createElement("span", { className: "ml-3 text-gray-400" }, J("%E5%B8%82%E5%A0%B4%E3%83%87%E3%83%BC%E3%82%BF%E3%82%92%E5%8F%96%E5%BE%97%E4%B8%AD..."))) : (() => {
+    let list = [...watchlist];
+    const num = (v) => typeof v === "number" && isFinite(v) ? v : 0;
+    if (sortMode === "changeAsc") list.sort((a, b) => num(a.changePercent) - num(b.changePercent));
+    else if (sortMode === "changeDesc") list.sort((a, b) => num(b.changePercent) - num(a.changePercent));
+    else if (sortMode === "trendUpFirst") {
+      const up = list.filter((x) => x.trend === "up").sort((a, b) => num(a.changePercent) - num(b.changePercent));
+      const rest = list.filter((x) => x.trend !== "up");
+      list = [...up, ...rest];
+    } else if (sortMode === "trendDownFirst") {
+      const down = list.filter((x) => x.trend === "down").sort((a, b) => num(b.changePercent) - num(a.changePercent));
+      const rest = list.filter((x) => x.trend !== "down");
+      list = [...down, ...rest];
+    }
+    return list.map((item, idx) => /* @__PURE__ */ React.createElement(
+      StockCard,
+      {
+        key: `${item.symbol}-${idx}`,
+        item,
+        signalsMap: signals,
+        onClick: () => {
+          setSelected(item);
+          setModalOpen(true);
+        },
+        onRemove: () => {
+          if (!confirm(`Delete ${item.symbol}?`)) return;
+          const after = draftItems.filter((w) => w.symbol !== item.symbol);
+          setDraftItems(after);
+          setWatchItems(after);
+          try {
+            localStorage.setItem(LS.items, JSON.stringify(after));
+          } catch (_) {
+          }
+          try {
+            __notifyAnalysisWatch(after);
+          } catch (_) {
+          }
+        },
+        draggable: sortMode === "none",
+        onDragStart: (e) => {
+          e.dataTransfer?.setData("text/plain", String(idx));
+          setDragIndex(idx);
+        },
+        onDragOver: (e) => {
+          if (sortMode === "none") {
+            e.preventDefault();
+          }
+        },
+        onDrop: () => {
+          if (sortMode === "none" && dragIndex != null) {
+            const arr = [...draftItems];
+            const [m] = arr.splice(dragIndex, 1);
+            arr.splice(idx, 0, m);
+            setDraftItems(arr);
+            setDragIndex(null);
+          }
+        }
+      }
+    ));
+  })()), page === "assets" && /* @__PURE__ */ React.createElement(AssetsPage, { watchItems, persistItems }), page === "settings" && /* @__PURE__ */ React.createElement(SettingsPage, { settings, setSettings })), modalOpen && selected && /* @__PURE__ */ React.createElement(StockChartModal, { stock: selected, signalsMap: signals, onClose: () => {
+    setModalOpen(false);
+    setSelected(null);
+  } }));
+};
+const StockChartModal = ({ stock, onClose, signalsMap }) => {
+  const containerRef = useRef(null);
+  const chartRef = useRef(null);
+  const seriesRef = useRef({});
+  const [timeframe, setTimeframe] = useState(() => loadSettings().chart?.defaultTF || "D");
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    if (!stock) return;
+    let disposed = false;
+    let ro;
+    (async () => {
+      setLoading(true);
+      try {
+        const L = await ensureLightweightCharts();
+        await new Promise((r) => requestAnimationFrame(r));
+        if (disposed || !containerRef.current) return;
+        if (chartRef.current) {
+          chartRef.current.remove();
+          chartRef.current = null;
+          seriesRef.current = {};
+        }
+        const chart = L.createChart(containerRef.current, {
+          width: containerRef.current.clientWidth || 800,
+          height: containerRef.current.clientHeight || 420,
+          layout: { background: { type: "solid", color: "#1f2937" }, textColor: "rgba(255,255,255,0.9)" },
+          grid: { vertLines: { color: "#374151" }, horzLines: { color: "#374151" } },
+          crosshair: { mode: L.CrosshairMode.Normal },
+          timeScale: {
+            borderColor: "#4b5563",
+            visible: true,
+            timeVisible: true,
+            secondsVisible: false,
+            tickMarkSpacing: 75,
+            tickMarkFormatter: (time, markType, locale) => {
+              if (typeof time === "object" && time !== null && "year" in time) {
+                const yy2 = String(time.year % 100).padStart(2, "0");
+                const mm2 = String(time.month).padStart(2, "0");
+                return `${yy2}\u5E74${mm2}\u6708`;
+              }
+              const ts = typeof time === "number" ? time : 0;
+              const d = new Date((ts + 9 * 3600) * 1e3);
+              const yy = String(d.getUTCFullYear() % 100).padStart(2, "0");
+              const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+              return `${yy}\u5E74${mm}\u6708`;
+            }
+          },
+          localization: { locale: "ja-JP" }
+        });
+        const price = chart.addLineSeries({ color: "#60a5fa", lineWidth: 2 });
+        const volume = chart.addHistogramSeries({ priceFormat: { type: "volume" }, priceScaleId: "" });
+        volume.priceScale().applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
+        const ma50 = chart.addLineSeries({ color: "rgba(234,179,8,0.9)", lineWidth: 2 });
+        const ma200 = chart.addLineSeries({ color: "rgba(192,132,252,0.9)", lineWidth: 2 });
+        const showBB = !!loadSettings().chart?.showBB;
+        const bbU = chart.addLineSeries({ color: "rgba(156,163,175,0.8)", lineWidth: 1, visible: showBB });
+        const bbM = chart.addLineSeries({ color: "rgba(156,163,175,0.8)", lineWidth: 1, lineStyle: L.LineStyle.Dotted, visible: showBB });
+        const bbL = chart.addLineSeries({ color: "rgba(156,163,175,0.8)", lineWidth: 1, visible: showBB });
+        chartRef.current = chart;
+        seriesRef.current = { price, volume, ma50, ma200, bbU, bbM, bbL };
+        ro = new ResizeObserver(([e]) => {
+          if (!e || !chartRef.current) return;
+          const { width, height } = e.contentRect;
+          chartRef.current.applyOptions({ width, height });
+        });
+        ro.observe(containerRef.current);
+        setLoading(false);
+      } catch (e) {
+        console.error(e);
+        setLoading(false);
+      }
+    })();
+    return () => {
+      disposed = true;
+      if (ro) ro.disconnect();
+      if (chartRef.current) {
+        chartRef.current.remove();
+        chartRef.current = null;
+      }
+      seriesRef.current = {};
+    };
+  }, [stock]);
+  useEffect(() => {
+    if (!stock || !seriesRef.current.price) return;
+    let alive = true;
+    (async () => {
+      setLoading(true);
+      try {
+        const raw = await fetchHistoricalData(stock.symbol, timeframe);
+        if (!alive || !seriesRef.current.price) {
+          setLoading(false);
+          return;
+        }
+        const close = raw.map((d) => ({ time: d.time, value: d.close }));
+        const vol = raw.map((d) => ({ time: d.time, value: d.value, color: d.color }));
+        const ma = (arr, n) => arr.slice(n - 1).map((_, i) => {
+          const s = arr.slice(i, i + n);
+          const sum = s.reduce((a, v) => a + v.value, 0);
+          return { time: arr[i + n - 1].time, value: sum / n };
+        });
+        const bb = (arr, n, k) => arr.slice(n - 1).map((_, i) => {
+          const s = arr.slice(i, i + n).map((x) => x.value);
+          const mean = s.reduce((a, v) => a + v, 0) / n;
+          const std = Math.sqrt(s.reduce((a, v) => a + Math.pow(v - mean, 2), 0) / n);
+          return { time: arr[i + n - 1].time, upper: mean + k * std, mid: mean, lower: mean - k * std };
+        });
+        const { price, volume, ma50, ma200, bbU, bbM, bbL } = seriesRef.current;
+        price.setData(close);
+        volume.setData(vol);
+        ma50.setData(ma(close, 50));
+        ma200.setData(ma(close, 200));
+        const bb20 = bb(close, 20, 2);
+        bbU.setData(bb20.map((x) => ({ time: x.time, value: x.upper })));
+        bbM.setData(bb20.map((x) => ({ time: x.time, value: x.mid })));
+        bbL.setData(bb20.map((x) => ({ time: x.time, value: x.lower })));
+        try {
+          const sigs = signalsMap && signalsMap[stock.symbol] && Array.isArray(signalsMap[stock.symbol].signals) ? signalsMap[stock.symbol].signals : [];
+          const markers = sigs.map((sig) => ({ time: sig.date, position: "belowBar", color: sig.type === "\u62BC" ? "#6366f1" : "#34d399", shape: sig.type === "\u62BC" ? "arrowUp" : "circle", text: sig.type }));
+          if (markers.length > 0) price.setMarkers(markers);
+        } catch (_) {
+        }
+        chartRef.current.timeScale().applyOptions({ timeVisible: timeframe === "D", secondsVisible: false });
+        chartRef.current.timeScale().fitContent();
+      } catch (e) {
+        console.error(e);
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [stock, timeframe]);
+  useEffect(() => {
+    const onKey = (e) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  if (!stock) return null;
+  return /* @__PURE__ */ React.createElement("div", { className: "fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50", onClick: onClose }, /* @__PURE__ */ React.createElement("div", { className: "bg-gray-800 rounded-lg shadow-xl w-11/12 max-w-4xl h-3/4 p-4 flex flex-col", onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("div", { className: "flex justify-between items-center mb-2" }, /* @__PURE__ */ React.createElement("h2", { className: "text-xl font-bold" }, stock.name, " (", stock.symbol, ")"), /* @__PURE__ */ React.createElement("div", { className: "flex items-center" }, /* @__PURE__ */ React.createElement("div", { className: "bg-gray-700 rounded-md p-1 flex space-x-1 mr-4" }, ["D", "W", "M"].map((tf) => /* @__PURE__ */ React.createElement("button", { key: tf, onClick: () => setTimeframe(tf), className: `px-3 py-1 text-sm font-semibold rounded ${timeframe === tf ? "bg-indigo-600 text-white" : "text-gray-300 hover:bg-gray-600"}` }, tf === "D" ? J("%E6%97%A5") : tf === "W" ? J("%E9%80%B1") : J("%E6%9C%88")))), /* @__PURE__ */ React.createElement("button", { onClick: onClose, className: "text-gray-400 hover:text-white text-2xl font-bold" }, "\xD7"))), /* @__PURE__ */ React.createElement("div", { className: "w-full flex-grow relative", ref: containerRef }, loading && /* @__PURE__ */ React.createElement("div", { className: "absolute inset-0 flex items-center justify-center bg-gray-800 bg-opacity-80 z-10" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center" }, /* @__PURE__ */ React.createElement(Loader, null), /* @__PURE__ */ React.createElement("span", { className: "ml-4 text-gray-300" }, J("%E3%83%81%E3%83%A3%E3%83%BC%E3%83%88%E3%81%AE%E6%9B%B8%E3%81%8D%E8%BE%BC%E3%81%BF%E4%B8%AD...")))))));
+};
+ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ React.createElement(App, null));
