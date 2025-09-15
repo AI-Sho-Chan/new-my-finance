@@ -18,7 +18,7 @@ export async function onRequest({ request }) {
       data = await fetchJsonTry(urls);
     } catch (e) {
       mode = 'chart_fallback';
-      const res[] = [];
+      const res = [];
       for (const s of symbols) {
         try {
           const urls = [
@@ -44,5 +44,6 @@ export async function onRequest({ request }) {
     return json({ error: String(e?.message || e) }, { status: 500 });
   }
 }
+
 
 
