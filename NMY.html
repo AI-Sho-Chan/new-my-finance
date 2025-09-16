@@ -87,7 +87,8 @@
 // Fear & Greed widget
     const FearGreedWidget = () => {
       const [data,setData]=useState({ now:null, previousClose:null, history:[] });
-      const boxRef=useRef(null); const chartRef=useRef(null); const seriesRef=useRef(null);
+      const [sp,setSp]=useState([]);
+      const boxRef=useRef(null); const chartRef=useRef(null); const seriesRef=useRef(null); const spRef=useRef(null);
       useEffect(()=>{ let alive=true; const load=async()=>{ try{
             const u= '/api/fgi?ts='+Date.now();
             const r=await fetch(u,{headers:{'Accept':'application/json'}});
@@ -123,6 +124,28 @@
           chartRef.current?.timeScale().fitContent();
         }
       })(); },[data.history, data.now]);
+
+      // Load S&P500 (1y/1d) for correlation overlay
+      useEffect(()=>{ (async()=>{
+        try{
+          const u = `/api/yf/history?symbol=${encodeURIComponent('^GSPC')}&interval=1d&range=1y`;
+          const r = await fetch(u, { cache:'no-store' }); if(!r.ok) return;
+          const j = await r.json();
+          const res = j?.chart?.result?.[0] || {}; const ts=res.timestamp||[]; const q=res.indicators?.quote?.[0]||{}; const close=q.close||[];
+          const arr=[]; for(let i=0;i<ts.length;i++){ const c=close[i]; if(Number.isFinite(c)) arr.push({ time: Math.floor(ts[i]||0), value: c }); }
+          setSp(arr);
+        }catch{}
+      })(); },[]);
+
+      // Attach SP500 series to chart when available
+      useEffect(()=>{ try{
+        if(!chartRef.current || !Array.isArray(sp) || !sp.length) return;
+        if(!spRef.current){
+          spRef.current = chartRef.current.addLineSeries({ color:'#a78bfa', lineWidth:2, priceScaleId:'left' });
+          chartRef.current.applyOptions({ leftPriceScale:{ visible:true, borderColor:'#4b5563' }, rightPriceScale:{ visible:true, borderColor:'#4b5563' } });
+        }
+        spRef.current.setData(sp);
+      }catch{} }, [sp]);
       const score = (typeof data.now==='number' && Number.isFinite(data.now)) ? data.now : null;
       const prev = (typeof data.previousClose==='number' && Number.isFinite(data.previousClose)) ? data.previousClose : null;
       const label = (v)=> v==null? '-' : (v<=25?'極度恐怖': v<=45?'恐怖': v<55?'中立': v<75?'強欲': '極度強欲');
