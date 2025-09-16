@@ -110,9 +110,9 @@
     const symbols = watch.map(w=>w.symbol);
     const series = await Promise.all(symbols.map(async s=>{ try{
       const j = await yf(`/history?symbol=${encodeURIComponent(s)}&interval=1d&range=1y`);
-      const r = j?.chart?.result?.[0]||{}; const ts = r.timestamp||[]; const q=r.indicators?.quote?.[0]||{}; const close=q.close||[]; const open=q.open||[];
-      const data = []; for(let i=0;i<ts.length;i++){ const c=close[i]; if(Number.isFinite(c)) data.push(c); }
-      return { symbol:s, data, ts, close, open };
+      const r = j?.chart?.result?.[0]||{}; const ts = r.timestamp||[]; const q=r.indicators?.quote?.[0]||{}; const close=q.close||[]; const open=q.open||[]; const adj = (r?.indicators?.adjclose?.[0]?.adjclose) || [];
+      const data = []; for(let i=0;i<ts.length;i++){ const c = Number.isFinite(adj[i])? adj[i] : close[i]; if(Number.isFinite(c)) data.push(c); }
+      return { symbol:s, data, ts, close, open, adj };
     }catch{ return { symbol:s, data:[], ts:[] } }}));
     const R63 = []; const Vraw = []; let latestTs=0;
     for(const s of series){ const d=s.data; const n=d.length; if(n===0){ R63.push(NaN); Vraw.push(NaN); continue; }
@@ -218,9 +218,9 @@
       for(const s of series){ const idx=s.indexByTs[t]; if(idx==null) continue; const n=(s.close||[]).length; if(idx>=n) continue; const close=s.close||[]; if(idx>=63 && close[idx-63]>0){ rmap[s.symbol] = close[idx]/close[idx-63]-1; } else { rmap[s.symbol]=NaN; } const winStart=Math.max(0, idx-49); const win = close.slice(winStart, idx+1); const sma = win.reduce((a,b)=>a+(Number.isFinite(b)?b:0),0)/(win.filter(Number.isFinite).length||1); vmap[s.symbol] = (sma>0 && Number.isFinite(close[idx])) ? (sma - close[idx])/sma : NaN; }
       const Fz = zByMap(rmap); const Vz = zByMap(vmap);
       for(const s of series){ const f=Fz[s.symbol], v=Vz[s.symbol]; if(!Number.isFinite(f) || !Number.isFinite(v)) continue; const q = (f>=0 && v>=0)?'Q1': (f>=0 && v<0)?'Q2': (f<0 && v>=0)?'Q3':'Q4'; const prev=prevQ[s.symbol]; prevQ[s.symbol]=q; if((q==='Q1'||q==='Q4') && prev!==q){ // first day entering this quad
-          const idx=s.indexByTs[t]; if(idx==null) continue; const nextIdx = idx+1; if(nextIdx >= (s.ts||[]).length) continue; const execTs = s.ts[nextIdx]; const op=(s.open||[])[nextIdx]; const cl=(s.close||[])[nextIdx]; const execPrice = Number.isFinite(op)? op: cl; if(!Number.isFinite(execPrice)) continue; const side = (q==='Q1')? 'BUY':'SHORT';
+          const idx=s.indexByTs[t]; if(idx==null) continue; const nextIdx = idx+1; if(nextIdx >= (s.ts||[]).length) continue; const execTs = s.ts[nextIdx]; const op=(s.open||[])[nextIdx]; const cl=(s.close||[])[nextIdx]; const ad=(s.adj||[])[nextIdx]; const execPrice = Number.isFinite(ad)? ad : (Number.isFinite(op)? op: cl); if(!Number.isFinite(execPrice)) continue; const side = (q==='Q1')? 'BUY':'SHORT';
           const retMap={}; // day -> return
-          for(let d=1; d<=365 && nextIdx+d < (s.close||[]).length; d++){ const px = s.close[nextIdx+d]; if(!Number.isFinite(px)) break; const r = (side==='BUY')? (px/execPrice - 1) : (execPrice/px - 1); retMap[d]=r; }
+          for(let d=1; d<=365 && nextIdx+d < (s.close||[]).length; d++){ const pxA = (s.adj||[])[nextIdx+d]; const px = Number.isFinite(pxA)? pxA : s.close[nextIdx+d]; if(!Number.isFinite(px)) break; const r = (side==='BUY')? (px/execPrice - 1) : (execPrice/px - 1); retMap[d]=r; }
           events.push({ id: `${s.symbol}:${q}:${execTs}`, symbol:s.symbol, quad:q, side, signalTs:t, execTs, execPrice, returns: retMap });
         }
       }
