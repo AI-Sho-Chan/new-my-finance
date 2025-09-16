@@ -159,7 +159,7 @@
     // Indicators (VIX, S&P500, US10Y)
     const IndicatorsStrip = () => {
       const [q,setQ]=useState({});
-      const syms=['^VIX','^GSPC','^TNX'];
+      const syms=['^VIX','^GSPC','^N225','JPY=X','GC=F','BTC-JPY','^TNX'];
       useEffect(()=>{ (async()=>{ try{ const m=await fetchMarketData(syms); setQ(m); }catch{} })(); const t=setInterval(async()=>{ try{ const m=await fetchMarketData(syms); setQ(m); }catch{} }, 60000); return ()=>clearInterval(t); },[]);
       const Card=({sym,title,format})=>{ const x=q[sym]||{}; const price = x.price; const cp = x.changePercent; const up = (cp??0)>=0; const display = format? format(price) : (price!=null? price.toFixed(2): '-'); return (
         <a href={externalLinkFor(sym)} target="_blank" rel="noreferrer" className="flex-1 min-w-[140px] bg-gray-800 rounded p-3 hover:bg-gray-700 transition">
@@ -172,6 +172,10 @@
         <div className="flex flex-wrap gap-3">
           <Card sym="^VIX" title="VIX" />
           <Card sym="^GSPC" title="S&P500" />
+          <Card sym="^N225" title={J('%E6%97%A5%E7%B5%8C%E5%B9%B3%E5%9D%87')} />
+          <Card sym="JPY=X" title={J('%E3%83%89%E3%83%AB%E5%86%86')} />
+          <Card sym="GC=F" title={J('%E9%87%91')} />
+          <Card sym="BTC-JPY" title={J('%E3%83%93%E3%83%83%E3%83%88%E3%82%B3%E3%82%A4%E3%83%B3')} />
           <Card sym="^TNX" title="US10Y" format={(p)=> (p!=null? (p/10).toFixed(2)+'%':'-')} />
         </div>
       );
@@ -1077,7 +1081,6 @@
 
             {page==='analysis' && (
               <section className="bg-gray-800 rounded p-2">
-                <div className="font-semibold mb-2">{J('%E5%88%86%E6%9E%90')}</div>
                 <div className="w-full">
                   <iframe id="analysisFrame" src="/analysis.html" title="analysis" className="w-full bg-gray-900 rounded border border-gray-700" style={{ height: 600, overflow: 'hidden' }} onLoad={(e)=>{ try{ const el=e.target; const doc=el.contentDocument||el.contentWindow?.document; if(doc){ const h=Math.max(doc.body.scrollHeight, doc.documentElement.scrollHeight); if(h) el.style.height=(h+4)+'px'; } }catch(_){} }}></iframe>
                 </div>
