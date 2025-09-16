@@ -18,6 +18,8 @@
     th,td{ padding:6px 8px; border-top:1px solid #374151; white-space:nowrap; }
     th{ color:#cbd5e1; font-weight:600; cursor:pointer; background:#111827; position:sticky; top:0; z-index:3; }
     .table-scroll{ overflow:auto; max-height:70vh; }
+    .hscroll{ overflow-x:auto; overflow-y:hidden; height:14px; background:#0f172a; border:1px solid #1f2937; border-radius:6px; margin:6px 0; }
+    .hscroll > div{ height:1px; }
     .left1{ position:sticky; left:0; z-index:2; background:#111827; }
     .left2{ position:sticky; left:80px; z-index:2; background:#111827; }
     .w1{ width:80px; min-width:80px; text-align:left; }
@@ -58,9 +60,10 @@
 
     <div class="card" id="summaryCard"></div>
 
-    <div class="card table-scroll">
+    <div class="card">
       <div class="small" id="desc"></div>
-      <div id="table"></div>
+      <div id="topScroll" class="hscroll"><div id="topScrollInner"></div></div>
+      <div id="tableScroll" class="table-scroll"><div id="table"></div></div>
     </div>
   </div>
 
@@ -97,9 +100,18 @@
         tbody.appendChild(tr);
       });
       table.appendChild(tbody); container.appendChild(table);
+      // sync top/bottom horizontal scrollbars
+      const ts = document.getElementById('tableScroll');
+      const top = document.getElementById('topScroll');
+      const topInner = document.getElementById('topScrollInner');
+      // Defer to ensure layout computed
+      setTimeout(()=>{ try{ const sw = container.querySelector('table')?.scrollWidth || container.scrollWidth || 0; topInner.style.width = Math.max(sw, ts.clientWidth) + 'px'; }catch(_){ } },0);
+      const lock = { a:false, b:false };
+      top.onscroll = ()=>{ if(lock.a) return; lock.b=true; ts.scrollLeft = top.scrollLeft; setTimeout(()=>lock.b=false,0); };
+      ts.onscroll = ()=>{ if(lock.b) return; lock.a=true; top.scrollLeft = ts.scrollLeft; setTimeout(()=>lock.a=false,0); };
       const latestAcross = Math.max( ...EVENTS.map(calcLatestDay).concat([0]) );
       const meta = document.getElementById('meta'); meta.textContent = `イベント: ${EVENTS.length}件 / デフォルト並び: 直近D=${latestAcross}の損益(降順)`;
-      const desc = document.getElementById('desc'); desc.textContent = '各見出しクリックで昇順/降順切替。Symbol/判定日等でも整列できます。';
+      const desc = document.getElementById('desc'); desc.textContent = '各見出しクリックで昇順/降順切替。Symbol/判定日等でも整列できます。上部のバーから横スクロール可能です。';
     }
 
     function avg(xs){ const ys=xs.filter(v=>typeof v==='number' && isFinite(v)); if(!ys.length) return null; const m = ys.reduce((a,b)=>a+b,0)/ys.length; return m; }
@@ -111,8 +123,19 @@
         const vals = H.map(d=>{ const xs = list.map(e=> e.returns?.[d] ).filter(v=>typeof v==='number' && isFinite(v)); const m = avg(xs); return m==null? '-' : (m*100).toFixed(2)+'%'; });
         return `<tr><td class="w2">${label} (${list.length})</td>${vals.map(v=>`<td class="num">${v}</td>`).join('')}</tr>`;
       }
+      // Q1の最適利確日（平均損益率が最大となる日）
+      function bestDayAvg(list){
+        const map = new Map(); // d -> array of returns
+        for(const e of list){ for(const k in (e.returns||{})){ const d=+k; const v=e.returns[d]; if(typeof v==='number' && isFinite(v)){ if(!map.has(d)) map.set(d,[]); map.get(d).push(v); } }
+        }
+        let bestD=null, bestR=-Infinity; for(const [d,arr] of map.entries()){ const m=avg(arr); if(m!=null && m>bestR){ bestR=m; bestD=d; } }
+        return bestD? { day:bestD, ret:bestR }: { day:null, ret:null };
+      }
+      const bQ1 = bestDayAvg(by.Q1);
       const head = '<tr><th class="w2 left1" style="left:0">戦略</th>'+H.map(d=>`<th>${d}D</th>`).join('')+'</tr>';
-      card.innerHTML = '<div class="title">戦略サマリー</div>' + `<div class="small">Q1=買い持ち、Q4=空売り。各日数点での平均損益率（イベント平均）。</div>` + `<div class="table-scroll"><table><thead>${head}</thead><tbody>${row('Q1 買い',by.Q1)}${row('Q4 売り',by.Q4)}</tbody></table></div>`;
+      const note = '<div class="small" style="margin-top:6px;">注: Q4は空売りのため、下落でプラス（上昇でマイナス）。サマリー計算もこの前提で実施。</div>';
+      const tipQ1 = bQ1.day? `<div class="small">Q1最適利確目安: <b>${bQ1.day}日</b>（平均 ${(bQ1.ret*100).toFixed(2)}%）</div>`: '';
+      card.innerHTML = '<div class="title">戦略サマリー</div>' + `<div class="small">Q1=買い持ち、Q4=空売り。各日数点での平均損益率（イベント平均）。</div>` + tipQ1 + `<div class="table-scroll"><table><thead>${head}</thead><tbody>${row('Q1 買い',by.Q1)}${row('Q4 売り',by.Q4)}</tbody></table></div>` + note;
     }
 
     (async()=>{
