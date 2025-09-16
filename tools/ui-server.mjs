@@ -84,11 +84,29 @@ const server = http.createServer((req, res) => {
       }
       return send(res, 404, 'React dist not found');
     }
-    // Minimal analysis page at /analysis
-    if (pathname === '/analysis') {
+    // Minimal analysis/backtest pages with light sanitization for broken close tags
+    const fixHtml = (html, kind) => {
+      try {
+        // Insert missing '<' before closing tags like /title>
+        let out = html.replace(/(?<!<)\/(html|head|body|h[1-6]|div|span|p|table|thead|tbody|tr|td|th|svg|g|path|script|style|section|nav|ul|ol|li|strong|b|i|em|small|a|title)>/g, '</$1>');
+        if (kind === 'analysis') {
+          // Fix default watch list broken string
+          out = out.replace(/name:'日経平[^']*'/g, "name:'日経平均'");
+        }
+        if (kind === 'backtest') {
+          // Ensure the headCells definition is valid
+          out = out.replace(/const\s+headCells\s*=\s*\[[\s\S]*?\];/g, "const headCells = ['Quad','Symbol','判定日','売買','経過日数','執行価格','騰落率'];");
+        }
+        return out;
+      } catch {
+        return html;
+      }
+    };
+    if (pathname === '/analysis' || pathname === '/analysis.html') {
       const p = path.join(ROOT, 'analysis.html');
       if (fs.existsSync(p)) {
-        const html = fs.readFileSync(p, 'utf8');
+        let html = fs.readFileSync(p, 'utf8');
+        html = fixHtml(html, 'analysis');
         return send(res, 200, html, { 'Content-Type': 'text/html; charset=utf-8' });
       }
       return send(res, 404, 'Not Found');
@@ -96,7 +114,8 @@ const server = http.createServer((req, res) => {
     if (pathname === '/backtest' || pathname === '/backtest.html') {
       const p = path.join(ROOT, 'backtest.html');
       if (fs.existsSync(p)) {
-        const html = fs.readFileSync(p, 'utf8');
+        let html = fs.readFileSync(p, 'utf8');
+        html = fixHtml(html, 'backtest');
         return send(res, 200, html, { 'Content-Type': 'text/html; charset=utf-8' });
       }
       return send(res, 404, 'Not Found');

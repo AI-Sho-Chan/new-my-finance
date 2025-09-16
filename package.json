@@ -1,0 +1,30 @@
+﻿{
+    "name":  "newmyfinance",
+    "version":  "1.0.0",
+    "description":  "",
+    "main":  "index.js",
+    "directories":  {
+                        "doc":  "docs"
+                    },
+    "scripts":  {
+                    "test":  "echo \"Error: no test specified\" \u0026\u0026 exit 1"
+                },
+    "repository":  {
+                       "type":  "git",
+                       "url":  "git+https://github.com/AI-Sho-Chan/new-my-finance.git"
+                   },
+    "keywords":  [
+
+                 ],
+    "author":  "",
+    "license":  "ISC",
+    "type":  "commonjs",
+    "bugs":  {
+                 "url":  "https://github.com/AI-Sho-Chan/new-my-finance/issues"
+             },
+    "homepage":  "https://github.com/AI-Sho-Chan/new-my-finance#readme",
+    "dependencies":  {
+                         "esbuild":  "^0.21.5",
+                         "express":  "^4.21.2"
+                     }
+}

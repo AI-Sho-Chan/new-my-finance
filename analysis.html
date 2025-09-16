@@ -1,9 +1,9 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>蛻・梵・・catter + Heatmap・・/title>
+  <title>Scatter + Heatmap</title>
   <link rel="icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAFElEQVQoka3MMQ0AAAgDsKf9GQxgq0g1mHc3k3gAAAAASUVORK5CYII=" />
   <style>
     body{ background:#0f172a; color:#e5e7eb; font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial; }
@@ -36,40 +36,47 @@
 </head>
 <body>
   <div class="wrap">
+    <div class="topnav">
+      <div>
+        <a class="navbtn" href="/NMY.html">ダッシュボード</a>
+        <a class="navbtn" href="/NMY.html?tab=assets">資産</a>
+        <a class="navbtn active" href="/analysis.html">分析</a>
+        <a class="navbtn" href="/backtest.html">バックテスト</a>
+      </div>
     </div>
 
-    <h1 style="font-size:20px; font-weight:800; margin:8px 0 12px;">蛻・梵・・catter + Heatmap・・/h1>
+    <h1 style="font-size:20px; font-weight:800; margin:8px 0 12px;">Scatter + Heatmap</h1>
     <div class="card">
-      <div class="title">Scatter・・ ﾃ・V・・<span class="small" id="meta"></span></div>
+      <div class="title">Scatter：F・V 指標 <span class="small" id="meta"></span></div>
       <div class="legend small" style="margin-bottom:6px; display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
         <span class="chip q1">Q1</span>
         <span class="chip q2">Q2</span>
         <span class="chip q3">Q3</span>
         <span class="chip q4">Q4</span>
-        <span class="small" style="margin-left:12px; color:#cbd5e1;">蜃｡萓・
-          <span style="color:#9ca3af"><span class="shape circle"></span>US譬ｪ</span>
-          <span style="color:#9ca3af; margin-left:8px"><span class="shape square"></span>譌･譛ｬ譬ｪ</span>
-          <span style="color:#9ca3af; margin-left:8px"><span class="shape diamond"></span>謖・焚/謖・ｨ・/span>
-          <span style="color:#9ca3af; margin-left:8px"><span class="shape triup"></span>轤ｺ譖ｿ</span>
-          <span style="color:#9ca3af; margin-left:8px"><span class="shape tridown"></span>證怜捷雉・肇</span>
+        <span class="small" style="margin-left:12px; color:#cbd5e1;">
+          <span style="color:#9ca3af"><span class="shape circle"></span>US株</span>
+          <span style="color:#9ca3af; margin-left:8px"><span class="shape square"></span>日本株</span>
+          <span style="color:#9ca3af; margin-left:8px"><span class="shape diamond"></span>指数</span>
+          <span style="color:#9ca3af; margin-left:8px"><span class="shape triup"></span>為替</span>
+          <span style="color:#9ca3af; margin-left:8px"><span class="shape tridown"></span>暗号資産</span>
         </span>
-        <span class="small">F: 63譌･繝ｪ繧ｿ繝ｼ繝ｳ縺ｮZ繧ｹ繧ｳ繧｢・酬: SMA50荵夜屬縺ｮZ繧ｹ繧ｳ繧｢</span>
+        <span class="small">F: 63日リターンのZスコア／V: SMA50乖離のZスコア</span>
       </div>
       <svg id="scatter" height="420" style="width:100%; background:#0b1220; border:1px solid #374151; border-radius:6px;"></svg>
     </div>
 
     <div class="card">
-      <div class="title">Heatmap・・ / V / A・・/div>
+      <div class="title">Heatmap / V / A</div>
       <table id="heat"></table>
     </div>
 
     <div class="card">
-      <div class="title">逕ｨ隱槭→邂怜・譁ｹ豕・/div>
+      <div class="title">用語と算出方法</div>
       <div class="small">
-        <p><b>F・・orce・・</b> 驕主悉63蝟ｶ讌ｭ譌･縺ｮ繝ｪ繧ｿ繝ｼ繝ｳ繧貞推驫俶氛蜀・〒讓呎ｺ門喧・・・峨４catter邵ｦ霆ｸ縲？eatmap F縲・/p>
-        <p><b>V・・elocity・・</b> SMA50縺ｫ蟇ｾ縺吶ｋ迴ｾ蝨ｨ蛟､縺ｮ荵夜屬邇・ｒ蜷・釜譟・・縺ｧ讓呎ｺ門喧・・・峨４catter讓ｪ霆ｸ縲？eatmap V縲・/p>
-        <p><b>A・・verage・・</b> A=(F+V)/2縲・eatmap A縲・/p>
-        <p><b>Q1縲弉4:</b> Q1: F竕･0,V竕･0・讐2: F竕･0,V&lt;0・讐3: F&lt;0,V竕･0・讐4: F&lt;0,V&lt;0縲・/p>
+        <p><b>Force (F)</b> 過去63営業日のリターンを各銘柄で標準化。Scatter縦軸、Heatmap F。</p>
+        <p><b>Velocity (V)</b> SMA50に対する現在値の乖離率を標準化。Scatter横軸、Heatmap V。</p>
+        <p><b>Average (A)</b> A=(F+V)/2。Heatmap A。</p>
+        <p><b>Q1〜Q4</b> Q1: F≥0,V≥0／Q2: F≥0,V<0／Q3: F<0,V≥0／Q4: F<0,V<0</p>
       </div>
       <div class="small" id="dataDate"></div>
     </div>
@@ -79,56 +86,46 @@
   const BASE = (window.__YF_PROXY__ || '/api/yf');
   const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
   function fmtDate(ts){ try{ const d=new Date((Number(ts)||0)*1000); return isNaN(+d)? 'n/a' : d.toISOString().slice(0,10); }catch(_){ return 'n/a'; } }
+
   async function yf(path){
     const u = BASE + path + (path.includes('?')?'&':'?') + 'ts=' + Date.now();
     for(let i=0;i<2;i++){
-      try{ const r = await fetch(u,{ cache:'no-store', headers:{'Accept':'application/json'} }); if(r.ok) return await r.json(); }catch{}; await sleep(200); }
+      try{ const r = await fetch(u,{ cache:'no-store', headers:{'Accept':'application/json'} }); if(r.ok) return await r.json(); }catch{}; await sleep(200);
+    }
     throw new Error('fetch failed '+path);
   }
+
   function readWatch(){
-    try{ const raw = localStorage.getItem('nmy.watch.items'); const arr = raw? JSON.parse(raw):[]; if(Array.isArray(arr)&&arr.length){ return arr.map(w=>({ symbol:String(w.symbol||''), name:String(w.name||w.symbol||'') })); } }catch{};
-    return [ {symbol:'^GSPC',name:'S&P500'}, {symbol:'^N225',name:'譌･邨悟ｹｳ蝮・}, {symbol:'7203.T',name:'繝医Κ繧ｿ'}, {symbol:'AAPL',name:'Apple'}, {symbol:'NVDA',name:'NVIDIA'} ];
+    try{
+      const raw = localStorage.getItem('nmy.watch.items');
+      const arr = raw? JSON.parse(raw):[];
+      if(Array.isArray(arr)&&arr.length){ return arr.map(w=>({ symbol:String(w.symbol||''), name:String(w.name||w.symbol||'') })); }
+    }catch{};
+    return [
+      {symbol:'^GSPC',name:'S&P500'}, {symbol:'^N225',name:'日経平均'},
+      {symbol:'7203.T',name:'トヨタ'}, {symbol:'AAPL',name:'Apple'}, {symbol:'NVDA',name:'NVIDIA'}
+    ];
   }
+
   function zscore(values){
     const xs = values.filter(v=>Number.isFinite(v)); const n=xs.length; if(!n) return values.map(_=>0);
     const mean = xs.reduce((a,b)=>a+b,0)/n; const sd = Math.sqrt(xs.reduce((a,b)=>a+(b-mean)*(b-mean),0)/n)||1e-9;
     return values.map(v=> Number.isFinite(v) ? Math.max(-3, Math.min(3, (v-mean)/sd )) : 0 );
   }
-  let __itemsCache = [];
-  async function load(){
-    const watch = readWatch();
-    const symbols = watch.map(w=>w.symbol);
-    const series = await Promise.all(symbols.map(async s=>{ try{
-      const j = await yf(`/history?symbol=${encodeURIComponent(s)}&interval=1d&range=1y`);
-      const r = j?.chart?.result?.[0]||{}; const ts = r.timestamp||[]; const q=r.indicators?.quote?.[0]||{}; const close=q.close||[]; const open=q.open||[]; const adj = (r?.indicators?.adjclose?.[0]?.adjclose) || [];
-      const data = []; for(let i=0;i<ts.length;i++){ const c = Number.isFinite(adj[i])? adj[i] : close[i]; if(Number.isFinite(c)) data.push(c); }
-      return { symbol:s, data, ts, close, open, adj };
-    }catch{ return { symbol:s, data:[], ts:[] } }}));
-    const R63 = []; const Vraw = []; let latestTs=0;
-    for(const s of series){ const d=s.data; const n=d.length; if(n===0){ R63.push(NaN); Vraw.push(NaN); continue; }
-      if (Array.isArray(s.ts) && s.ts.length) latestTs = Math.max(latestTs, s.ts[s.ts.length-1]||0);
-      const r63 = (n>63 && d[n-63]>0)? (d[n-1]/d[n-63] - 1) : NaN; R63.push(r63);
-      const win = d.slice(Math.max(0,n-50)); const sma = win.reduce((a,b)=>a+b,0)/(win.length||1); const dev = (sma>0)? (sma - d[n-1])/sma : NaN; Vraw.push(dev);
-    }
-    const F = zscore(R63); const V = zscore(Vraw); const A = F.map((f,i)=>(f + V[i])/2);
-    try{ const q = await yf(`/quote?symbols=${encodeURIComponent(symbols.join(','))}`); const list = q?.quoteResponse?.result||[]; for(const item of list){ if(item?.symbol && item?.longName){ const it=watch.find(w=>w.symbol===item.symbol); if(it) it.name=item.longName; } } }catch{}
-    const items = watch.map((w,i)=>({ id:w.symbol, name:w.name, symbol:w.symbol, F:F[i], V:V[i], A:A[i] }));
-    __itemsCache = items;
-    renderScatter(items); renderHeat(items);
-    try{ const q1 = items.filter(it=> Number.isFinite(it.F) && Number.isFinite(it.V) && it.F>=0 && it.V>=0).map(it=>it.symbol); parent && parent.postMessage({ type:'analysis:q1set', symbols:q1, at: Date.now() }, window.location.origin); }catch(_){ }
-    if(latestTs){ const at = document.getElementById('dataDate'); if(at) at.textContent = `菴ｿ逕ｨ繝・・繧ｿ譛邨よ律: ${fmtDate(latestTs)}・・ahoo Finance・荏; }
-    try { await buildAndPersistBacktest(series); } catch(_) {}
-    setTimeout(postSize, 0);
-  }
+
+  function pctColor(p){ const t=Math.max(0,Math.min(1,p??0.5)); const r=Math.round(239*(1-t)+34*t), g=Math.round(68*(1-t)+197*t), b=Math.round(68*(1-t)+94*t); return `rgb(${r},${g},${b})`; }
+  function toPct(vals){ const xs=vals.filter(v=>Number.isFinite(v)); if(!xs.length) return vals.map(_=>null); const sorted=[...xs].sort((a,b)=>a-b); return vals.map(v=>{ if(!Number.isFinite(v)) return null; let i=0; while(i<sorted.length && sorted[i] < v) i++; return (i/(sorted.length-1||1)); }); }
+
   function renderScatter(items){
     const svg = document.getElementById('scatter'); while(svg.firstChild) svg.removeChild(svg.firstChild);
-    const pad=40; const rect = svg.getBoundingClientRect(); const W = Math.max(360, Math.floor(rect.width)||1040); const H=+svg.getAttribute('height')||420;
-    const w=W-2*pad, h=H-2*pad; const g = document.createElementNS('http://www.w3.org/2000/svg','g'); g.setAttribute('transform',`translate(${pad},${pad})`); svg.appendChild(g);
-    const xs = (v)=> (v+3)/6 * w; const ys=(f)=> (1-(f+3)/6) * h;
-    const axis = (x1,y1,x2,y2,color)=>{ const l=document.createElementNS('http://www.w3.org/2000/svg','line'); l.setAttribute('x1',x1);l.setAttribute('y1',y1);l.setAttribute('x2',x2);l.setAttribute('y2',y2); l.setAttribute('stroke',color); l.setAttribute('stroke-width','1'); l.setAttribute('opacity','0.6'); g.appendChild(l); };
-    axis(0, ys(0), w, ys(0),'#374151'); axis(xs(0),0,xs(0),h,'#374151');
-    const tx = document.createElementNS('http://www.w3.org/2000/svg','text'); tx.setAttribute('x', w); tx.setAttribute('y', h+28); tx.setAttribute('fill','#9ca3af'); tx.setAttribute('text-anchor','end'); tx.setAttribute('font-size','12'); tx.textContent='V (Z)'; g.appendChild(tx);
-    const ty = document.createElementNS('http://www.w3.org/2000/svg','text'); ty.setAttribute('x', -8); ty.setAttribute('y', 0); ty.setAttribute('fill','#9ca3af'); ty.setAttribute('text-anchor','end'); ty.setAttribute('font-size','12'); ty.setAttribute('transform','rotate(-90)'); ty.textContent='F (Z)'; g.appendChild(ty);
+    const w = svg.clientWidth || svg.getBoundingClientRect().width || 1000; const h = 400; svg.setAttribute('viewBox',`0 0 ${w} ${h}`);
+    const g = document.createElementNS('http://www.w3.org/2000/svg','g'); svg.appendChild(g);
+    const pad=32; const xs=(v)=> pad + (w-2*pad)*(v+3)/6; const ys=(v)=> h-pad - (h-2*pad)*(v+3)/6;
+    const axis=(x1,y1,x2,y2,c)=>{ const l=document.createElementNS('http://www.w3.org/2000/svg','line'); l.setAttribute('x1',x1); l.setAttribute('y1',y1); l.setAttribute('x2',x2); l.setAttribute('y2',y2); l.setAttribute('stroke',c); l.setAttribute('stroke-width','1'); g.appendChild(l); };
+    axis(pad, pad, pad, h-pad,'#374151'); axis(w-pad, pad, w-pad, h-pad,'#374151'); axis(pad, h-pad, w-pad, h-pad,'#374151'); axis(pad, pad, w-pad, pad,'#374151');
+    axis(pad, ys(0), w-pad, ys(0),'#374151'); axis(xs(0), pad, xs(0), h-pad,'#374151');
+    const tx = document.createElementNS('http://www.w3.org/2000/svg','text'); tx.setAttribute('x', w-8); tx.setAttribute('y', h-4); tx.setAttribute('fill','#9ca3af'); tx.setAttribute('text-anchor','end'); tx.setAttribute('font-size','12'); tx.textContent='V (Z)'; g.appendChild(tx);
+    const ty = document.createElementNS('http://www.w3.org/2000/svg','text'); ty.setAttribute('x', 12); ty.setAttribute('y', 12); ty.setAttribute('fill','#9ca3af'); ty.setAttribute('text-anchor','start'); ty.setAttribute('font-size','12'); ty.textContent='F (Z)'; g.appendChild(ty);
     const assetClass=(sym)=>(/=X$/.test(sym)||/-JPY$/.test(sym)?'fx': sym==='BTC-JPY'?'crypto': /^\^/.test(sym)?'index': /\.T$/.test(sym)?'jp':'us');
     for(const it of items){
       const cx=xs(it.V), cy=ys(it.F); const q = (it.F>=0 && it.V>=0)?'q1': (it.F>=0 && it.V<0)?'q2': (it.F<0 && it.V<0)?'q4':'q3'; const color = q==='q1'? '#22c55e': q==='q2'? '#f59e0b' : q==='q3'? '#3b82f6' : '#ef4444'; const cls=assetClass(it.symbol);
@@ -141,26 +138,21 @@
       node.setAttribute('fill',color); node.setAttribute('fill-opacity','0.88'); node.setAttribute('stroke','#0b1220'); node.setAttribute('stroke-width','1');
       const t=document.createElementNS('http://www.w3.org/2000/svg','title'); t.textContent = `${it.name} F=${Number.isFinite(it.F)?it.F.toFixed(2):'N/A'} V=${Number.isFinite(it.V)?it.V.toFixed(2):'N/A'}`; node.appendChild(t); g.appendChild(node);
     }
-    const placed=[]; const overlap=(a,b)=>!(a.x+a.w<b.x || b.x+b.w<a.x || a.y+a.h<b.y || b.y+b.h<a.y);
-    function labelAt(x,y,txt){ const L=document.createElementNS('http://www.w3.org/2000/svg','text'); L.setAttribute('x',x+8); L.setAttribute('y',y-8); L.setAttribute('fill','#e5e7eb'); L.setAttribute('font-size','11'); L.setAttribute('paint-order','stroke'); L.setAttribute('stroke','#0b1220'); L.setAttribute('stroke-width','2'); L.textContent=txt; g.appendChild(L); const offs=[[10,-10],[10,10],[-10,-10],[-10,10],[14,0],[-14,0],[0,14],[0,-14],[18,18],[18,-18],[-18,18],[-18,-18]]; let final={x:x+8,y:y-8}; for(const [ox,oy] of offs){ L.setAttribute('x',x+ox); L.setAttribute('y',y+oy); const bb=L.getBBox(); const box={x:bb.x,y:bb.y,w:bb.width,h:bb.height}; if(!placed.some(p=>overlap(box,p))){ placed.push(box); final={x:x+ox,y:y+oy}; break; } } const line=document.createElementNS('http://www.w3.org/2000/svg','line'); line.setAttribute('x1',x); line.setAttribute('y1',y); line.setAttribute('x2',final.x-2); line.setAttribute('y2',final.y-10); line.setAttribute('stroke','#64748b'); line.setAttribute('stroke-width','1'); line.setAttribute('opacity','0.7'); g.insertBefore(line,L); }
-    for(const it of items){ const cx=xs(it.V), cy=ys(it.F); const q=(it.F>=0 && it.V>=0)?'q1':(it.F>=0 && it.V<0)?'q2':(it.F<0 && it.V<0)?'q4':'q3'; if(q==='q1'||q==='q4'){ labelAt(cx,cy,(it.name||it.symbol).slice(0,12)); } }
-    document.getElementById('meta').textContent = `n=${items.length}`;
   }
-  function pctColor(p){ const t=Math.max(0,Math.min(1,p??0.5)); const r=Math.round(239*(1-t)+34*t), g=Math.round(68*(1-t)+197*t), b=Math.round(68*(1-t)+94*t); return `rgb(${r},${g},${b})`; }
-  function toPct(vals){ const xs=vals.filter(v=>Number.isFinite(v)); if(!xs.length) return vals.map(_=>null); const sorted=[...xs].sort((a,b)=>a-b); return vals.map(v=>{ if(!Number.isFinite(v)) return null; let i=0; while(i<sorted.length && sorted[i] < v) i++; return (i/(sorted.length-1||1)); }); }
-  function renderHeat(items){
-    const heat = document.getElementById('heat'); heat.innerHTML='';
-    const head = document.createElement('thead'); head.innerHTML = '<tr><th>Asset</th><th>F</th><th>V</th><th>A</th><th>Quad</th></tr>'; heat.appendChild(head);
-    const tbody=document.createElement('tbody'); heat.appendChild(tbody);
-    const rank = (i)=> (i.F>=0 && i.V>=0)?4: (i.F>=0 && i.V<0)?3: (i.F<0 && i.V>=0)?2: 1;
-    items = [...items].sort((a,b)=> rank(b)-rank(a));
+
+  function renderHeatmap(items){
+    const tbl = document.getElementById('heat'); tbl.innerHTML='';
+    const thead = document.createElement('thead'); const trh=document.createElement('tr');
+    ['銘柄','F','V','A','Q'].forEach(h=>{ const th=document.createElement('th'); th.textContent=h; trh.appendChild(th); }); thead.appendChild(trh); tbl.appendChild(thead);
+    const tbody=document.createElement('tbody'); tbl.appendChild(tbody);
+    const toPct=(arr)=>{ const xs=arr.filter(v=>Number.isFinite(v)); if(!xs.length) return arr.map(_=>0.5); const sorted=[...xs].sort((a,b)=>a-b); return arr.map(v=>{ if(!Number.isFinite(v)) return 0.5; let i=0; while(i<sorted.length && sorted[i] < v) i++; return (i/(sorted.length-1||1)); }); };
     const fp = toPct(items.map(i=>i.F)); const vp = toPct(items.map(i=>i.V)); const ap = toPct(items.map(i=>i.A));
     const fmt=(v)=> Number.isFinite(v)? v.toFixed(2): 'N/A';
     items.forEach((it,idx)=>{
       const tr=document.createElement('tr');
       const q = (it.F>=0 && it.V>=0)?'q1': (it.F>=0 && it.V<0)?'q2': (it.F<0 && it.V<0)?'q4':'q3';
       const qlabel = q==='q1'? 'Q1' : q==='q2'? 'Q2' : q==='q3'? 'Q3' : 'Q4';
-      tr.innerHTML = `<td>${it.name}</td>`+
+      tr.innerHTML = `<td>${it.name||it.symbol}</td>`+
         `<td><span class="chip" style="background:${pctColor(fp[idx])}">${fmt(it.F)}</span></td>`+
         `<td><span class="chip" style="background:${pctColor(vp[idx])}">${fmt(it.V)}</span></td>`+
         `<td><span class="chip" style="background:${pctColor(ap[idx])}">${fmt(it.A)}</span></td>`+
@@ -168,10 +160,13 @@
       tbody.appendChild(tr);
     });
   }
+
   function zByMap(map){ const xs=Object.values(map).filter(v=>Number.isFinite(v)); const n=xs.length; if(!n){ const out={}; for(const k in map) out[k]=NaN; return out; } const mean = xs.reduce((a,b)=>a+b,0)/n; const sd = Math.sqrt(xs.reduce((a,b)=>a+(b-mean)*(b-mean),0)/n)||1e-9; const out={}; for(const k in map){ const v=map[k]; out[k]=Number.isFinite(v)? Math.max(-3, Math.min(3,(v-mean)/sd)) : NaN; } return out; }
+
   async function openDB(){ return new Promise((res,rej)=>{ const req = indexedDB.open('nmy-analysis',1); req.onupgradeneeded = ()=>{ const db=req.result; if(!db.objectStoreNames.contains('events')) db.createObjectStore('events',{ keyPath:'id' }); }; req.onsuccess=()=>res(req.result); req.onerror=(e)=>rej(e); }); }
   async function putEvents(db, events){ return new Promise((res,rej)=>{ const tx=db.transaction('events','readwrite'); const st=tx.objectStore('events'); for(const ev of events){ st.put(ev); } tx.oncomplete=()=>res(); tx.onerror=(e)=>rej(e); }); }
   async function getAllEvents(db){ return new Promise((res,rej)=>{ const tx=db.transaction('events','readonly'); const st=tx.objectStore('events'); const req=st.getAll(); req.onsuccess=()=>res(req.result||[]); req.onerror=(e)=>rej(e); }); }
+
   async function buildAndPersistBacktest(series){
     const bySym = {}; for(const s of series){ bySym[s.symbol]=s; s.indexByTs={}; for(let i=0;i<(s.ts||[]).length;i++){ s.indexByTs[s.ts[i]]=i; } }
     const setTs=new Set(); for(const s of series){ for(const t of (s.ts||[])) setTs.add(t); }
@@ -187,6 +182,33 @@
     const existing = await getAllEvents(db); const exSet = new Set(existing.map(e=>e.id));
     const fresh = events.filter(e=>!exSet.has(e.id)); if(fresh.length) await putEvents(db, fresh);
   }
+
+  let __itemsCache = [];
+  async function load(){
+    const watch = readWatch();
+    const symbols = watch.map(w=>w.symbol);
+    const series = await Promise.all(symbols.map(async s=>{ try{
+      const j = await yf(`/history?symbol=${encodeURIComponent(s)}&interval=1d&range=1y`);
+      const r = j?.chart?.result?.[0]||{}; const ts = r.timestamp||[]; const q=r.indicators?.quote?.[0]||{}; const close=q.close||[]; const open=q.open||[]; const adj = (r?.indicators?.adjclose?.[0]?.adjclose) || [];
+      const data = []; for(let i=0;i<ts.length;i++){ const c = Number.isFinite(adj[i])? adj[i] : close[i]; if(Number.isFinite(c)) data.push(c); }
+      return { symbol:s, data, ts, close, open, adj };
+    }catch{ return { symbol:s, data:[], ts:[] } }}));
+    const R63 = []; const Vraw = []; let latestTs=0;
+    for(const s of series){ const d=s.data; const n=d.length; if(n===0){ R63.push(NaN); Vraw.push(NaN); continue; }
+      if (Array.isArray(s.ts) && s.ts.length) latestTs = Math.max(latestTs, s.ts[s.ts.length-1]||0);
+      const r63 = (n>63 && d[n-63]>0)? (d[n-1]/d[n-63] - 1) : NaN; R63.push(r63);
+      const winStart=Math.max(0, n-50); const win=d.slice(winStart); const sma = win.reduce((a,b)=>a+b,0)/(win.length||1); Vraw.push((sma>0 && Number.isFinite(d[n-1])) ? (sma - d[n-1])/sma : NaN);
+    }
+    const Fz = zscore(R63); const Vz = zscore(Vraw);
+    const items = symbols.map((sym, i)=>({ symbol:sym, name: (watch[i]&&watch[i].name)||sym, F:Fz[i], V:Vz[i], A: (Number.isFinite(Fz[i])&&Number.isFinite(Vz[i])) ? (Fz[i]+Vz[i])/2 : NaN }));
+    __itemsCache = items;
+    renderScatter(items);
+    renderHeatmap(items);
+    document.getElementById('dataDate').textContent = latestTs? `データ最終日: ${fmtDate(latestTs)}`: '';
+    document.getElementById('meta').textContent = `n=${items.length}`;
+    try{ await buildAndPersistBacktest(series); }catch{}
+  }
+
   window.addEventListener('message', (ev)=>{
     try{
       if(!ev || ev.origin !== window.location.origin) return;
@@ -201,6 +223,4 @@
   </script>
 </body>
 </html>
-
-
 

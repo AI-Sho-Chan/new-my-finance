@@ -5,9 +5,7 @@ import { URL } from 'node:url';
 const PORT = 8787;
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36 LocalYFProxy/1.0';
 
-const textOrEmpty = async (resp) => {
-  try { return await resp.text(); } catch { return ''; }
-};
+const textOrEmpty = async (resp) => { try { return await resp.text(); } catch { return ''; } };
 const tryParseJSON = (txt) => { try { return JSON.parse(txt); } catch { return null; } };
 
 const send = (res, status, body, headers = {}) => {
@@ -17,9 +15,11 @@ const send = (res, status, body, headers = {}) => {
     'Access-Control-Allow-Headers': 'Content-Type,Authorization',
     'Cache-Control': 'no-store',
   };
-  const h = { 'Content-Type': 'application/json', ...cors, ...headers };
+  const isString = typeof body === 'string';
+  const base = { 'Content-Type': 'application/json; charset=utf-8' };
+  const h = { ...base, ...cors, ...headers };
   res.writeHead(status, h);
-  res.end(typeof body === 'string' ? body : JSON.stringify(body));
+  res.end(isString ? body : JSON.stringify(body));
 };
 
 const server = http.createServer(async (req, res) => {
@@ -27,13 +27,9 @@ const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, `http://${req.headers.host}`);
     const path = url.pathname;
 
-    if (req.method === 'OPTIONS') {
-      return send(res, 200, '');
-    }
+    if (req.method === 'OPTIONS') return send(res, 200, '');
 
-  if (path === '/api/yf/ping') {
-      return send(res, 200, { ok: true });
-    }
+    if (path === '/api/yf/ping') return send(res, 200, { ok: true });
 
     // Minimal fetch polyfill for Node < 18
     if (typeof globalThis.fetch !== 'function') {
@@ -42,11 +38,8 @@ const server = http.createServer(async (req, res) => {
           const u = new URL(urlStr);
           const isHttps = u.protocol === 'https:';
           const mod = isHttps ? https : http;
-          const reqOpts = {
-            method: opts.method || 'GET',
-            headers: opts.headers || {},
-          };
-          const req = mod.request(u, reqOpts, (resp) => {
+          const reqOpts = { method: opts.method || 'GET', headers: opts.headers || {} };
+          const preq = mod.request(u, reqOpts, (resp) => {
             let data = '';
             resp.setEncoding('utf8');
             resp.on('data', (chunk) => { data += chunk; });
@@ -60,13 +53,14 @@ const server = http.createServer(async (req, res) => {
               });
             });
           });
-          req.on('error', reject);
-          if (opts.body) req.write(opts.body);
-          req.end();
+          preq.on('error', reject);
+          if (opts.body) preq.write(opts.body);
+          preq.end();
         } catch (e) { reject(e); }
       });
     }
 
+    // Quote
     if (path === '/api/yf/quote') {
       const symbols = url.searchParams.get('symbols') || '';
       const headers = { 'User-Agent': UA, 'Accept': 'application/json,*/*', 'Accept-Language': 'en-US,en;q=0.9' };
@@ -75,19 +69,9 @@ const server = http.createServer(async (req, res) => {
       let j = await r1.json();
       let items = Array.isArray(j?.quoteResponse?.result) ? j.quoteResponse.result : null;
       const unauthorized = !!(j?.finance?.error?.code === 'Unauthorized');
-      // Inject dummy symbol ZZTEST if requested
       const symsList = symbols.split(',').map(s=>s.trim()).filter(Boolean);
       if (symsList.includes('ZZTEST')) {
-        const dummy = {
-          symbol: 'ZZTEST',
-          longName: 'シグナルテスト',
-          shortName: 'Signal Test',
-          currency: 'JPY',
-          regularMarketPrice: 1500,
-          regularMarketPreviousClose: 1450,
-          regularMarketChange: 50,
-          regularMarketChangePercent: 3.45,
-        };
+        const dummy = { symbol: 'ZZTEST', longName: 'Signal Test', shortName: 'Signal Test', currency: 'JPY', regularMarketPrice: 1500, regularMarketPreviousClose: 1450, regularMarketChange: 50, regularMarketChangePercent: 3.45 };
         items = (items||[]).filter(x=>x.symbol!=='ZZTEST').concat([dummy]);
         j = { quoteResponse: { result: items, error: null } };
       }
@@ -111,37 +95,21 @@ const server = http.createServer(async (req, res) => {
             const r = (cj?.chart?.result || [])[0] || {};
             const meta = r.meta || {};
             const q0 = ((r.indicators||{}).quote||[{}])[0] || {};
-
             const closes = Array.isArray(q0.close) ? q0.close : [];
             let last = null, prevClose = null;
             for (let i = closes.length - 1; i >= 0; i--) {
               const v = closes[i];
-              if (Number.isFinite(v)) {
-                if (last === null) last = v; else { prevClose = v; break; }
-              }
+              if (Number.isFinite(v)) { if (last === null) last = v; else { prevClose = v; break; } }
             }
-            let price = Number.isFinite(last) ? last : (meta.regularMarketPrice ?? null);
-            let prev = Number.isFinite(prevClose) ? prevClose : null;
-            let change = null, changePct = null;
+            const price = Number.isFinite(last) ? last : (meta.regularMarketPrice ?? null);
+            const prev = Number.isFinite(prevClose) ? prevClose : null;
+            let change = 0, changePct = 0;
             if (Number.isFinite(price) && Number.isFinite(prev) && prev > 0) {
               change = price - prev;
               changePct = (change / prev) * 100;
               if (Math.abs(changePct) > 12) { change = 0; changePct = 0; }
-            } else { change = 0; changePct = 0; }
-            out.push({
-              symbol: s,
-              longName: null,
-              shortName: null,
-              currency: meta.currency || 'USD',
-              regularMarketPrice: Number.isFinite(price) ? price : null,
-              regularMarketPreviousClose: Number.isFinite(prev) ? prev : null,
-              regularMarketChange: Number.isFinite(change) ? change : null,
-              regularMarketChangePercent: Number.isFinite(changePct) ? changePct : null,
-              trailingPE: null,
-              priceToBook: null,
-              trailingAnnualDividendYield: null,
-              marketCap: null,
-            });
+            }
+            out.push({ symbol: s, longName: null, shortName: null, currency: meta.currency || 'USD', regularMarketPrice: Number.isFinite(price) ? price : null, regularMarketPreviousClose: Number.isFinite(prev) ? prev : null, regularMarketChange: Number.isFinite(change) ? change : null, regularMarketChangePercent: Number.isFinite(changePct) ? changePct : null, trailingPE: null, priceToBook: null, trailingAnnualDividendYield: null, marketCap: null });
           }
           return send(res, 200, { quoteResponse: { result: out, error: null } });
         } else {
@@ -151,7 +119,7 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, j);
     }
 
-    // Symbol search proxy (Yahoo Finance Search API)
+    // Search
     if (path === '/api/yf/search') {
       const q = url.searchParams.get('q') || '';
       const quotesCount = url.searchParams.get('quotesCount') || '10';
@@ -169,7 +137,6 @@ const server = http.createServer(async (req, res) => {
           t = await textOrEmpty(r);
           j = tryParseJSON(t);
         }
-        // Fallback: autocomplete API (often better for JP stocks)
         if (!Array.isArray(j?.quotes) || j.quotes.length === 0) {
           const au = `https://autoc.finance.yahoo.com/autoc?query=${encodeURIComponent(q)}&region=${region}&lang=${lang}`;
           const ar = await fetch(au, { headers });
@@ -179,18 +146,35 @@ const server = http.createServer(async (req, res) => {
           j = { quotes: rs };
         }
         return send(res, 200, j || { quotes: [] });
-      } catch (e) {
-        // Never 500 on search; return empty
+      } catch {
         return send(res, 200, { quotes: [] });
       }
     }
 
-    // Fundamentals/price details via quoteSummary modules
+    // History (chart v8 passthrough)
+    if (path === '/api/yf/history') {
+      const symbol = url.searchParams.get('symbol') || '';
+      const interval = url.searchParams.get('interval') || '1d';
+      const range = url.searchParams.get('range') || '1y';
+      if (!symbol) return send(res, 400, { error: 'symbol required' });
+      const headers = { 'User-Agent': UA, 'Accept': 'application/json,*/*', 'Accept-Language': 'en-US,en;q=0.9' };
+      const u1 = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${encodeURIComponent(interval)}&range=${encodeURIComponent(range)}&includePrePost=false&events=div%2Csplit`;
+      const r1 = await fetch(u1, { headers });
+      let j = await r1.json();
+      if (!(Array.isArray(j?.chart?.result) && j.chart.result[0])) {
+        const u2 = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${encodeURIComponent(interval)}&range=${encodeURIComponent(range)}&includePrePost=false&events=div%2Csplit`;
+        const r2 = await fetch(u2, { headers });
+        j = await r2.json();
+      }
+      return send(res, 200, j);
+    }
+
+    // Fundamentals (quoteSummary digest)
     if (path === '/api/yf/fund') {
       const symbol = url.searchParams.get('symbol');
       if (!symbol) return send(res, 400, { error: 'symbol required' });
       if (symbol === 'ZZTEST') {
-        return send(res, 200, { symbol, longName: 'シグナルテスト', shortName: 'Signal Test', per: 15.2, pbr: 2.1, dividendYield: 0.012, marketCap: 100000000000 });
+        return send(res, 200, { symbol, longName: 'Signal Test', shortName: 'Signal Test' });
       }
       const headers = { 'User-Agent': UA, 'Accept': 'application/json,*/*', 'Accept-Language': 'en-US,en;q=0.9' };
       const modules = 'price,defaultKeyStatistics,financialData,summaryDetail';
@@ -208,211 +192,42 @@ const server = http.createServer(async (req, res) => {
       const price = resObj.price || {};
       const summ = resObj.summaryDetail || {};
       const stat = resObj.defaultKeyStatistics || {};
-      const fin = resObj.financialData || {};
       const out = {
         symbol,
         longName: price.longName || null,
         shortName: price.shortName || null,
-        per: (stat.trailingPE?.raw ?? fin.trailingPE?.raw ?? null),
-        pbr: (stat.priceToBook?.raw ?? null),
-        dividendYield: (summ.trailingAnnualDividendYield?.raw ?? null),
-        marketCap: (price.marketCap?.raw ?? stat.marketCap?.raw ?? null),
+        per: Number(stat.trailingPE?.raw ?? stat.trailingPE ?? null),
+        pbr: Number(stat.priceToBook?.raw ?? stat.priceToBook ?? null),
+        dividendYield: Number(summ.dividendYield?.raw ?? summ.dividendYield ?? null),
+        marketCap: Number(price.marketCap?.raw ?? price.marketCap ?? null),
       };
       return send(res, 200, out);
     }
 
-    if (path === '/api/yf/history') {
-      const symbol = url.searchParams.get('symbol');
-      const interval = url.searchParams.get('interval') || '1d';
-      const range = url.searchParams.get('range') || '1y';
-      if (!symbol) return send(res, 400, { error: 'symbol required' });
-      if (symbol === 'ZZTEST') {
-        // Generate 420 trading days of synthetic OHLC that include a 52w breakout and pullback
-        const days = 420;
-        const now = Date.now();
-        const start = now - days*86400000;
-        const ts = [];
-        const open=[], high=[], low=[], close=[], volume=[];
-        let price = 1000;
-        for (let i=0;i<days;i++){
-          const t = Math.floor((start + i*86400000)/1000);
-          ts.push(t);
-          // Trend with mild noise
-          const drift = 0.3 + (i>350? 2.0 : 0); // recent acceleration to force 52W high
-          const rnd = (Math.sin(i*0.3)+Math.random()-0.5)*2;
-          const prev = price;
-          price = Math.max(200, price + drift + rnd);
-          // After breakout (~day 360), create pullback near EMA20 zone around last 5 days
-          if (i>400 && i<415) price -= 3.5; // small pullback
-          const o = prev;
-          const c = price;
-          const h = Math.max(o,c) + Math.random()*3;
-          const l = Math.min(o,c) - Math.random()*3;
-          open.push(Number(o.toFixed(2)));
-          high.push(Number(h.toFixed(2)));
-          low.push(Number(l.toFixed(2)));
-          close.push(Number(c.toFixed(2)));
-          volume.push(100000 + Math.floor(Math.random()*20000));
-        }
-        const result = { chart: { result: [{ meta:{ currency:'JPY' }, timestamp: ts, indicators:{ quote:[{ open, high, low, close, volume }] } }], error:null } };
-        return send(res, 200, result);
-      }
-      const headers = { 'User-Agent': UA, 'Accept': 'application/json,*/*', 'Accept-Language': 'en-US,en;q=0.9' };
-      const t1 = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${interval}&range=${range}&includePrePost=false&events=div%2Csplit`;
-      const r1 = await fetch(t1, { headers });
-      let j = await r1.json();
-      const empty = !(Array.isArray(j?.chart?.result) && (j.chart.result[0]?.timestamp || []).length > 0);
-      if (empty) {
-        const t2 = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${interval}&range=${range}&includePrePost=false&events=div%2Csplit`;
-        const r2 = await fetch(t2, { headers });
-        const j2 = await r2.json();
-        if (Array.isArray(j2?.chart?.result) && (j2.chart.result[0]?.timestamp || []).length > 0) {
-          j = j2;
-        }
-      }
-      return send(res, 200, j);
-    }
-
-    // Simple signals engine (EOD price-action based)
+    // Signals stub for compatibility
     if (path === '/api/signals') {
-      try {
-        let body = '';
-        await new Promise((r)=>{ req.on('data',c=>body+=c); req.on('end',r); });
-        const j = body ? JSON.parse(body) : {};
-        const symbols = Array.isArray(j.symbols) ? j.symbols : [];
-        const out = {};
-        const headers = { 'User-Agent': UA, 'Accept': 'application/json,*/*', 'Accept-Language': 'en-US,en;q=0.9' };
-        const now = Date.now();
-        function sma(arr, n){ const r=[]; let s=0; for(let i=0;i<arr.length;i++){ s+=arr[i]; if(i>=n) s-=arr[i-n]; if(i>=n-1) r.push(s/n); else r.push(null); } return r; }
-        function atr(h,l,c, n=14){ const tr=[]; for(let i=0;i<c.length;i++){ const prev = i>0 ? c[i-1] : c[i]; tr[i] = Math.max(h[i]-l[i], Math.abs(h[i]-prev), Math.abs(l[i]-prev)); } return sma(tr,n); }
-        function rsi(cl, n=14){ const r=[]; let up=0, dn=0; for(let i=1;i<cl.length;i++){ const ch=cl[i]-cl[i-1]; const g=Math.max(0,ch), d=Math.max(0,-ch); if(i<=n){ up+=g; dn+=d; r.push(null); if(i===n){ const rs= dn===0? 100 : up/dn; r.push(100-100/(1+rs)); } } else { up = (up*(n-1)+g)/n; dn = (dn*(n-1)+d)/n; const rs = dn===0? 100 : up/dn; r.push(100-100/(1+rs)); } }
-          r.unshift(null); return r; }
-        function lastIdx(vals){ for(let i=vals.length-1;i>=0;i--){ if(vals[i]!=null && Number.isFinite(vals[i])) return i; } return -1; }
-        function maxN(arr, n){ let m=-Infinity; for(let i=Math.max(0,arr.length-n); i<arr.length; i++){ m=Math.max(m, arr[i]); } return m; }
-
-        for (const sym of symbols){
-          try {
-            let rr=null;
-            if (sym === 'ZZTEST') {
-              // Reuse dummy history generation
-              const res = await (await fetch(`http://127.0.0.1:${PORT}/api/yf/history?symbol=ZZTEST&interval=1d&range=2y`)).json();
-              rr = (res?.chart?.result||[])[0];
-            } else {
-              const url1 = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=1d&range=2y&includePrePost=false&events=div%2Csplit`;
-              let r1 = await fetch(url1, { headers });
-              let j1 = await r1.json();
-              rr = (j1?.chart?.result||[])[0];
-              if(!rr){
-                const url2 = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=1d&range=2y&includePrePost=false&events=div%2Csplit`;
-                const r2 = await fetch(url2, { headers });
-                const j2 = await r2.json(); rr = (j2?.chart?.result||[])[0];
-              }
-            }
-            if(!rr){ out[sym] = { signals: [] }; continue; }
-            const ts = rr.timestamp||[];
-            const q = (rr.indicators||{}).quote?.[0]||{};
-            const open=q.open||[], high=q.high||[], low=q.low||[], close=q.close||[], vol=q.volume||[];
-            const ema20 = (function ema(vals, n=20){ const k=2/(n+1); const res=[]; let e=null; for(let i=0;i<vals.length;i++){ const v=vals[i]; if(!Number.isFinite(v)){ res.push(null); continue;} e = (e==null)? v : e + k*(v-e); res.push(e);} return res; })(close,20);
-            const ma50 = sma(close,50), ma150=sma(close,150), ma200=sma(close,200);
-            const atr14 = atr(high,low,close,14);
-            const rsi14 = rsi(close,14);
-            const iLast = lastIdx(close);
-            const signals=[];
-            // C) 52-week high + first pullback (approx)
-            if(iLast>0){
-              const max252 = maxN(close.slice(0,iLast), 252);
-              const broke = close[iLast-1] >= max252 && close[iLast-2] < max252 ? true : false;
-              const pulled = (close[iLast] <= (ema20[iLast] + (atr14[iLast]||0)*0.2)) && (close[iLast] >= ema20[iLast] - (atr14[iLast]||0)*1.2);
-              if (broke && pulled) {
-                signals.push({ type:'52H+', date: ts[iLast], strength: 0.7, reason:'Breakout then first pullback near 20EMA' });
-              }
-            }
-            // A) Uptrend pullback (ATR x RSI)
-            const uptrend = ma50[iLast]>ma150[iLast] && ma150[iLast]>ma200[iLast];
-            if(uptrend){
-              const bandLow = (ema20[iLast]||0) - (atr14[iLast]||0)*1.5;
-              const nearBand = close[iLast] <= (ema20[iLast]||0) && close[iLast] >= bandLow;
-              const rsiOk = (rsi14[iLast]||50) <= 45 && (rsi14[iLast]||50) >= 28;
-              if(nearBand && rsiOk){
-                signals.push({ type:'押', date: ts[iLast], strength: 0.6, reason:'Pullback to EMA20 - 1.5*ATR with RSI recovery zone' });
-              }
-            }
-            // Ensure dummy gets at least one signal
-            if (sym === 'ZZTEST' && signals.length===0 && iLast>10) {
-              signals.push({ type:'52H+', date: ts[iLast-3], strength:0.7, reason:'Dummy breakout' });
-              signals.push({ type:'押', date: ts[iLast], strength:0.6, reason:'Dummy pullback' });
-            }
-            out[sym] = { signals };
-          } catch (e) {
-            out[sym] = { signals: [] };
-          }
-        }
-        return send(res, 200, out);
-      } catch (e) {
-        return send(res, 400, { error: String(e?.message||e) });
-      }
+      if (req.method === 'GET') return send(res, 200, {});
+      if (req.method === 'POST') return send(res, 200, {});
+      return send(res, 405, { error: 'method not allowed' });
     }
 
-    // CNN Fear & Greed Index (stocks)
+    // Simple passthrough for Fear & Greed index
     if (path === '/api/fgi') {
       try {
-        const headers = { 'User-Agent': UA, 'Accept': 'application/json,*/*', 'Accept-Language': 'ja,en;q=0.9' };
-        const curU = 'https://production.dataviz.cnn.io/index/fearandgreed/current';
-        const graphU = 'https://production.dataviz.cnn.io/index/fearandgreed/graphdata';
-        const [cr, gr] = await Promise.all([
-          fetch(curU, { headers }),
-          fetch(graphU, { headers }),
-        ]);
-        const ct = await textOrEmpty(cr); const gt = await textOrEmpty(gr);
-        const cj = tryParseJSON(ct) || {}; const gj = tryParseJSON(gt) || {};
-        const now = Number(cj?.fear_and_greed?.now?.value ?? cj?.fear_and_greed?.now ?? cj?.now ?? cj?.score ?? null);
-        const previousClose = Number(cj?.fear_and_greed?.previous_close?.value ?? cj?.fear_and_greed?.previous_close ?? cj?.previous_close ?? null);
-        const hist = Array.isArray(gj?.fear_and_greed_historical) ? gj.fear_and_greed_historical : [];
-        const remote = hist.map(x => ({ t: Number(x.x) || null, v: Number(x.y) || null })).filter(x => Number.isFinite(x.t) && Number.isFinite(x.v));
-
-        // Persist daily value to local file (keep ~3 years)
-        const fs = await import('node:fs');
-        const pathMod = await import('node:path');
-        const dataDir = pathMod.join(process.cwd(), 'data', 'fgi');
-        const file = pathMod.join(dataDir, 'history.json');
-        try { fs.mkdirSync(dataDir, { recursive: true }); } catch {}
-        let local = [];
-        try {
-          const txt = fs.readFileSync(file, 'utf8');
-          const j = JSON.parse(txt);
-          let arr = Array.isArray(j) ? j : (Array.isArray(j?.history) ? j.history : []);
-          // normalize any {t,v} to {x,y}
-          local = arr.map(o => ({ x: Number(o.x ?? o.t), y: Number(o.y ?? o.v) }))
-                     .filter(o => Number.isFinite(o.x) && Number.isFinite(o.y));
-        } catch {}
-
-        const byDay = (t)=> Math.floor(t / 86400000) * 86400000;
-        const map = new Map();
-        for (const x of local) { if (Number.isFinite(x.x) && Number.isFinite(x.y)) map.set(byDay(Number(x.x)), { x:Number(x.x), y:Number(x.y) }); }
-        for (const x of remote) { map.set(byDay(x.t), { x: byDay(x.t), y: x.v }); }
-        if (Number.isFinite(now)) { map.set(byDay(Date.now()), { x: byDay(Date.now()), y: now }); }
-        // Keep last 3 years
-        const cutoff = Date.now() - 3*365*86400000;
-        const combined = Array.from(map.values()).filter(r => Number(r.x) >= cutoff).sort((a,b)=>a.x-b.x);
-        // persist as {history:[{t,v}]}
-        try {
-          const out = { history: combined.map(r => ({ t: Number(r.x), v: Number(r.y) })) };
-          fs.writeFileSync(file, JSON.stringify(out, null, 2), 'utf8');
-        } catch {}
-
-        const history = combined.map(r => ({ t: Number(r.x), v: Number(r.y) }));
-        return send(res, 200, { now, previousClose, history });
-      } catch (e) {
-        return send(res, 200, { now: null, previousClose: null, history: [] });
+        const r = await fetch('https://production.dataviz.cnn.io/index/fearandgreed/graphdata');
+        const j = await r.json();
+        return send(res, 200, j);
+      } catch {
+        return send(res, 200, { score: null, previous_close: null, historical: [] });
       }
     }
 
-    return send(res, 404, 'Not Found', { 'Content-Type': 'text/plain' });
+    return send(res, 404, { error: 'not found' });
   } catch (e) {
     return send(res, 500, { error: String(e?.message || e) });
   }
 });
 
-server.listen(PORT, '127.0.0.1', () => {
-  console.log(`Local YF proxy listening at http://127.0.0.1:${PORT}`);
+server.listen(PORT, () => {
+  console.log('Local YF proxy listening on http://127.0.0.1:' + PORT);
 });
