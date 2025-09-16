@@ -159,11 +159,31 @@
     // Indicators (VIX, S&P500, US10Y)
     const IndicatorsStrip = () => {
       const [q,setQ]=useState({});
+      const [qmap,setQmap]=useState({}); // symbol -> true if Q1
       const syms=['^VIX','^GSPC','^N225','JPY=X','GC=F','BTC-JPY','^TNX'];
       useEffect(()=>{ (async()=>{ try{ const m=await fetchMarketData(syms); setQ(m); }catch{} })(); const t=setInterval(async()=>{ try{ const m=await fetchMarketData(syms); setQ(m); }catch{} }, 60000); return ()=>clearInterval(t); },[]);
-      const Card=({sym,title,format})=>{ const x=q[sym]||{}; const price = x.price; const cp = x.changePercent; const up = (cp??0)>=0; const display = format? format(price) : (price!=null? price.toFixed(2): '-'); return (
-        <a href={externalLinkFor(sym)} target="_blank" rel="noreferrer" className="flex-1 min-w-[140px] bg-gray-800 rounded p-3 hover:bg-gray-700 transition">
-          <div className="text-xs text-gray-400 mb-1">{title}</div>
+      // Compute simple F/V Z-scores across indicators and mark Q1
+      useEffect(()=>{ (async()=>{
+        try{
+          const series = await Promise.all(syms.map(async s=>{
+            try{
+              const j = await yfGetJSON(`/history?symbol=${encodeURIComponent(s)}&interval=1d&range=1y`);
+              const r = j?.chart?.result?.[0]||{}; const ts = r.timestamp||[]; const q0=r.indicators?.quote?.[0]||{}; const close=q0.close||[]; const adj = (r?.indicators?.adjclose?.[0]?.adjclose) || [];
+              const data = []; for(let i=0;i<ts.length;i++){ const c = Number.isFinite(adj[i])? adj[i] : close[i]; if(Number.isFinite(c)) data.push(c); }
+              return { symbol:s, data };
+            }catch{ return { symbol:s, data:[] } }
+          }));
+          const R63 = series.map(s=>{ const d=s.data, n=d.length; return (n>63 && d[n-63]>0)? (d[n-1]/d[n-63]-1) : NaN; });
+          const Vraw = series.map(s=>{ const d=s.data, n=d.length; const win=d.slice(Math.max(0,n-50)); const sma = win.reduce((a,b)=>a+b,0)/(win.length||1); return (sma>0 && Number.isFinite(d[n-1])) ? (sma - d[n-1])/sma : NaN; });
+          const z = (vals)=>{ const xs=vals.filter(v=>Number.isFinite(v)); const n=xs.length; if(!n) return vals.map(_=>0); const mean=xs.reduce((a,b)=>a+b,0)/n; const sd=Math.sqrt(xs.reduce((a,b)=>a+(b-mean)*(b-mean),0)/n)||1e-9; return vals.map(v=>Number.isFinite(v)? (v-mean)/sd : 0); };
+          const Fz = z(R63), Vz = z(Vraw);
+          const m={}; syms.forEach((s,i)=>{ m[s] = (Fz[i]>=0 && Vz[i]>=0); });
+          setQmap(m);
+        }catch{}
+      })(); },[]);
+      const Card=({sym,title,format})=>{ const x=q[sym]||{}; const price = x.price; const cp = x.changePercent; const up = (cp??0)>=0; const display = format? format(price) : (price!=null? price.toFixed(2): '-'); const active = qmap[sym]; return (
+        <a href={externalLinkFor(sym)} target="_blank" rel="noreferrer" className={`flex-1 min-w-[140px] bg-gray-800 rounded p-3 hover:bg-gray-700 transition ${active?'q1-active':''}`}>
+          <div className="text-xs text-gray-400 mb-1">{title}<span className="q1-badge">Q1</span></div>
           <div className="text-lg font-bold">{display}</div>
           <div className={`text-sm ${up?'text-green-400':'text-red-400'}`}>{Number.isFinite(cp)? `${up?'+':''}${(cp*100).toFixed(2)}%`:'-'}</div>
         </a>

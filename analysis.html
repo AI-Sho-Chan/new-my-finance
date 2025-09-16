@@ -138,6 +138,10 @@
       node.setAttribute('fill',color); node.setAttribute('fill-opacity','0.88'); node.setAttribute('stroke','#0b1220'); node.setAttribute('stroke-width','1');
       const t=document.createElementNS('http://www.w3.org/2000/svg','title'); t.textContent = `${it.name} F=${Number.isFinite(it.F)?it.F.toFixed(2):'N/A'} V=${Number.isFinite(it.V)?it.V.toFixed(2):'N/A'}`; node.appendChild(t); g.appendChild(node);
     }
+    // Non-overlapping labels for Q1
+    const placed=[]; const overlap=(a,b)=>!(a.x+a.w<b.x || b.x+b.w<a.x || a.y+a.h<b.y || b.y+b.h<a.y);
+    function labelAt(x,y,txt){ const L=document.createElementNS('http://www.w3.org/2000/svg','text'); L.setAttribute('x',x+8); L.setAttribute('y',y-8); L.setAttribute('fill','#e5e7eb'); L.setAttribute('font-size','11'); L.setAttribute('paint-order','stroke'); L.setAttribute('stroke','#0b1220'); L.setAttribute('stroke-width','2'); L.textContent=txt; g.appendChild(L); const offs=[[10,-10],[10,10],[-10,-10],[-10,10],[14,0],[-14,0],[0,14],[0,-14],[18,18],[18,-18],[-18,18],[-18,-18]]; let final={x:x+8,y:y-8}; for(const [ox,oy] of offs){ L.setAttribute('x',x+ox); L.setAttribute('y',y+oy); const bb=L.getBBox(); const box={x:bb.x,y:bb.y,w:bb.width,h:bb.height}; if(!placed.some(p=>overlap(box,p))){ placed.push(box); final={x:x+ox,y:y+oy}; break; } } const line=document.createElementNS('http://www.w3.org/2000/svg','line'); line.setAttribute('x1',x); line.setAttribute('y1',y); line.setAttribute('x2',final.x-2); line.setAttribute('y2',final.y-10); line.setAttribute('stroke','#64748b'); line.setAttribute('stroke-width','1'); line.setAttribute('opacity','0.7'); g.insertBefore(line,L); }
+    items.forEach((it)=>{ const q=(it.F>=0 && it.V>=0)?'q1':(it.F>=0 && it.V<0)?'q2':(it.F<0 && it.V<0)?'q4':'q3'; if(q==='q1'){ const cx=xs(it.V), cy=ys(it.F); labelAt(cx,cy,(it.name||it.symbol).slice(0,12)); } });
   }
 
   function renderHeatmap(items){
@@ -159,6 +163,19 @@
         `<td><span class="chip ${q}">${qlabel}</span></td>`;
       tbody.appendChild(tr);
     });
+    // Asset-class lists under the heatmap
+    const byClassDivId = 'byClass';
+    let byDiv = document.getElementById(byClassDivId);
+    if(!byDiv){ byDiv = document.createElement('div'); byDiv.id = byClassDivId; tbl.parentElement.appendChild(byDiv); }
+    const klass=(sym)=>(/=X$/.test(sym)||/-JPY$/.test(sym)?'為替': sym==='BTC-JPY'?'暗号資産': /^\^/.test(sym)?'指数': /\.T$/.test(sym)?'日本株':'US株');
+    const groups = {};
+    for(const it of items){ const gname = klass(it.symbol); (groups[gname] ||= []).push(it); }
+    const order = ['US株','日本株','指数','為替','暗号資産'];
+    byDiv.innerHTML = order.map(name=>{
+      const arr = (groups[name]||[]).slice().sort((a,b)=> (b.A??-99)-(a.A??-99));
+      const rows = arr.map(it=>`<tr><td>${it.name||it.symbol}</td><td style="text-align:right">${Number.isFinite(it.A)? it.A.toFixed(2):'-'}</td></tr>`).join('');
+      return `<div class="small" style="margin-top:8px"><div class="title">${name}</div><table style="width:100%"><thead><tr><th>銘柄</th><th style="text-align:right">A</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    }).join('');
   }
 
   function zByMap(map){ const xs=Object.values(map).filter(v=>Number.isFinite(v)); const n=xs.length; if(!n){ const out={}; for(const k in map) out[k]=NaN; return out; } const mean = xs.reduce((a,b)=>a+b,0)/n; const sd = Math.sqrt(xs.reduce((a,b)=>a+(b-mean)*(b-mean),0)/n)||1e-9; const out={}; for(const k in map){ const v=map[k]; out[k]=Number.isFinite(v)? Math.max(-3, Math.min(3,(v-mean)/sd)) : NaN; } return out; }
@@ -223,4 +240,3 @@
   </script>
 </body>
 </html>
-

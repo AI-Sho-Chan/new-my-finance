@@ -211,14 +211,40 @@ const server = http.createServer(async (req, res) => {
       return send(res, 405, { error: 'method not allowed' });
     }
 
-    // Simple passthrough for Fear & Greed index
+    // Fear & Greed index (normalize to { now, previousClose, history: [{t,v}] })
     if (path === '/api/fgi') {
       try {
-        const r = await fetch('https://production.dataviz.cnn.io/index/fearandgreed/graphdata');
+        const headers = { 'User-Agent': UA, 'Accept': 'application/json,*/*', 'Referer': 'https://edition.cnn.com/' };
+        const r = await fetch('https://production.dataviz.cnn.io/index/fearandgreed/graphdata', { headers });
         const j = await r.json();
-        return send(res, 200, j);
+        const num = (v)=>{ const n = Number(v); return Number.isFinite(n) ? n : null; };
+        const out = { now: null, previousClose: null, history: [] };
+        // Try common shapes
+        out.now = num(j?.fear_and_greed?.now ?? j?.fear_greed?.now ?? j?.now ?? j?.score);
+        out.previousClose = num(j?.fear_and_greed?.previous_close ?? j?.fear_greed?.previous_close ?? j?.previousClose ?? j?.previous_close);
+        // History: try various locations; prefer array of {x,y}
+        const pickXY = (root)=>{
+          try{
+            if (Array.isArray(root)) return root;
+            for (const k of Object.keys(root||{})){
+              const v = root[k];
+              if (Array.isArray(v) && v.length && typeof v[0] === 'object' && v[0] && ('x' in v[0]) && ('y' in v[0])) return v;
+            }
+          }catch{}
+          return [];
+        };
+        let hist = [];
+        if (Array.isArray(j?.history)) hist = j.history;
+        else if (Array.isArray(j?.historical)) hist = j.historical;
+        else if (j?.fear_and_greed_historical) hist = pickXY(j.fear_and_greed_historical);
+        else if (j?.data) hist = pickXY(j);
+        // Normalize to {t,v}
+        out.history = (hist||[]).map(o=>({ t: Number(o.x)||0, v: Number(o.y)||0 })).filter(x=>x.t && Number.isFinite(x.v));
+        if ((out.now==null || !Number.isFinite(out.now)) && out.history.length){ out.now = out.history[out.history.length-1].v; }
+        if ((out.previousClose==null || !Number.isFinite(out.previousClose)) && out.history.length>1){ out.previousClose = out.history[out.history.length-2].v; }
+        return send(res, 200, out);
       } catch {
-        return send(res, 200, { score: null, previous_close: null, historical: [] });
+        return send(res, 200, { now: null, previousClose: null, history: [] });
       }
     }
 
