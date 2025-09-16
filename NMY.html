@@ -106,7 +106,7 @@
             setData({ now:(typeof j.now==='number'? j.now: null), previousClose:(typeof j.previousClose==='number'? j.previousClose: null), history: hist });
           }catch(e){ /* noop */ } };
         load(); const t=setInterval(load, 5*60*1000); return ()=>{ alive=false; clearInterval(t); } },[]);
-      useEffect(()=>{ (async()=>{ if(!boxRef.current) return; const L=await ensureLightweightCharts(); await new Promise(r=>requestAnimationFrame(r)); if(!chartRef.current){ const el=boxRef.current; const c=L.createChart(el,{ width:el.clientWidth||600, height:120, layout:{background:{type:'solid',color:'#1f2937'},textColor:'rgba(255,255,255,0.9)'}, grid:{vertLines:{color:'#374151'},horzLines:{color:'#374151'}}, timeScale:{ borderColor:'#4b5563', visible:true, timeVisible:false, secondsVisible:false, tickMarkSpacing:60, tickMarkFormatter:(time)=>{ const d=(typeof time==='object'&&time&&'year'in time)? new Date(Date.UTC(time.year, (time.month||1)-1, time.day||1)) : new Date((time+9*3600)*1000); const yy=String(d.getUTCFullYear()%100).padStart(2,'0'); const mm=String(d.getUTCMonth()+1).padStart(2,'0'); const dd=String(d.getUTCDate()).padStart(1,''); return `${yy}年${mm}月`; }}, localization:{ locale:'ja-JP' } }); chartRef.current=c; seriesRef.current=c.addLineSeries({ color:'#38bdf8', lineWidth:2 }); new ResizeObserver(([e])=>{ if(!e||!chartRef.current) return; chartRef.current.applyOptions({width:e.contentRect.width}); }).observe(el); }
+      useEffect(()=>{ (async()=>{ if(!boxRef.current) return; const L=await ensureLightweightCharts(); await new Promise(r=>requestAnimationFrame(r)); if(!chartRef.current){ const el=boxRef.current; const c=L.createChart(el,{ width:el.clientWidth||600, height:240, layout:{background:{type:'solid',color:'#1f2937'},textColor:'rgba(255,255,255,0.9)'}, grid:{vertLines:{color:'#374151'},horzLines:{color:'#374151'}}, timeScale:{ borderColor:'#4b5563', visible:true, timeVisible:false, secondsVisible:false, tickMarkSpacing:60, tickMarkFormatter:(time)=>{ const d=(typeof time==='object'&&time&&'year'in time)? new Date(Date.UTC(time.year, (time.month||1)-1, time.day||1)) : new Date((time+9*3600)*1000); const yy=String(d.getUTCFullYear()%100).padStart(2,'0'); const mm=String(d.getUTCMonth()+1).padStart(2,'0'); const dd=String(d.getUTCDate()).padStart(1,''); return `${yy}/${mm}`; }}, localization:{ locale:'ja-JP' } }); chartRef.current=c; seriesRef.current=c.addLineSeries({ color:'#38bdf8', lineWidth:2 }); new ResizeObserver(([e])=>{ if(!e||!chartRef.current) return; chartRef.current.applyOptions({width:e.contentRect.width}); }).observe(el); }
         const s=seriesRef.current; if(s){
           const base=(data.history||[]).map(x=>({ time: Math.floor((x.t||0)/1000), value: Number(x.v)||0 }));
           const nowV = (typeof data.now==='number' && Number.isFinite(data.now)) ? data.now : null;
@@ -173,7 +173,7 @@
             </div>
           </div>
           <div className="md:col-span-2">
-            <div ref={boxRef} className="w-full h-[120px]"></div>
+            <div ref={boxRef} className="w-full h-[240px]"></div>
           </div>
         </div>
       );
@@ -212,7 +212,7 @@
         </a>
       ); };
       return (
-        <div className="flex flex-wrap gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
           <Card sym="^VIX" title="VIX" />
           <Card sym="^GSPC" title="S&P500" />
           <Card sym="^N225" title={J('%E6%97%A5%E7%B5%8C%E5%B9%B3%E5%9D%87')} />
@@ -878,20 +878,21 @@
       const hasTrend = typeof item.trend === 'string' && item.trend.length>0;
       const bigMove = changeAbs >= 0.04; // 4% 以上の変動
       const isUp = (item.changePercent??0) >= 0;
+      const isQ1 = (window.__NMY_Q1MAP__ && window.__NMY_Q1MAP__[item.symbol]) || false;
       const ringClass = bigMove
         ? (isUp
             ? ' ring-2 ring-green-400/50 shadow-[0_0_12px_rgba(34,197,94,0.35)] '
             : ' ring-2 ring-red-400/50 shadow-[0_0_12px_rgba(248,113,113,0.35)] ')
         : '';
       return (
-        <div className={("bg-gray-800 rounded-lg p-3 shadow-lg cursor-pointer relative " + ringClass).trim()} data-symbol={item.symbol} onClick={onClick} draggable={draggable} onDragStart={onDragStart} onDragOver={onDragOver} onDrop={onDrop}>
+        <div className={("bg-gray-800 rounded-lg p-3 shadow-lg cursor-pointer relative " + ringClass + (isQ1? ' q1-active ':'')).trim()} data-symbol={item.symbol} onClick={onClick} draggable={draggable} onDragStart={onDragStart} onDragOver={onDragOver} onDrop={onDrop}>
           {bigMove && (
             <div className={`pointer-events-none absolute inset-y-0 left-0 w-1 ${isUp?'bg-green-400/80':'bg-red-400/80'} rounded-l`}></div>
           )}
           <button className="absolute right-2 top-2 text-gray-500 hover:text-white text-lg" title={J('%E5%89%8A%E9%99%A4')} onClick={(e)=>{ e.stopPropagation(); onRemove?.(); }}>&times;</button>
           <div className="flex justify-between items-start pr-6">
             <div className="min-w-0">
-              <h3 className="text-sm font-bold text-gray-100 truncate" title={item.name}>{item.name}<span className="q1-badge">Q1</span></h3>
+              <h3 className="text-sm font-bold text-gray-100 truncate" title={item.name}>{item.name}{isQ1 && <span className="q1-badge">Q1</span>}</h3>
               <p className="text-xs text-gray-400">{item.symbol}</p>
               {/* Signal badges */}
               {Array.isArray(signalsMap?.[item.symbol]?.signals) && signalsMap[item.symbol].signals.length>0 && (
@@ -1064,6 +1065,47 @@
       const [signals,setSignals]=useState({});
       const [page,setPage]=useState('dashboard');
       const [settings,setSettings]=useState(()=> loadSettings());
+
+      // Respect tab in URL on entry (e.g., from backtest nav)
+      useEffect(()=>{
+        try{
+          const u = new URL(window.location.href);
+          const tab = u.searchParams.get('tab') || (window.location.hash||'').replace(/^#/, '');
+          if(tab==='assets'||tab==='analysis'||tab==='settings'||tab==='dashboard') setPage(tab);
+        }catch(_){ }
+      },[]);
+      // Keep current tab in URL for shareable links
+      useEffect(()=>{
+        try{
+          const u = new URL(window.location.href);
+          u.searchParams.set('tab', page);
+          window.history.replaceState(null, '', u.toString());
+        }catch(_){ }
+      },[page]);
+
+      // Q1 highlight map for all watchlist symbols
+      const [q1Map,setQ1Map]=useState({});
+      useEffect(()=>{
+        (async()=>{
+          try{
+            const syms = (watchlist||[]).map(i=>i.symbol);
+            if(!syms.length){ setQ1Map({}); window.__NMY_Q1MAP__={}; return; }
+            const series = await Promise.all(syms.map(async s=>{
+              try{
+                const j = await yfGetJSON(`/history?symbol=${encodeURIComponent(s)}&interval=1d&range=1y`);
+                const r = j?.chart?.result?.[0]||{}; const ts=r.timestamp||[]; const q=r.indicators?.quote?.[0]||{}; const close=q.close||[]; const adj=(r?.indicators?.adjclose?.[0]?.adjclose)||[];
+                const data=[]; for(let i=0;i<ts.length;i++){ const c=Number.isFinite(adj[i])?adj[i]:close[i]; if(Number.isFinite(c)) data.push(c); }
+                return { symbol:s, data };
+              }catch{ return { symbol:s, data:[] }; }
+            }));
+            const R63=series.map(s=>{ const d=s.data,n=d.length; return (n>63&&d[n-63]>0)?(d[n-1]/d[n-63]-1):NaN; });
+            const Vraw=series.map(s=>{ const d=s.data,n=d.length; const win=d.slice(Math.max(0,n-50)); const sma=win.reduce((a,b)=>a+b,0)/(win.length||1); return (sma>0&&Number.isFinite(d[n-1]))? (sma-d[n-1])/sma : NaN; });
+            const z=(vals)=>{ const xs=vals.filter(v=>Number.isFinite(v)); const n=xs.length; if(!n) return vals.map(_=>0); const mean=xs.reduce((a,b)=>a+b,0)/n; const sd=Math.sqrt(xs.reduce((a,b)=>a+(b-mean)*(b-mean),0)/n)||1e-9; return vals.map(v=>Number.isFinite(v)?(v-mean)/sd:0); };
+            const F=z(R63), V=z(Vraw); const m={}; syms.forEach((s,i)=>{ m[s]=(F[i]>=0 && V[i]>=0); });
+            setQ1Map(m); window.__NMY_Q1MAP__ = m;
+          }catch(_){ setQ1Map({}); window.__NMY_Q1MAP__={}; }
+        })();
+      },[watchlist.map(i=>i.symbol).join(',')]);
 
       useEffect(()=>{ document.title = J('%E3%83%9E%E3%83%8D%E3%83%BC%E3%83%9E%E3%83%8D%E3%83%BC%E3%82%B8%E3%83%A3%E3%83%BC'); },[]);
 
