@@ -1082,7 +1082,7 @@
             {page==='analysis' && (
               <section className="bg-gray-800 rounded p-2">
                 <div className="w-full">
-                  <iframe id="analysisFrame" src="/analysis.html" title="analysis" className="w-full bg-gray-900 rounded border border-gray-700" style={{ height: 600, overflow: 'hidden' }} onLoad={(e)=>{ try{ const el=e.target; const doc=el.contentDocument||el.contentWindow?.document; if(doc){ const h=Math.max(doc.body.scrollHeight, doc.documentElement.scrollHeight); if(h) el.style.height=(h+4)+'px'; } }catch(_){} }}></iframe>
+                  <iframe id="analysisFrame" src={"/analysis.html?ts=" + Date.now()} title="analysis" className="w-full bg-gray-900 rounded border border-gray-700" style={{ height: 600, overflow: 'hidden' }} onLoad={(e)=>{ try{ const el=e.target; const doc=el.contentDocument||el.contentWindow?.document; if(doc){ const h=Math.max(doc.body.scrollHeight, doc.documentElement.scrollHeight); if(h) el.style.height=(h+4)+'px'; } }catch(_){} }}></iframe>
                 </div>
               </section>
             )}
@@ -1310,6 +1310,7 @@
   </script>
 </body>
 </html>
+
 
 
 
