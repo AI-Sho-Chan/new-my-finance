@@ -37,7 +37,7 @@
   </script>
   <style>
     .animate-spin{animation:spin 1s linear infinite}@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
-  </style>
+  .q1-badge{display:none;margin-left:6px;padding:1px 4px;border-radius:4px;font-size:10px;background:#064e3b;color:#a7f3d0;border:1px solid #065f46;} .q1-active .q1-badge{display:inline-block;} .q1-active{box-shadow:0 0 0 2px rgba(16,185,129,0.35) inset, 0 0 12px rgba(16,185,129,0.25);}   .q1-badge{display:none;margin-left:6px;padding:1px 4px;border-radius:4px;font-size:10px;background:#064e3b;color:#a7f3d0;border:1px solid #065f46;} .q1-active .q1-badge{display:inline-block;} .q1-active{box-shadow:0 0 0 2px rgba(16,185,129,0.35) inset, 0 0 12px rgba(16,185,129,0.25);} </style>
 </head>
 <body class="bg-gray-900">
   <div id="root"></div>
@@ -837,14 +837,14 @@
             : ' ring-2 ring-red-400/50 shadow-[0_0_12px_rgba(248,113,113,0.35)] ')
         : '';
       return (
-        <div className={("bg-gray-800 rounded-lg p-3 shadow-lg cursor-pointer relative " + ringClass).trim()} onClick={onClick} draggable={draggable} onDragStart={onDragStart} onDragOver={onDragOver} onDrop={onDrop}>
+        <div className={("bg-gray-800 rounded-lg p-3 shadow-lg cursor-pointer relative " + ringClass).trim()} data-symbol={item.symbol} onClick={onClick} draggable={draggable} onDragStart={onDragStart} onDragOver={onDragOver} onDrop={onDrop}>
           {bigMove && (
             <div className={`pointer-events-none absolute inset-y-0 left-0 w-1 ${isUp?'bg-green-400/80':'bg-red-400/80'} rounded-l`}></div>
           )}
           <button className="absolute right-2 top-2 text-gray-500 hover:text-white text-lg" title={J('%E5%89%8A%E9%99%A4')} onClick={(e)=>{ e.stopPropagation(); onRemove?.(); }}>&times;</button>
           <div className="flex justify-between items-start pr-6">
             <div className="min-w-0">
-              <h3 className="text-sm font-bold text-gray-100 truncate" title={item.name}>{item.name}</h3>
+              <h3 className="text-sm font-bold text-gray-100 truncate" title={item.name}>{item.name}<span className="q1-badge">Q1</span></h3>
               <p className="text-xs text-gray-400">{item.symbol}</p>
               {/* Signal badges */}
               {Array.isArray(signalsMap?.[item.symbol]?.signals) && signalsMap[item.symbol].signals.length>0 && (
@@ -1307,6 +1307,12 @@
   </script>
 </body>
 </html>
+
+
+
+
+
+
 
 
 
