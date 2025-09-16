@@ -93,6 +93,14 @@ const server = http.createServer((req, res) => {
       }
       return send(res, 404, 'Not Found');
     }
+    if (pathname === '/backtest' || pathname === '/backtest.html') {
+      const p = path.join(ROOT, 'backtest.html');
+      if (fs.existsSync(p)) {
+        const html = fs.readFileSync(p, 'utf8');
+        return send(res, 200, html, { 'Content-Type': 'text/html; charset=utf-8' });
+      }
+      return send(res, 404, 'Not Found');
+    }
 
     if (pathname.startsWith('/assets/')) {
       const p = path.join(REACT_DIST, pathname.replace(/^\/assets\//, 'assets/'));

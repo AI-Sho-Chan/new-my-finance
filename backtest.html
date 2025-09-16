@@ -1,9 +1,9 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>繝舌ャ繧ｯ繝・せ繝育ｵ先棡・・1雋ｷ縺・Q4螢ｲ繧奇ｼ・/title>
+  <title>バックテスト結果（Q1買い/Q4売り）</title>
   <link rel="icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAFElEQVQoka3MMQ0AAAgDsKf9GQxgq0g1mHc3k3gAAAAASUVORK5CYII=" />
   <style>
     body{ background:#0f172a; color:#e5e7eb; font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial; }
@@ -11,6 +11,7 @@
     .topnav{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
     .navbtn{ padding:6px 10px; border-radius:8px; background:#1f2937; color:#e5e7eb; border:1px solid #374151; text-decoration:none; margin-right:6px; }
     .navbtn:hover{ background:#374151; }
+    .navbtn.active{ background:#4f46e5; color:#fff; border-color:#4f46e5; }
     .card{ background:#111827; border:1px solid #374151; border-radius:8px; padding:12px; margin-bottom:16px; }
     .title{ font-weight:700; margin-bottom:8px; }
     .small{ color:#9ca3af; font-size:12px; }
@@ -25,26 +26,22 @@
     .w1{ width:70px; min-width:70px; text-align:left; }
     .w2{ width:120px; min-width:120px; text-align:left; }
     .num{ text-align:right; }
-    .toolbar{ display:flex; align-items:center; gap:8px; }
-    .btn{ display:inline-block; padding:6px 10px; background:#1f2937; border:1px solid #374151; border-radius:6px; color:#e5e7eb; text-decoration:none; }
-    .btn:hover{ background:#374151; }
-    .good{ color:#22c55e; }
-    .bad{ color:#ef4444; }
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="topnav">
       <div>
-        <a class="navbtn" href="/NMY.html">繝繝・す繝･繝懊・繝・/a>
-        <a class="navbtn" href="/NMY.html?tab=assets">雉・肇</a>
-        <a class="navbtn" href="/NMY.html?tab=analysis">蛻・梵</a>
-        <a class="navbtn active" href="/backtest.html">繝舌ャ繧ｯ繝・せ繝・/a>
-        <a class="navbtn" href="/NMY.html?tab=settings">險ｭ螳・/a>
+        <a class="navbtn" href="/NMY.html">ダッシュボード</a>
+        <a class="navbtn" href="/NMY.html?tab=assets">資産</a>
+        <a class="navbtn" href="/NMY.html?tab=analysis">分析</a>
+        <a class="navbtn active" href="/backtest.html">バックテスト</a>
+        <a class="navbtn" href="/NMY.html?tab=settings">設定</a>
       </div>
     </div>
+
     <div class="card">
-      <div class="title">繝舌ャ繧ｯ繝・せ繝育ｵ先棡・・1雋ｷ縺・Q4螢ｲ繧奇ｼ・/div>
+      <div class="title">バックテスト結果（Q1買い/Q4売り）</div>
     </div>
 
     <div class="card" id="summaryCard"></div>
@@ -65,18 +62,18 @@
     async function openDB(){ return new Promise((res,rej)=>{ const req = indexedDB.open('nmy-analysis',1); req.onupgradeneeded = ()=>{ const db=req.result; if(!db.objectStoreNames.contains('events')) db.createObjectStore('events',{ keyPath:'id' }); }; req.onsuccess=()=>res(req.result); req.onerror=(e)=>rej(e); }); }
     async function getAllEvents(db){ return new Promise((res,rej)=>{ const tx=db.transaction('events','readonly'); const st=tx.objectStore('events'); const req=st.getAll(); req.onsuccess=()=>res(req.result||[]); req.onerror=(e)=>rej(e); }); }
     async function loadJPMap(){ try{ const r=await fetch('/data/jp-stocks.json?ts='+Date.now(),{cache:'no-store'}); const j=await r.json(); if(Array.isArray(j)){ j.forEach(x=>{ NAME_MAP[String(x.code)+'.T']= String(x.name||''); }); } }catch(_){ NAME_MAP = NAME_MAP || {}; } }
-    function displayName(symbol){ if(/\.T$/.test(symbol)){ return NAME_MAP[symbol] || symbol; } return symbol; }
+    function displayName(symbol){ return /\.T$/.test(symbol) ? (NAME_MAP[symbol]||symbol) : symbol; }
 
     function calcLatestDay(ev){ const ks=Object.keys(ev.returns||{}).map(k=>+k).filter(Number.isFinite); return ks.length? Math.max(...ks): 0; }
     function lastReturn(ev){ const d=calcLatestDay(ev); const r=ev.returns?.[d]; return (typeof r==='number' && isFinite(r))? r: -Infinity; }
     function comp(a,b,key,dir){ const s = (dir==='asc'? 1 : -1); const va = getVal(a,key), vb = getVal(b,key); if(va<vb) return -1*s; if(va>vb) return 1*s; return 0; }
-    function getVal(ev,key){ if(key==='quad') return ev.quad; if(key==='symbol') return ev.symbol; if(key==='signalTs') return ev.signalTs; if(key==='execTs') return ev.execTs; if(key==='execPrice') return +ev.execPrice || 0; if(key==='ret') return lastReturn(ev); return 0; }
+    function getVal(ev,key){ if(key==='quad') return ev.quad; if(key==='symbol') return ev.symbol; if(key==='signalTs') return ev.signalTs; if(key==='side') return ev.side; if(key==='elapsed') return calcLatestDay(ev); if(key==='execPrice') return +ev.execPrice || 0; if(key==='ret') return lastReturn(ev); return 0; }
 
     function render(){
       const container = document.getElementById('table'); container.innerHTML='';
       const table=document.createElement('table'); const thead=document.createElement('thead'); const theadTr=document.createElement('tr');
-      const headCells = ['Quad','Symbol','蛻､螳壽律','螢ｲ雋ｷ','蝓ｷ陦梧律','蝓ｷ陦御ｾ｡譬ｼ','鬨ｰ關ｽ邇・];
-      headCells.forEach((label,idx)=>{ const th=document.createElement('th'); th.textContent=label; if(idx===0){ th.className='left1 w1'; } if(idx===1){ th.className='left2 w2'; } th.addEventListener('click',()=>{ const keys=['quad','symbol','signalTs','side','execTs','execPrice','ret']; const k = keys[idx] || 'ret'; if(SORT.key===k) SORT.dir = (SORT.dir==='asc'?'desc':'asc'); else { SORT.key=k; SORT.dir='desc'; } render(); }); theadTr.appendChild(th); });
+      const headCells = ['Quad','Symbol','判定日','売買','経過日数','執行価格','騰落率'];
+      headCells.forEach((label,idx)=>{ const th=document.createElement('th'); th.textContent=label; if(idx===0){ th.className='left1 w1'; } if(idx===1){ th.className='left2 w2'; } th.addEventListener('click',()=>{ const keys=['quad','symbol','signalTs','side','elapsed','execPrice','ret']; const k = keys[idx] || 'ret'; if(SORT.key===k) SORT.dir = (SORT.dir==='asc'?'desc':'asc'); else { SORT.key=k; SORT.dir='desc'; } render(); }); theadTr.appendChild(th); });
       thead.appendChild(theadTr); table.appendChild(thead);
       const tbody=document.createElement('tbody');
       const rows=[...EVENTS.filter(e=>e.quad==='Q1')].sort((a,b)=> comp(a,b, SORT.key, SORT.dir));
@@ -84,7 +81,7 @@
         const tr=document.createElement('tr');
         const c1=document.createElement('td'); c1.className='left1 w1'; c1.textContent=ev.quad; tr.appendChild(c1);
         const c2=document.createElement('td'); c2.className='left2 w2'; c2.textContent=displayName(ev.symbol); c2.title = ev.symbol; tr.appendChild(c2);
-        const elapsed = calcLatestDay(ev); const cells=[fmtDate(ev.signalTs), ev.side, String(elapsed), (Number(ev.execPrice||0)).toFixed(2)];
+        const cells=[fmtDate(ev.signalTs), ev.side, String(calcLatestDay(ev)), (Number(ev.execPrice||0)).toFixed(2)];
         cells.forEach((v)=>{ const td=document.createElement('td'); td.className='num'; td.textContent=v; tr.appendChild(td); });
         const tdR=document.createElement('td'); const r=lastReturn(ev); tdR.className='num ' + (r>=0?'good':'bad'); tdR.textContent= (isFinite(r)? (r*100).toFixed(2)+'%' : '-'); tr.appendChild(tdR);
         tbody.appendChild(tr);
@@ -94,12 +91,11 @@
       const ts = document.getElementById('tableScroll');
       const top = document.getElementById('topScroll');
       const topInner = document.getElementById('topScrollInner');
-      // Defer to ensure layout computed
       setTimeout(()=>{ try{ const sw = container.querySelector('table')?.scrollWidth || container.scrollWidth || 0; topInner.style.width = Math.max(sw, ts.clientWidth) + 'px'; }catch(_){ } },0);
       const lock = { a:false, b:false };
       top.onscroll = ()=>{ if(lock.a) return; lock.b=true; ts.scrollLeft = top.scrollLeft; setTimeout(()=>lock.b=false,0); };
       ts.onscroll = ()=>{ if(lock.b) return; lock.a=true; top.scrollLeft = ts.scrollLeft; setTimeout(()=>lock.a=false,0); };
-      const desc = document.getElementById('desc'); desc.textContent = '蜷・ｦ句・縺励け繝ｪ繝・け縺ｧ譏・・髯埼・・譖ｿ縲４ymbol/蛻､螳壽律遲峨〒繧よ紛蛻励〒縺阪∪縺吶ゆｸ企Κ縺ｮ繝舌・縺九ｉ讓ｪ繧ｹ繧ｯ繝ｭ繝ｼ繝ｫ蜿ｯ閭ｽ縺ｧ縺吶・;
+      const desc = document.getElementById('desc'); desc.textContent = '各見出しクリックで昇順/降順を切替。Symbol/判定日等でも整列できます。上部バーから横スクロール可能です。';
     }
 
     function avg(xs){ const ys=xs.filter(v=>typeof v==='number' && isFinite(v)); if(!ys.length) return null; const m = ys.reduce((a,b)=>a+b,0)/ys.length; return m; }
@@ -107,25 +103,18 @@
       const card = document.getElementById('summaryCard');
       const H = [7,30,60,90,120,180,240,360];
       const by = { Q1: EVENTS.filter(e=>e.quad==='Q1'), Q4: EVENTS.filter(e=>e.quad==='Q4') };
-      // mismatch detection (e.g., Q1 with SHORT)
       const mismatches = EVENTS.filter(e=> (e.quad==='Q1' && e.side!=='BUY') || (e.quad==='Q4' && e.side!=='SHORT'));
       function row(label, list){
         const vals = H.map(d=>{ const xs = list.map(e=> e.returns?.[d] ).filter(v=>typeof v==='number' && isFinite(v)); const m = avg(xs); return m==null? '-' : (m*100).toFixed(2)+'%'; });
         return `<tr><td class="w2">${label} (${list.length})</td>${vals.map(v=>`<td class="num">${v}</td>`).join('')}</tr>`;
       }
-      // Q1縺ｮ譛驕ｩ蛻ｩ遒ｺ譌･・亥ｹｳ蝮・錐逶顔紫縺梧怙螟ｧ縺ｨ縺ｪ繧区律・・      function bestDayAvg(list){
-        const map = new Map(); // d -> array of returns
-        for(const e of list){ for(const k in (e.returns||{})){ const d=+k; const v=e.returns[d]; if(typeof v==='number' && isFinite(v)){ if(!map.has(d)) map.set(d,[]); map.get(d).push(v); } }
-        }
-        let bestD=null, bestR=-Infinity; for(const [d,arr] of map.entries()){ const m=avg(arr); if(m!=null && m>bestR){ bestR=m; bestD=d; } }
-        return bestD? { day:bestD, ret:bestR }: { day:null, ret:null };
-      }
+      function bestDayAvg(list){ const map=new Map(); for(const e of list){ for(const k in (e.returns||{})){ const d=+k; const v=e.returns[d]; if(typeof v==='number'&&isFinite(v)){ if(!map.has(d)) map.set(d,[]); map.get(d).push(v); } } } let bestD=null,bestR=-Infinity; for(const [d,arr] of map.entries()){ const m=avg(arr); if(m!=null && m>bestR){ bestR=m; bestD=d; } } return bestD? {day:bestD, ret:bestR}:{day:null,ret:null}; }
       const bQ1 = bestDayAvg(by.Q1);
-      const head = '<tr><th class="w2 left1" style="left:0">謌ｦ逡･</th>'+H.map(d=>`<th>${d}D</th>`).join('')+'</tr>';
-      const note = '<div class="small" style="margin-top:6px;">豕ｨ: Q4縺ｯ遨ｺ螢ｲ繧翫・縺溘ａ縲∽ｸ玖誠縺ｧ繝励Λ繧ｹ・井ｸ頑・縺ｧ繝槭う繝翫せ・峨ゅし繝槭Μ繝ｼ險育ｮ励ｂ縺薙・蜑肴署縺ｧ螳滓命縲・/div>';
-      const tipQ1 = bQ1.day? `<div class="small">Q1譛驕ｩ蛻ｩ遒ｺ逶ｮ螳・ <b>${bQ1.day}譌･</b>・亥ｹｳ蝮・${(bQ1.ret*100).toFixed(2)}%・・/div>`: '';
-      const warn = mismatches.length? `<div class="small" style="color:#f59e0b">豕ｨ諢・ 雎｡髯舌→螢ｲ雋ｷ縺ｮ荳堺ｸ閾ｴ ${mismatches.length} 莉ｶ・亥商縺・う繝吶Φ繝医′谿九▲縺ｦ縺・ｋ蜿ｯ閭ｽ諤ｧ縲ょ・譫舌・繝ｼ繧ｸ繧貞・蠎ｦ髢九￥縺ｨ蜀崎ｨ育ｮ励＆繧後∪縺呻ｼ・/div>` : '';
-      card.innerHTML = '<div class="title">謌ｦ逡･繧ｵ繝槭Μ繝ｼ</div>' + `<div class="small">Q1=雋ｷ縺・戟縺｡縲＿4=遨ｺ螢ｲ繧翫ょ推譌･謨ｰ轤ｹ縺ｧ縺ｮ蟷ｳ蝮・錐逶顔紫・医う繝吶Φ繝亥ｹｳ蝮・ｼ峨・/div>` + tipQ1 + warn + `<div class="table-scroll"><table><thead>${head}</thead><tbody>${row('Q1 雋ｷ縺・,by.Q1)}${row('Q4 螢ｲ繧・,by.Q4)}</tbody></table></div>` + note;
+      const head = '<tr><th class="w2 left1" style="left:0">戦略</th>'+H.map(d=>`<th>${d}D</th>`).join('')+'</tr>';
+      const note = '<div class="small" style="margin-top:6px;">注: Q4は空売りのため、下落でプラス（上昇でマイナス）。サマリー計算もこの前提で実施。</div>';
+      const tipQ1 = bQ1.day? `<div class="small">Q1最適利確目安: <b>${bQ1.day}日</b>（平均 ${(bQ1.ret*100).toFixed(2)}%）</div>`: '';
+      const warn = mismatches.length? `<div class="small" style="color:#f59e0b">注意: 象限と売買の不一致 ${mismatches.length} 件（古いイベントが残っている可能性。分析ページを再度開くと再計算されます）</div>` : '';
+      card.innerHTML = '<div class="title">戦略サマリー</div>' + `<div class="small">Q1=買い持ち、Q4=空売り。各日数点での平均損益率（イベント平均）。</div>` + tipQ1 + warn + `<div class="table-scroll"><table><thead>${head}</thead><tbody>${row('Q1 買い',by.Q1)}${row('Q4 売り',by.Q4)}</tbody></table></div>` + note;
     }
 
     (async()=>{
@@ -134,14 +123,12 @@
         const list = await getAllEvents(db);
         EVENTS = Array.isArray(list)? list: [];
         await loadJPMap();
-        // default sort: 譛譁ｰ縺ｮ鬨ｰ關ｽ邇・ｼ亥庶逶顔紫・蛾剄鬆・        SORT = { key:'ret', dir:'desc' };
+        SORT = { key:'ret', dir:'desc' };
         render();
         renderSummary();
-      }catch(e){ document.getElementById('meta').textContent = '隱ｭ縺ｿ霎ｼ縺ｿ螟ｱ謨・; }
+      }catch(e){ try{ const d=document.getElementById('desc'); if(d) d.textContent='読み込みに失敗しました'; }catch(_){ } console.error(e); }
     })();
   </script>
 </body>
 </html>
-
-
 
