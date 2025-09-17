@@ -338,18 +338,18 @@ export default function Dashboard() {
 
       {quotesError && <div className="mb-4 rounded-md border border-red-500/50 bg-red-500/10 text-red-200 px-4 py-2 text-sm">{quotesError}</div>}
 
-      {quotesLoading && !activeItems.length ? (
+      {quotesLoading && !displayItems.length ? (
         <div className="flex justify-center items-center h-48"><Loader /><span className="ml-3 text-gray-400 text-sm">市場データを取得中...</span></div>
-      ) : !activeItems.length ? (
+      ) : !displayItems.length ? (
         <div className="text-center text-sm text-gray-400 border border-dashed border-gray-700 rounded-lg py-16">
           <p className="font-semibold text-gray-300 mb-2">タブに銘柄がありません</p>
           <p className="text-gray-500">検索から追加するか、ALLタブで一括操作ができます。</p>
         </div>
       ) : (
         <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext items={activeItemIds} strategy={rectSortingStrategy}>
+          <SortableContext items={displayedIds} strategy={rectSortingStrategy}>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
-              {activeItems.map((item) => (
+              {displayItems.map((item, index) => (
                 <SortableWatchCard
                   key={item.id}
                   item={item}
@@ -357,6 +357,9 @@ export default function Dashboard() {
                   groups={itemGroupMap[item.id] || []}
                   selectionMode={selectionActive}
                   selected={selectedSet.has(item.id)}
+                  dragDisabled={sortMode !== 'none'}
+                  rank={sortMode !== 'none' ? index + 1 : undefined}
+                  metricsUrl={metricsLinkFor(item.symbol)}
                   onToggleSelect={() => toggleSelection(item.id)}
                   onOpen={() => handleCardClick(item.id, item.symbol)}
                   onUpdateNote={(note) => updateItemNote(item.id, note)}
