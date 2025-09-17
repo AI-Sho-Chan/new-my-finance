@@ -209,10 +209,10 @@ export default function FGIWidget() {
   const scoreClamped = score != null ? clamp(score, 0, 100) : null;
   const currentLabel = LABELS.find((entry) => scoreClamped != null && scoreClamped <= entry.max) ?? LABELS[LABELS.length - 1];
 
-  const gaugeAngle = scoreClamped != null ? (scoreClamped - 50) * 1.8 - 90 : -90;
+  const gaugeAngle = scoreClamped != null ? (scoreClamped * 1.8) : 0;
   const pointerLength = 42;
-  const pointerBase = polarToCartesian(100, 110, 10, gaugeAngle + 180);
-  const pointerTip = polarToCartesian(100, 110, pointerLength, gaugeAngle);
+  const pointerBase = polarToCartesian(100, 115, 10, gaugeAngle + 180);
+  const pointerTip = polarToCartesian(100, 115, pointerLength, gaugeAngle);
 
   return (
     <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-4">
@@ -227,16 +227,16 @@ export default function FGIWidget() {
                 <stop offset="100%" stopColor="#34d399" />
               </linearGradient>
             </defs>
-            <path d={describeArc(100, 115, 80, -90, 90)} stroke="url(#fgiGradient)" strokeWidth={14} fill="none" strokeLinecap="round" />
-            <circle cx="100" cy="115" r="6" fill="#1f2937" stroke="#38bdf8" strokeWidth={3} />
+            <path d={describeArc(100, 120, 75, 0, 180)} stroke="url(#fgiGradient)" strokeWidth={14} fill="none" strokeLinecap="round" />
+            <circle cx="100" cy="120" r="6" fill="#1f2937" stroke="#38bdf8" strokeWidth={3} />
             <line x1={pointerBase.x} y1={pointerBase.y} x2={pointerTip.x} y2={pointerTip.y} stroke="#38bdf8" strokeWidth={4} strokeLinecap="round" />
-            <text x="100" y="55" textAnchor="middle" className="fill-gray-100" style={{ fontSize: 24, fontWeight: 700 }}>
+            <text x="100" y="62" textAnchor="middle" className="fill-gray-100" style={{ fontSize: 24, fontWeight: 700 }}>
               {scoreClamped != null ? Math.round(scoreClamped) : '--'}
             </text>
-            <text x="100" y="75" textAnchor="middle" className="fill-gray-300" style={{ fontSize: 12, fontWeight: 600 }}>
+            <text x="100" y="82" textAnchor="middle" className="fill-gray-300" style={{ fontSize: 12, fontWeight: 600 }}>
               {scoreClamped != null ? currentLabel.label : '未取得'}
             </text>
-            <text x="100" y="92" textAnchor="middle" className="fill-gray-400" style={{ fontSize: 11 }}>
+            <text x="100" y="100" textAnchor="middle" className="fill-gray-400" style={{ fontSize: 11 }}>
               {delta != null ? `${delta >= 0 ? '+' : ''}${delta.toFixed(1)} vs 前日` : '前日比データなし'}
             </text>
           </svg>

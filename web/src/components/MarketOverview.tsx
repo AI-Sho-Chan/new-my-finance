@@ -84,7 +84,7 @@ export default function MarketOverview() {
               <p className="text-xs text-gray-500">{symbol}</p>
               <span className={clsx('mt-1 text-2xl font-bold', changeClass)}>{changeText}</span>
               <p className="text-sm font-semibold text-gray-100">{name}</p>
-              <p className="text-xs text-gray-400">{priceText}</p>
+              <p className="text-xs text-gray-400">{symbol === '^VIX' ? quote.price?.toFixed(2) ?? '--' : priceText}</p>
             </button>
           );
         })}
