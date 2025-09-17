@@ -73,11 +73,13 @@ export default function App() {
   useEffect(() => {
     if (!isBare) return;
     try {
-      const ro = new (window as any).ResizeObserver?.(() => {
+      const ResizeObserverCtor = (window as any).ResizeObserver;
+      if (!ResizeObserverCtor) return;
+      const ro = new ResizeObserverCtor(() => {
         const h = document.body.scrollHeight || document.documentElement.scrollHeight || 0;
         window.parent?.postMessage({ type: 'analysisSize', height: h }, window.location.origin);
       });
-      if (ro) ro.observe(document.body);
+      ro.observe(document.body);
       const tick = () => {
         const h = document.body.scrollHeight || document.documentElement.scrollHeight || 0;
         window.parent?.postMessage({ type: 'analysisSize', height: h }, window.location.origin);

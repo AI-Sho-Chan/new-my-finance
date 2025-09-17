@@ -73,6 +73,9 @@ export default function MarketOverview() {
           const changePct = quote.changePct;
           const changeText = formatChange(changePct);
           const priceText = formatPrice(quote.price, quote.currency);
+          const displayPrice = symbol === '^VIX'
+            ? (typeof quote.price === 'number' && Number.isFinite(quote.price) ? quote.price.toFixed(2) : '--')
+            : priceText;
           const changeClass = typeof changePct === 'number' ? (changePct >= 0 ? 'text-emerald-400' : 'text-rose-400') : 'text-gray-400';
           return (
             <button
@@ -82,9 +85,13 @@ export default function MarketOverview() {
               className="rounded-lg border border-gray-800 bg-gray-900/80 p-3 text-left hover:border-indigo-500/60 hover:bg-gray-800/90 transition-colors"
             >
               <p className="text-xs text-gray-500">{symbol}</p>
-              <span className={clsx('mt-1 text-2xl font-bold', changeClass)}>{changeText}</span>
-              <p className="text-sm font-semibold text-gray-100">{name}</p>
-              <p className="text-xs text-gray-400">{symbol === '^VIX' ? quote.price?.toFixed(2) ?? '--' : priceText}</p>
+              <p className="mt-1 text-sm text-gray-300">{name}</p>
+              <p className={clsx('mt-2 text-sm', changeClass)}>
+                <span className="mr-1 text-xs text-gray-400">対前日比</span>{changeText}
+              </p>
+              <p className="mt-1 text-lg font-bold text-gray-100">
+                <span className="mr-1 text-xs text-gray-400">現値</span>{displayPrice}
+              </p>
             </button>
           );
         })}
