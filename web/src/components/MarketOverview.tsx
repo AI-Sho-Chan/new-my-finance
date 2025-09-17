@@ -86,12 +86,8 @@ export default function MarketOverview() {
             >
               <p className="text-xs text-gray-500">{symbol}</p>
               <p className="mt-1 text-sm text-gray-300">{name}</p>
-              <p className={clsx('mt-2 text-sm', changeClass)}>
-                <span className="mr-1 text-xs text-gray-400">対前日比</span>{changeText}
-              </p>
-              <p className="mt-1 text-lg font-bold text-gray-100">
-                <span className="mr-1 text-xs text-gray-400">現値</span>{displayPrice}
-              </p>
+              <p className={clsx('mt-2 text-2xl font-bold', changeClass)}>{changeText}</p>
+              <p className="mt-1 text-xs text-gray-400">{displayPrice}</p>
             </button>
           );
         })}
