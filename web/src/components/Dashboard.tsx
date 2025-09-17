@@ -6,6 +6,7 @@ import clsx from 'clsx';
 import { fetchHistoricalCandles, fetchMarketQuotes, inferTrend, fetchFundamentals } from '../lib/data';
 import { useStore } from '../store';
 import type { MarketQuote, WatchGroup, WatchItem, WatchSortMode } from '../types';
+import type { SymbolSearchResult } from '../lib/symbols';
 import { sortGroupItemIds, collectGroupItemIds, buildItemGroupMap, metricsLinkFor } from '../lib/watch-helpers';
 import WatchTabs from './watch/WatchTabs';
 import GroupEditorModal from './watch/GroupEditorModal';
@@ -15,6 +16,7 @@ import GroupTag from './watch/GroupTag';
 import StockCard from './StockCard';
 import Loader from './Loader';
 import StockChartModal from './StockChartModal';
+import SymbolSearch from './SymbolSearch';
 import MarketOverview from './MarketOverview';
 import FGIWidget from './FGIWidget';
 
@@ -55,8 +57,6 @@ export default function Dashboard() {
   const [quotes, setQuotes] = useState<Record<string, MarketQuote>>({});
   const [quotesLoading, setQuotesLoading] = useState(false);
   const [quotesError, setQuotesError] = useState<string | null>(null);
-  const [symbolInput, setSymbolInput] = useState('');
-  const [nameInput, setNameInput] = useState('');
   const [editor, setEditor] = useState<EditorState>({ open: false, mode: 'create' });
   const [selectorOpen, setSelectorOpen] = useState(false);
   const [selectorTarget, setSelectorTarget] = useState<SelectorTarget>('search');
@@ -167,19 +167,6 @@ export default function Dashboard() {
   const activeGroupName = activeGroup?.name || 'ALL';
   const selectionActive = watchUI.selectionMode;
 
-  const handleAddSymbol = () => {
-    const symbol = symbolInput.trim().toUpperCase();
-    if (!symbol) return;
-    const name = nameInput.trim() || symbol;
-    try {
-      addItems([{ symbol, name }], pendingGroupIds.length ? pendingGroupIds : undefined);
-      setSymbolInput('');
-      setNameInput('');
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
   const handleDeleteGroup = (groupId: string) => {
     const group = watchGroups[groupId];
     if (!group || group.type === 'system') return;
@@ -214,6 +201,17 @@ export default function Dashboard() {
       return;
     }
     setModal({ symbol });
+  };
+
+  const handleSymbolSelect = (entry: SymbolSearchResult) => {
+    try {
+      const targetGroupIds = pendingGroupIds.length ? pendingGroupIds : undefined;
+      addItems([
+        { symbol: entry.symbol, name: entry.name, type: entry.assetType === 'index' ? 'index' : 'stock' },
+      ], targetGroupIds);
+    } catch (err) {
+      console.error('Failed to add symbol', err);
+    }
   };
 
   const executeBulkRemove = () => {
@@ -287,22 +285,10 @@ export default function Dashboard() {
         </div>
         {sortMode !== 'none' && (<p className="mt-2 text-xs text-amber-300">並び替えモード中はドラッグによる並べ替えが無効になります。</p>)}
 
-        <div className="mt-4 flex flex-col gap-3 md:flex-row">
-          <input
-            className="flex-1 rounded-md bg-gray-950 border border-gray-700 px-3 py-2 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            placeholder="シンボル (AAPL, 7203.T など)"
-            value={symbolInput}
-            onChange={(e) => setSymbolInput(e.target.value)}
-          />
-          <input
-            className="flex-1 rounded-md bg-gray-950 border border-gray-700 px-3 py-2 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            placeholder="名称 (任意)"
-            value={nameInput}
-            onChange={(e) => setNameInput(e.target.value)}
-          />
-          <div className="flex gap-2">
-            <button className="px-3 py-2 rounded-md text-sm bg-gray-800 text-gray-200 hover:bg-gray-700" onClick={() => openGroupSelector('search')}>タブを選択</button>
-            <button className="px-4 py-2 rounded-md text-sm bg-indigo-600 text-white hover:bg-indigo-500" onClick={handleAddSymbol}>追加</button>
+        <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center">
+          <SymbolSearch onSelect={handleSymbolSelect} className="flex-1" />
+          <div className="flex gap-2 md:w-auto">
+            <button className="px-3 py-2 rounded-md text-sm bg-gray-800 text-gray-200 hover:bg-gray-700" onClick={() => openGroupSelector('search')}>タグ選択</button>
           </div>
         </div>
         <div className="mt-3 text-xs text-gray-400 flex items-center flex-wrap gap-2">
@@ -443,3 +429,8 @@ function SortableWatchCard({ item, quote, groups, selectionMode, selected, dragD
     </div>
   );
 }
+
+
+
+
+
