@@ -55,7 +55,7 @@ function compareNumber(a?: number, b?: number): number {
 
 export function metricsLinkFor(symbol: string): string {
   if (/\.T$/i.test(symbol)) {
-    return `https://kabutan.jp/stock/?code=${symbol.replace(/\.T$/i, )}`;
+    return `https://kabutan.jp/stock/?code=${symbol.replace(/\.T$/i, '')}`;
   }
   return 'https://finance.yahoo.com/quote/' + encodeURIComponent(symbol);
 }
