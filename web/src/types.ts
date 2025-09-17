@@ -1,6 +1,8 @@
-export type TickerSymbol = string;
+﻿export type TickerSymbol = string;
 
 export type Timeframe = 'D' | 'W' | 'M';
+
+export type Trend = 'up' | 'down' | 'flat';
 
 export interface MarketQuote {
   symbol: TickerSymbol;
@@ -16,7 +18,7 @@ export interface MarketQuote {
   marketCap?: number;
   yoyRevenuePct?: number;
   yoyOperatingIncomePct?: number;
-  trend?: 'up' | 'down' | 'flat';
+  trend?: Trend;
 }
 
 export interface Candle {
@@ -60,10 +62,46 @@ export type AssetItem =
   | (AssetItemBase & { type: 'STOCK'; details: StockDetails })
   | (AssetItemBase & { type: 'CRYPTO'; details: CryptoDetails });
 
+export type WatchItemType = 'stock' | 'index';
+
 export interface WatchItem {
   id: string;
   symbol: TickerSymbol;
   name: string;
-  order: number;
+  type: WatchItemType;
+  addedAt: number;
+  updatedAt: number;
+  note?: string;
 }
 
+export type WatchGroupSortMode = 'addedAt' | 'symbol' | 'price' | 'custom';
+export type WatchGroupSortDirection = 'asc' | 'desc';
+
+export type WatchSortMode = 'none' | 'changeAsc' | 'changeDesc' | 'trendUpFirst' | 'trendDownFirst';
+
+export interface WatchGroup {
+  id: string;
+  key?: 'all' | 'holding' | 'candidate' | 'index';
+  name: string;
+  color: string;
+  order: number;
+  type: 'system' | 'user';
+  itemIds: string[];
+  sort: { mode: WatchGroupSortMode; direction: WatchGroupSortDirection };
+  updatedAt: number;
+  description?: string;
+}
+
+export interface WatchUIState {
+  activeGroupId: string;
+  selectionMode: boolean;
+  selectedIds: string[];
+  pendingAssignGroupIds: string[];
+  sortMode: WatchSortMode;
+}
+
+export interface WatchSnapshot {
+  items: Record<string, WatchItem>;
+  groups: Record<string, WatchGroup>;
+  ui: WatchUIState;
+}

@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
-import type { MarketQuote, TickerSymbol } from '../types';
+﻿import { useEffect, useMemo, useState } from 'react';
+import type { MarketQuote, TickerSymbol, WatchItem } from '../types';
 import { fetchMarketQuotes } from '../lib/data';
 import StockCard from './StockCard';
+import { metricsLinkFor } from '../lib/watch-helpers';
 import StockChartModal from './StockChartModal';
 
 export default function MarketOverview() {
@@ -31,11 +32,21 @@ export default function MarketOverview() {
     <div className="mb-6">
       <h3 className="text-lg font-semibold text-gray-200 mb-2">マーケット概況</h3>
       <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3">
-        {order.map(({ symbol, name }) => (
-          quotes[symbol] ? (
-            <StockCard key={symbol} quote={{ ...quotes[symbol], name: name || quotes[symbol].name }} onClick={() => setModal({ symbol })} />
-          ) : null
-        ))}
+        {order.map(({ symbol, name }) => {
+          const quote = quotes[symbol];
+          if (!quote) return null;
+          const pseudoItem: WatchItem = { id: `overview-${symbol}`, symbol, name: name || quote.name, type: 'index', addedAt: 0, updatedAt: 0 };
+          return (
+            <StockCard
+              key={symbol}
+              item={pseudoItem}
+              quote={{ ...quote, name: name || quote.name }}
+              groups={[]}
+              metricsUrl={metricsLinkFor(symbol)}
+              onOpen={() => setModal({ symbol })}
+            />
+          );
+        })}
       </div>
       {modal && <StockChartModal symbol={modal.symbol} open={true} onClose={() => setModal(null)} />}
     </div>

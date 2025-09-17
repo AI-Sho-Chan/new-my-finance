@@ -489,17 +489,19 @@ app.get('/react/*', (_req, res) => sendReactIndex(res));
 
 
 // Serve legacy single-file app and make it the default UI
-function sendNMY(res) {
+function sendLegacy(res) {
   try {
     const file = path.resolve(__dirname, '../../NMY.html');
     res.setHeader('Cache-Control', 'no-store');
     res.type('html').send(fs.readFileSync(file, 'utf8'));
   } catch (e) {
-    res.status(404).send('NMY.html not found');
+    res.status(404).send('legacy NMY.html not found');
   }
 }
-app.get('/NMY.html', (_req, res) => sendNMY(res));
-app.get('/', (_req, res) => sendNMY(res));
+app.get('/NMY.html', (_req, res) => sendLegacy(res));
+app.get('/legacy', (_req, res) => sendLegacy(res));
+app.get('/legacy/*', (_req, res) => sendLegacy(res));
+app.get('/', (_req, res) => sendReactIndex(res));
 // Serve alternate completed single-file app
 app.get('/asset_manager_app.html', (_req, res) => {
   try {
@@ -510,7 +512,7 @@ app.get('/asset_manager_app.html', (_req, res) => {
     res.status(404).send('asset_manager_app.html not found');
   }
 });
-app.get('*', (_req, res) => sendNMY(res));
+app.get('*', (_req, res) => sendReactIndex(res));
 
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {

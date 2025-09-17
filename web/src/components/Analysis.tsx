@@ -1,6 +1,8 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
 import { computeSnapshotWithTrails, DEFAULT_PARAMS, type SnapshotItem, type SnapshotTrails, type SnapshotMeta, UNIVERSE, UNIVERSE_US_SECTORS, UNIVERSE_JP_SECTORS, type AssetDef } from '../lib/analysis';
 import { useStore } from '../store';
+import { collectGroupItemIds } from '../lib/watch-helpers';
+import type { MarketQuote, TickerSymbol, WatchItem } from '../types';
 
 function colorForQuad(q: SnapshotItem['quadrant']) {
   switch (q) {
@@ -38,9 +40,21 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
     } catch {}
     return [] as { symbol: string; name: string }[];
   };
-  const zWatch = useStore((s) => [...s.watchlist].sort((a,b)=>a.order-b.order));
+  const watchItemsMap = useStore((s) => s.watchItems);
+  const watchGroupsMap = useStore((s) => s.watchGroups);
   const [nmyWatch, setNmyWatch] = useState<{ symbol: string; name: string }[]>(() => readNMYWatch());
-  // NMY からの即時同期（postMessage）
+  const groupsOrdered = useMemo(() => Object.values(watchGroupsMap).sort((a, b) => a.order - b.order), [watchGroupsMap]);
+  const defaultGroupId = useMemo(() => groupsOrdered.find((g) => g.key === 'all')?.id || groupsOrdered[0]?.id || '', [groupsOrdered]);
+  const [analysisGroupId, setAnalysisGroupId] = useState(defaultGroupId);
+
+  useEffect(() => {
+    if (!groupsOrdered.length) return;
+    if (!analysisGroupId || !groupsOrdered.some((g) => g.id === analysisGroupId)) {
+      setAnalysisGroupId(groupsOrdered[0].id);
+    }
+  }, [groupsOrdered, analysisGroupId]);
+
+  // NMY 側からの受信（postMessage）
   useEffect(() => {
     const onMsg = (ev: MessageEvent) => {
       try {
@@ -61,8 +75,18 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
     const iv = window.setInterval(() => setNmyWatch(readNMYWatch()), 1500);
     return () => { window.removeEventListener('storage', onStorage); window.clearInterval(iv); };
   }, []);
-  const mergedWatch = (nmyWatch.length ? nmyWatch : zWatch.map(w=>({ symbol: w.symbol, name: w.name })));
-  const watchKey = useMemo(() => mergedWatch.map(w=>w.symbol).join(','), [mergedWatch]);
+
+  const selectedGroup = useMemo(() => groupsOrdered.find((g) => g.id === analysisGroupId) || groupsOrdered[0], [groupsOrdered, analysisGroupId]);
+  const storeWatch = useMemo(() => {
+    if (!selectedGroup) return [] as { symbol: string; name: string }[];
+    const ids = collectGroupItemIds(selectedGroup, watchItemsMap);
+    return ids
+      .map((id) => watchItemsMap[id])
+      .filter((item): item is WatchItem => Boolean(item))
+      .map((item) => ({ symbol: item.symbol, name: item.name }));
+  }, [selectedGroup, watchItemsMap]);
+  const mergedWatch = storeWatch.length ? storeWatch : nmyWatch;
+  const watchKey = useMemo(() => `${analysisGroupId}:${mergedWatch.map((w) => w.symbol).join(',')}`, [analysisGroupId, mergedWatch]);
 
   useEffect(() => {
     let alive = true;
@@ -107,6 +131,18 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center flex-wrap gap-2 text-sm">
+        <span className="text-gray-400">分析対象:</span>
+        {groupsOrdered.map((group) => (
+          <button
+            key={group.id}
+            className={`px-3 py-1 rounded-full ${analysisGroupId === group.id ? 'bg-indigo-600 text-white' : 'bg-gray-700 text-gray-200 hover:bg-gray-600'}`}
+            onClick={() => setAnalysisGroupId(group.id)}
+          >
+            {group.name}
+          </button>
+        ))}
+      </div>
       <div className="flex items-center gap-2 text-sm">
         <span className="text-gray-400">View:</span>
         <button className={`px-2 py-1 rounded ${view==='GLOBAL'?'bg-indigo-600 text-white':'bg-gray-700 text-gray-200'}`} onClick={()=>setView('GLOBAL')}>Global</button>

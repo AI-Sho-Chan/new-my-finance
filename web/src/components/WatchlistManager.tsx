@@ -1,41 +1,44 @@
-import { useState } from 'react';
+﻿import { useMemo } from 'react';
 import { useStore } from '../store';
 
 export default function WatchlistManager() {
-  const watchlist = useStore((s) => [...s.watchlist].sort((a, b) => a.order - b.order));
-  const add = useStore((s) => s.addWatch);
-  const remove = useStore((s) => s.removeWatch);
-  const reorder = useStore((s) => s.reorderWatch);
-  const [symbol, setSymbol] = useState('');
-  const [name, setName] = useState('');
-
-  const onAdd = () => {
-    if (!symbol.trim()) return;
-    add(symbol.trim().toUpperCase(), name.trim() || symbol.trim().toUpperCase());
-    setSymbol('');
-    setName('');
-  };
+  const groups = useStore((s) => s.watchGroups);
+  const items = useStore((s) => s.watchItems);
+  const ordered = useMemo(() => Object.values(groups).sort((a, b) => a.order - b.order), [groups]);
 
   return (
     <div className="card">
-      <div className="font-semibold mb-2">ウォッチリスト管理</div>
-      <div className="flex gap-2 mb-3">
-        <input placeholder="シンボル(AAPL, 7203.Tなど)" className="input flex-1" value={symbol} onChange={(e) => setSymbol(e.target.value)} />
-        <input placeholder="名称(任意)" className="input flex-1" value={name} onChange={(e) => setName(e.target.value)} />
-        <button className="button" onClick={onAdd}>追加</button>
-      </div>
-      <ul className="space-y-2">
-        {watchlist.map((w) => (
-          <li key={w.id} className="flex items-center justify-between bg-gray-700 rounded px-2 py-1">
-            <div className="truncate">{w.symbol} — {w.name}</div>
-            <div className="flex items-center gap-2">
-              <button className="px-2 py-1 bg-gray-600 rounded" onClick={() => reorder(w.id, 'up')}>↑</button>
-              <button className="px-2 py-1 bg-gray-600 rounded" onClick={() => reorder(w.id, 'down')}>↓</button>
-              <button className="px-2 py-1 bg-red-600 text-white rounded" onClick={() => remove(w.id)}>削除</button>
-            </div>
-          </li>
-        ))}
-      </ul>
+      <div className="font-semibold mb-2">ウォッチリストタブ概要</div>
+      <table className="w-full text-sm text-gray-200">
+        <thead>
+          <tr className="text-gray-400 border-b border-gray-700">
+            <th className="py-2 text-left">タブ名</th>
+            <th className="py-2 text-left">種別</th>
+            <th className="py-2 text-right">銘柄数</th>
+          </tr>
+        </thead>
+        <tbody>
+          {ordered.map((group) => {
+            const count = group.itemIds.filter((id) => Boolean(items[id])).length;
+            return (
+              <tr key={group.id} className="border-b border-gray-800">
+                <td className="py-2 flex items-center gap-2">
+                  <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: group.color }} />
+                  <span>{group.name}</span>
+                </td>
+                <td className="py-2 text-gray-400">{group.type === 'system' ? (group.key === 'all' ? 'ALL(固定)' : group.key === 'holding' ? '保有(自動)' : 'システム') : 'ユーザー'}</td>
+                <td className="py-2 text-right">{count}</td>
+              </tr>
+            );
+          })}
+          {!ordered.length && (
+            <tr>
+              <td colSpan={3} className="py-4 text-center text-gray-500">タブが見つかりません。</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+      <p className="mt-3 text-xs text-gray-400">タブの追加・編集・並び替えはダッシュボード上部のタブバーから行えます。</p>
     </div>
   );
 }
