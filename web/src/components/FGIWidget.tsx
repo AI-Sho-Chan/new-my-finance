@@ -22,6 +22,7 @@ const LABELS = [
 ];
 
 const FETCH_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
+const FGI_BASE_RANGE: [number, number] = [20, 80];
 
 function toSeries(points: any): SeriesPoint[] {
   if (!Array.isArray(points)) return [];
@@ -157,16 +158,16 @@ export default function FGIWidget() {
     if (!chartRef.current) {
       const chart = createChart(container, {
         width: container.clientWidth,
-        height: 320,
+        height: 340,
         layout: { background: { type: ColorType.Solid, color: '#111827' }, textColor: '#e5e7eb' },
         grid: { horzLines: { color: '#1f2937' }, vertLines: { color: '#1f2937' } },
         timeScale: { borderColor: '#374151', timeVisible: false, secondsVisible: false },
         rightPriceScale: { borderColor: '#374151', visible: true },
-        leftPriceScale: { borderColor: '#374151', visible: true },
+        leftPriceScale: { borderColor: '#374151', visible: false },
       });
       chartRef.current = chart;
       fgiSeriesRef.current = chart.addLineSeries({ color: '#38bdf8', lineWidth: 2, priceScaleId: 'right' });
-      spSeriesRef.current = chart.addLineSeries({ color: '#a78bfa', lineWidth: 1.5, priceScaleId: 'left' });
+      spSeriesRef.current = chart.addLineSeries({ color: '#a78bfa', lineWidth: 1.5, priceScaleId: 'right' });
       resizeRef.current = new ResizeObserver((entries) => {
         const entry = entries[0];
         if (!entry || !chartRef.current) return;
@@ -178,6 +179,11 @@ export default function FGIWidget() {
     const chart = chartRef.current;
     if (chart && fgiSeriesRef.current) {
       fgiSeriesRef.current.setData(chartData);
+      const min = chartData.reduce((m, p) => Math.min(m, p.value), Infinity);
+      const max = chartData.reduce((m, p) => Math.max(m, p.value), -Infinity);
+      const rangeMin = Math.min(FGI_BASE_RANGE[0], min);
+      const rangeMax = Math.max(FGI_BASE_RANGE[1], max);
+      chart.priceScale('right')?.applyOptions({ minimum: rangeMin, maximum: rangeMax });
       chart.timeScale().fitContent();
     }
     if (chart && spSeriesRef.current) {
@@ -203,7 +209,7 @@ export default function FGIWidget() {
   const scoreClamped = score != null ? clamp(score, 0, 100) : null;
   const currentLabel = LABELS.find((entry) => scoreClamped != null && scoreClamped <= entry.max) ?? LABELS[LABELS.length - 1];
 
-  const gaugeAngle = scoreClamped != null ? (scoreClamped - 50) * 1.8 : -90;
+  const gaugeAngle = scoreClamped != null ? (scoreClamped - 50) * 1.8 - 90 : -90;
   const pointerLength = 42;
   const pointerBase = polarToCartesian(100, 110, 10, gaugeAngle + 180);
   const pointerTip = polarToCartesian(100, 110, pointerLength, gaugeAngle);
@@ -211,9 +217,9 @@ export default function FGIWidget() {
   return (
     <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-4">
       <h3 className="text-lg font-semibold text-gray-100 mb-4">Fear &amp; Greed インデックス</h3>
-      <div className="grid gap-6 lg:grid-cols-[220px,1fr] items-center">
+      <div className="grid gap-6 lg:grid-cols-[200px,1fr] items-center">
         <div className="flex justify-center">
-          <svg viewBox="0 0 200 135" className="w-full max-w-[220px]">
+          <svg viewBox="0 0 200 135" className="w-full max-w-[200px]">
             <defs>
               <linearGradient id="fgiGradient" x1="0%" y1="0%" x2="100%" y2="0%">
                 <stop offset="0%" stopColor="#f87171" />
@@ -221,29 +227,27 @@ export default function FGIWidget() {
                 <stop offset="100%" stopColor="#34d399" />
               </linearGradient>
             </defs>
-            <path d={describeArc(100, 110, 85, -90, 90)} stroke="url(#fgiGradient)" strokeWidth={16} fill="none" strokeLinecap="round" />
-            <circle cx="100" cy="110" r="8" fill="#1f2937" stroke="#38bdf8" strokeWidth={3} />
+            <path d={describeArc(100, 115, 80, -90, 90)} stroke="url(#fgiGradient)" strokeWidth={14} fill="none" strokeLinecap="round" />
+            <circle cx="100" cy="115" r="6" fill="#1f2937" stroke="#38bdf8" strokeWidth={3} />
             <line x1={pointerBase.x} y1={pointerBase.y} x2={pointerTip.x} y2={pointerTip.y} stroke="#38bdf8" strokeWidth={4} strokeLinecap="round" />
-            <text x="100" y="58" textAnchor="middle" className="fill-gray-100" style={{ fontSize: 26, fontWeight: 700 }}>
+            <text x="100" y="55" textAnchor="middle" className="fill-gray-100" style={{ fontSize: 24, fontWeight: 700 }}>
               {scoreClamped != null ? Math.round(scoreClamped) : '--'}
             </text>
-            <text x="100" y="80" textAnchor="middle" className="fill-gray-300" style={{ fontSize: 12, fontWeight: 600 }}>
+            <text x="100" y="75" textAnchor="middle" className="fill-gray-300" style={{ fontSize: 12, fontWeight: 600 }}>
               {scoreClamped != null ? currentLabel.label : '未取得'}
             </text>
-            <text x="100" y="98" textAnchor="middle" className="fill-gray-400" style={{ fontSize: 11 }}>
+            <text x="100" y="92" textAnchor="middle" className="fill-gray-400" style={{ fontSize: 11 }}>
               {delta != null ? `${delta >= 0 ? '+' : ''}${delta.toFixed(1)} vs 前日` : '前日比データなし'}
             </text>
           </svg>
         </div>
-        <div className="space-y-3">
-          <div className="text-sm text-gray-400">
-            <p>Fear &amp; Greed (CNN) を1時間ごとに取得し、S&amp;P500 と比較しています。</p>
-            {spLatest.current != null && (
-              <p className="mt-1 text-xs text-gray-500">
-                最新 S&amp;P500: <span className="text-gray-200 font-semibold">{spLatest.current.toFixed(2)}</span>
-              </p>
-            )}
-          </div>
+        <div className="space-y-3 text-sm text-gray-400">
+          <p>Fear &amp; Greed (CNN) を1時間ごとに取得し、S&amp;P500 と比較しています。</p>
+          {spLatest.current != null && (
+            <p className="text-xs text-gray-500">
+              最新 S&amp;P500: <span className="text-gray-200 font-semibold">{spLatest.current.toFixed(2)}</span>
+            </p>
+          )}
           <div className="relative h-72">
             <div ref={containerRef} className="absolute inset-0" />
           </div>

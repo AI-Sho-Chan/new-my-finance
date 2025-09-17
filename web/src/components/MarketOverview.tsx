@@ -81,11 +81,9 @@ export default function MarketOverview() {
               onClick={() => setModal({ symbol })}
               className="rounded-lg border border-gray-800 bg-gray-900/80 p-3 text-left hover:border-indigo-500/60 hover:bg-gray-800/90 transition-colors"
             >
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-gray-500">{symbol}</p>
-                <span className={clsx('text-2xl font-bold', changeClass)}>{changeText}</span>
-              </div>
-              <p className="mt-1 text-lg font-semibold text-gray-100">{name}</p>
+              <p className="text-xs text-gray-500">{symbol}</p>
+              <span className={clsx('mt-1 text-2xl font-bold', changeClass)}>{changeText}</span>
+              <p className="text-sm font-semibold text-gray-100">{name}</p>
               <p className="text-xs text-gray-400">{priceText}</p>
             </button>
           );
