@@ -7,7 +7,7 @@ import GroupTag from './watch/GroupTag';
 const TREND_LABEL: Record<Trend, string> = {
   up: '上昇トレンド',
   down: '下降トレンド',
-  flat: '横ばい',
+  flat: 'トレンドなし',
 };
 
 const TREND_CLASS: Record<Trend, string> = {
@@ -53,7 +53,7 @@ export default function StockCard({
 
   const changePct = typeof quote?.changePct === 'number' ? quote.changePct : null;
   const changeSign = changePct != null ? (changePct >= 0 ? '+' : '') : '';
-  const changeDisplay = changePct != null ? `${changeSign}${changePct.toFixed(2)}%` : '-';
+  const changeDisplay = changePct != null ? `${changeSign}${changePct.toFixed(2)}%` : '--';
   const trend: Trend = quote?.trend ?? 'flat';
   const trendClass = TREND_CLASS[trend];
   const trendLabel = TREND_LABEL[trend];
@@ -104,14 +104,10 @@ export default function StockCard({
             <p className="text-xs text-gray-400">{quote?.symbol || item.symbol}</p>
           </div>
         </div>
-        <div className={clsx('text-lg flex items-center', trendClass)} title={trendLabel}>
-          {trend === 'down' ? (
-            <TrendingDown />
-          ) : (
-            <span className={trend === 'flat' ? 'inline-block rotate-90 opacity-60' : ''}>
-              <TrendingUp />
-            </span>
-          )}
+        <div className={clsx('text-lg flex items-center min-h-[1.5rem]', trendClass)} title={trendLabel}>
+          {trend === 'up' && <TrendingUp />}
+          {trend === 'down' && <TrendingDown />}
+          {trend === 'flat' && <span className="text-base text-gray-400">—</span>}
         </div>
       </div>
 

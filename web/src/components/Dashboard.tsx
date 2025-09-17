@@ -241,10 +241,18 @@ export default function Dashboard() {
   };
 
   return (
-    <div>
-      <div className="mb-4 space-y-2">
-        <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-          <h2 className="text-2xl font-semibold text-gray-100">ウォッチリスト</h2>
+    <div className="space-y-6">
+      <div className="grid gap-6 lg:grid-cols-2">
+        <FGIWidget />
+        <MarketOverview />
+      </div>
+
+      <div className="bg-gray-900/60 border border-gray-800 rounded-lg p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h2 className="text-2xl font-semibold text-gray-100">ウォッチリスト</h2>
+            <p className="text-xs text-gray-500">グループ別に並び替えや追加ができます。</p>
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             <label className="text-xs text-gray-400">並び替え</label>
             <select
@@ -277,24 +285,9 @@ export default function Dashboard() {
             </button>
           </div>
         </div>
-        {sortMode !== 'none' && (<p className="text-xs text-amber-300">並び替えモード中はドラッグによる順番変更が無効になります。</p>)}
-      </div>
+        {sortMode !== 'none' && (<p className="mt-2 text-xs text-amber-300">並び替えモード中はドラッグによる並べ替えが無効になります。</p>)}
 
-      <FGIWidget />
-
-      <WatchTabs
-        tabs={orderedGroups.map(({ id, name, color, type, key }) => ({ id, name, color, type, key }))}
-        activeId={activeGroup?.id || ''}
-        onSelect={setActiveGroup}
-        onReorder={reorderGroup}
-        onAdd={() => setEditor({ open: true, mode: 'create' })}
-        onEdit={(groupId) => setEditor({ open: true, mode: 'edit', groupId })}
-        onDelete={handleDeleteGroup}
-      />
-
-      <div className="bg-gray-900/60 border border-gray-800 rounded-lg p-4 mb-6">
-        <h3 className="text-sm font-semibold text-gray-200 mb-3">銘柄を追加</h3>
-        <div className="flex flex-col md:flex-row gap-3">
+        <div className="mt-4 flex flex-col gap-3 md:flex-row">
           <input
             className="flex-1 rounded-md bg-gray-950 border border-gray-700 px-3 py-2 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             placeholder="シンボル (AAPL, 7203.T など)"
@@ -322,7 +315,15 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <MarketOverview />
+      <WatchTabs
+        tabs={orderedGroups.map(({ id, name, color, type, key }) => ({ id, name, color, type, key }))}
+        activeId={activeGroup?.id || ''}
+        onSelect={setActiveGroup}
+        onReorder={reorderGroup}
+        onAdd={() => setEditor({ open: true, mode: 'create' })}
+        onEdit={(groupId) => setEditor({ open: true, mode: 'edit', groupId })}
+        onDelete={handleDeleteGroup}
+      />
 
       <BulkActionBar
         selectedCount={watchUI.selectedIds.length}

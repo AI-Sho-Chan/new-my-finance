@@ -84,16 +84,19 @@ export function bollingerBands(src: Candle[], length = 20, mul = 2): { time: num
 export function inferTrend(src: Candle[]): 'up' | 'down' | 'flat' {
   const ma50 = movingAverage(src, 50);
   const ma200 = movingAverage(src, 200);
-  if (ma200.length < 2 || ma50.length < 2) return 'flat';
+  if (ma200.length === 0 || ma50.length === 0 || !src.length) return 'flat';
   const last50 = ma50[ma50.length - 1];
-  const prev50 = ma50[ma50.length - 2];
   const last200 = ma200[ma200.length - 1];
-  const prev200 = ma200[ma200.length - 2];
-  const up50 = last50.value > prev50.value;
-  const up200 = last200.value > prev200.value;
-  const golden = last50.value > last200.value;
-  if (up50 && up200 && golden) return 'up';
-  if (!up50 && !up200 && !golden) return 'down';
+  const lastClose = src[src.length - 1]?.close;
+
+  if (lastClose != null && Number.isFinite(lastClose)) {
+    if (lastClose > last50.value && last50.value > last200.value) {
+      return 'up';
+    }
+    if (lastClose < last50.value && last50.value < last200.value) {
+      return 'down';
+    }
+  }
   return 'flat';
 }
 
