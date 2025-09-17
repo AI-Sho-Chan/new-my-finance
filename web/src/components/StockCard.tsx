@@ -107,7 +107,7 @@ export default function StockCard({
         <div className={clsx('text-lg flex items-center min-h-[1.5rem]', trendClass)} title={trendLabel}>
           {trend === 'up' && <TrendingUp />}
           {trend === 'down' && <TrendingDown />}
-          {trend === 'flat' && <span className="text-base text-gray-400">—</span>}
+          {trend === 'flat' && <span className="text-base text-gray-400">―</span>}
         </div>
       </div>
 

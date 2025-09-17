@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import type { MarketQuote, TickerSymbol } from '../types';
 import { fetchMarketQuotes } from '../lib/data';
 import StockChartModal from './StockChartModal';
@@ -33,12 +33,16 @@ export default function MarketOverview() {
   const symbols = useMemo<TickerSymbol[]>(() => ITEMS.map((item) => item.symbol), []);
   const [quotes, setQuotes] = useState<Record<string, MarketQuote> | null>(null);
   const [modal, setModal] = useState<{ symbol: string } | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
     fetchMarketQuotes(symbols)
       .then((q) => {
-        if (mounted) setQuotes(q);
+        if (mounted) {
+          setQuotes(q);
+          setLastUpdated(new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }));
+        }
       })
       .catch((e) => console.warn('overview quotes failed', e));
     return () => {
@@ -49,16 +53,19 @@ export default function MarketOverview() {
   if (!quotes) return null;
 
   return (
-    <div className="bg-gray-900/60 border border-gray-800 rounded-lg p-4">
-      <h3 className="text-lg font-semibold text-gray-100 mb-3">マーケット概況</h3>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-4">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+        <h3 className="text-lg font-semibold text-gray-100">マーケット概況</h3>
+        <span className="text-xs text-gray-500">最終更新: {lastUpdated ?? '--:--'}</span>
+      </div>
+      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {ITEMS.map(({ symbol, name }) => {
           const quote = quotes[symbol];
           if (!quote) {
             return (
               <div key={symbol} className="rounded-lg border border-gray-800 bg-gray-900/80 p-3">
                 <p className="text-xs text-gray-500">{name}</p>
-                <p className="mt-2 text-lg font-semibold text-gray-400">--</p>
+                <p className="mt-2 text-2xl font-bold text-gray-500">--</p>
                 <p className="text-xs text-gray-600">データなし</p>
               </div>
             );
@@ -76,7 +83,7 @@ export default function MarketOverview() {
             >
               <div className="flex items-center justify-between">
                 <p className="text-xs text-gray-500">{symbol}</p>
-                <span className={clsx('text-sm font-semibold', changeClass)}>{changeText}</span>
+                <span className={clsx('text-2xl font-bold', changeClass)}>{changeText}</span>
               </div>
               <p className="mt-1 text-lg font-semibold text-gray-100">{name}</p>
               <p className="text-xs text-gray-400">{priceText}</p>

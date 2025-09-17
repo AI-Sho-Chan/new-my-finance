@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+﻿import { useEffect, useMemo, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { ColorType, createChart, type IChartApi, type ISeriesApi } from 'lightweight-charts';
 
@@ -37,20 +37,6 @@ function toSeries(points: any): SeriesPoint[] {
     .sort((a, b) => a.time - b.time);
 }
 
-function normalizeSeries(series: SeriesPoint[]): SeriesPoint[] {
-  if (!series.length) return series;
-  let min = Infinity;
-  let max = -Infinity;
-  for (const p of series) {
-    if (p.value < min) min = p.value;
-    if (p.value > max) max = p.value;
-  }
-  if (!Number.isFinite(min) || !Number.isFinite(max) || min === max) {
-    return series.map((p) => ({ time: p.time, value: 50 }));
-  }
-  return series.map((p) => ({ time: p.time, value: ((p.value - min) / (max - min)) * 100 }));
-}
-
 function latestPair(series: SeriesPoint[]): { current: number | null; previous: number | null } {
   if (!series.length) return { current: null, previous: null };
   const curr = series[series.length - 1]?.value ?? null;
@@ -84,15 +70,12 @@ function describeArc(cx: number, cy: number, radius: number, startAngle: number,
 export default function FGIWidget() {
   const [state, setState] = useState<FgiState>({ now: null, previousClose: null, history: [] });
   const [spSeries, setSpSeries] = useState<SeriesPoint[]>([]);
-  const [vixSeries, setVixSeries] = useState<SeriesPoint[]>([]);
   const [spLatest, setSpLatest] = useState<{ current: number | null; previous: number | null }>({ current: null, previous: null });
-  const [vixLatest, setVixLatest] = useState<{ current: number | null; previous: number | null }>({ current: null, previous: null });
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const fgiSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
   const spSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
-  const vixSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
   const resizeRef = useRef<ResizeObserver | null>(null);
 
   useEffect(() => {
@@ -159,35 +142,6 @@ export default function FGIWidget() {
     };
   }, []);
 
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        const res = await fetch(`/api/yf/history?symbol=${encodeURIComponent('^VIX')}&interval=1d&range=1y`, { cache: 'no-store' });
-        if (!res.ok || !alive) return;
-        const json = await res.json();
-        if (!alive) return;
-        const result = json?.chart?.result?.[0];
-        const timestamps: number[] = Array.isArray(result?.timestamp) ? result.timestamp : [];
-        const closes: number[] = Array.isArray(result?.indicators?.quote?.[0]?.close) ? result.indicators.quote[0].close : [];
-        const points: SeriesPoint[] = [];
-        for (let i = 0; i < timestamps.length; i += 1) {
-          const value = closes[i];
-          if (Number.isFinite(timestamps[i]) && Number.isFinite(value)) {
-            points.push({ time: Math.floor(timestamps[i]), value });
-          }
-        }
-        setVixSeries(points);
-        setVixLatest(latestPair(points));
-      } catch {
-        if (!alive) return;
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, []);
-
   const chartData = useMemo(() => {
     if (!state.history.length) return [] as SeriesPoint[];
     if (state.now == null || !Number.isFinite(state.now)) return state.history;
@@ -196,9 +150,6 @@ export default function FGIWidget() {
     return [...state.history, { time: nextTime, value: state.now }];
   }, [state.history, state.now]);
 
-  const normalizedSp = useMemo(() => normalizeSeries(spSeries), [spSeries]);
-  const normalizedVix = useMemo(() => normalizeSeries(vixSeries), [vixSeries]);
-
   useEffect(() => {
     const container = containerRef.current;
     if (!container || typeof window === 'undefined') return;
@@ -206,16 +157,16 @@ export default function FGIWidget() {
     if (!chartRef.current) {
       const chart = createChart(container, {
         width: container.clientWidth,
-        height: 260,
+        height: 320,
         layout: { background: { type: ColorType.Solid, color: '#111827' }, textColor: '#e5e7eb' },
         grid: { horzLines: { color: '#1f2937' }, vertLines: { color: '#1f2937' } },
         timeScale: { borderColor: '#374151', timeVisible: false, secondsVisible: false },
-        rightPriceScale: { borderColor: '#374151', visible: true, autoScale: true },
+        rightPriceScale: { borderColor: '#374151', visible: true },
+        leftPriceScale: { borderColor: '#374151', visible: true },
       });
       chartRef.current = chart;
       fgiSeriesRef.current = chart.addLineSeries({ color: '#38bdf8', lineWidth: 2, priceScaleId: 'right' });
-      spSeriesRef.current = chart.addLineSeries({ color: '#a78bfa', lineWidth: 1.5, priceScaleId: 'right' });
-      vixSeriesRef.current = chart.addLineSeries({ color: '#f97316', lineWidth: 1.5, priceScaleId: 'right' });
+      spSeriesRef.current = chart.addLineSeries({ color: '#a78bfa', lineWidth: 1.5, priceScaleId: 'left' });
       resizeRef.current = new ResizeObserver((entries) => {
         const entry = entries[0];
         if (!entry || !chartRef.current) return;
@@ -230,12 +181,9 @@ export default function FGIWidget() {
       chart.timeScale().fitContent();
     }
     if (chart && spSeriesRef.current) {
-      spSeriesRef.current.setData(normalizedSp);
+      spSeriesRef.current.setData(spSeries);
     }
-    if (chart && vixSeriesRef.current) {
-      vixSeriesRef.current.setData(normalizedVix);
-    }
-  }, [chartData, normalizedSp, normalizedVix]);
+  }, [chartData, spSeries]);
 
   useEffect(() => () => {
     if (resizeRef.current && containerRef.current) {
@@ -247,7 +195,6 @@ export default function FGIWidget() {
     chartRef.current = null;
     fgiSeriesRef.current = null;
     spSeriesRef.current = null;
-    vixSeriesRef.current = null;
   }, []);
 
   const score = state.now;
@@ -256,20 +203,17 @@ export default function FGIWidget() {
   const scoreClamped = score != null ? clamp(score, 0, 100) : null;
   const currentLabel = LABELS.find((entry) => scoreClamped != null && scoreClamped <= entry.max) ?? LABELS[LABELS.length - 1];
 
-  const gaugeAngle = scoreClamped != null ? scoreClamped * 2.4 - 120 : -120;
-  const pointerLength = 48;
-  const pointerBase = polarToCartesian(100, 110, 12, gaugeAngle + 180);
+  const gaugeAngle = scoreClamped != null ? (scoreClamped - 50) * 1.8 : -90;
+  const pointerLength = 42;
+  const pointerBase = polarToCartesian(100, 110, 10, gaugeAngle + 180);
   const pointerTip = polarToCartesian(100, 110, pointerLength, gaugeAngle);
 
-  const spChange = spLatest.current != null && spLatest.previous != null ? spLatest.current - spLatest.previous : null;
-  const vixChange = vixLatest.current != null && vixLatest.previous != null ? vixLatest.current - vixLatest.previous : null;
-
   return (
-    <div className="bg-gray-900/60 border border-gray-800 rounded-lg p-4">
+    <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-4">
       <h3 className="text-lg font-semibold text-gray-100 mb-4">Fear &amp; Greed インデックス</h3>
-      <div className="grid gap-6 lg:grid-cols-[280px,1fr] items-center">
+      <div className="grid gap-6 lg:grid-cols-[220px,1fr] items-center">
         <div className="flex justify-center">
-          <svg viewBox="0 0 200 120" className="w-full max-w-xs">
+          <svg viewBox="0 0 200 135" className="w-full max-w-[220px]">
             <defs>
               <linearGradient id="fgiGradient" x1="0%" y1="0%" x2="100%" y2="0%">
                 <stop offset="0%" stopColor="#f87171" />
@@ -277,38 +221,30 @@ export default function FGIWidget() {
                 <stop offset="100%" stopColor="#34d399" />
               </linearGradient>
             </defs>
-            <path d={describeArc(100, 110, 90, -120, 120)} stroke="url(#fgiGradient)" strokeWidth={18} fill="none" strokeLinecap="round" />
+            <path d={describeArc(100, 110, 85, -90, 90)} stroke="url(#fgiGradient)" strokeWidth={16} fill="none" strokeLinecap="round" />
             <circle cx="100" cy="110" r="8" fill="#1f2937" stroke="#38bdf8" strokeWidth={3} />
-            <line x1={pointerBase.x} y1={pointerBase.y} x2={pointerTip.x} y2={pointerTip.y} stroke="#38bdf8" strokeWidth={5} strokeLinecap="round" />
-            <text x="100" y="60" textAnchor="middle" className="fill-gray-100" style={{ fontSize: 28, fontWeight: 700 }}>
+            <line x1={pointerBase.x} y1={pointerBase.y} x2={pointerTip.x} y2={pointerTip.y} stroke="#38bdf8" strokeWidth={4} strokeLinecap="round" />
+            <text x="100" y="58" textAnchor="middle" className="fill-gray-100" style={{ fontSize: 26, fontWeight: 700 }}>
               {scoreClamped != null ? Math.round(scoreClamped) : '--'}
             </text>
-            <text x="100" y="82" textAnchor="middle" className="fill-gray-300" style={{ fontSize: 12, fontWeight: 600 }}>
+            <text x="100" y="80" textAnchor="middle" className="fill-gray-300" style={{ fontSize: 12, fontWeight: 600 }}>
               {scoreClamped != null ? currentLabel.label : '未取得'}
             </text>
-            <text x="100" y="100" textAnchor="middle" className="fill-gray-400" style={{ fontSize: 11 }}>
+            <text x="100" y="98" textAnchor="middle" className="fill-gray-400" style={{ fontSize: 11 }}>
               {delta != null ? `${delta >= 0 ? '+' : ''}${delta.toFixed(1)} vs 前日` : '前日比データなし'}
             </text>
           </svg>
         </div>
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div className="rounded-lg border border-gray-700 bg-gray-800/80 p-3">
-              <p className="text-xs text-gray-400">S&amp;P 500</p>
-              <p className="text-lg font-semibold text-gray-100">{spLatest.current != null ? spLatest.current.toFixed(2) : '--'}</p>
-              <p className={clsx('text-xs', spChange != null ? (spChange >= 0 ? 'text-emerald-400' : 'text-rose-400') : 'text-gray-400')}>
-                {spChange != null ? `${spChange >= 0 ? '+' : ''}${spChange.toFixed(2)}` : '変化データなし'}
+        <div className="space-y-3">
+          <div className="text-sm text-gray-400">
+            <p>Fear &amp; Greed (CNN) を1時間ごとに取得し、S&amp;P500 と比較しています。</p>
+            {spLatest.current != null && (
+              <p className="mt-1 text-xs text-gray-500">
+                最新 S&amp;P500: <span className="text-gray-200 font-semibold">{spLatest.current.toFixed(2)}</span>
               </p>
-            </div>
-            <div className="rounded-lg border border-gray-700 bg-gray-800/80 p-3">
-              <p className="text-xs text-gray-400">VIX</p>
-              <p className="text-lg font-semibold text-gray-100">{vixLatest.current != null ? vixLatest.current.toFixed(2) : '--'}</p>
-              <p className={clsx('text-xs', vixChange != null ? (vixChange >= 0 ? 'text-rose-400' : 'text-emerald-400') : 'text-gray-400')}>
-                {vixChange != null ? `${vixChange >= 0 ? '+' : ''}${vixChange.toFixed(2)}` : '変化データなし'}
-              </p>
-            </div>
+            )}
           </div>
-          <div className="relative h-52">
+          <div className="relative h-72">
             <div ref={containerRef} className="absolute inset-0" />
           </div>
         </div>
