@@ -30,6 +30,7 @@ export default function Dashboard() {
   const addItems = useStore((s) => s.addItems);
   const assignItemsToGroups = useStore((s) => s.assignItemsToGroups);
   const removeItemsFromGroup = useStore((s) => s.removeItemsFromGroup);
+  const deleteItems = useStore((s) => s.deleteItems);
   const setActiveGroup = useStore((s) => s.setActiveGroup);
   const reorderGroup = useStore((s) => s.reorderGroup);
   const reorderGroupItems = useStore((s) => s.reorderGroupItems);
@@ -164,7 +165,6 @@ export default function Dashboard() {
   const pendingGroups = useMemo(() => orderedGroups.filter((g) => pendingGroupIds.includes(g.id)), [orderedGroups, pendingGroupIds]);
 
   const allGroup = orderedGroups.find((g) => g.key === 'all');
-  const activeGroupName = activeGroup?.name || 'ALL';
   const selectionActive = watchUI.selectionMode;
 
   const handleDeleteGroup = (groupId: string) => {
@@ -214,11 +214,23 @@ export default function Dashboard() {
     }
   };
 
-  const executeBulkRemove = () => {
-    if (!activeGroup || !watchUI.selectedIds.length) return;
-    if (activeGroup.key === 'all') return;
-    removeItemsFromGroup(watchUI.selectedIds, activeGroup.id);
+  const handleDeleteItem = (itemId: string) => {
+    if (!window.confirm('Delete selected stocks?')) return;
+    deleteItems([itemId]);
+  };
+
+  const handleRemoveTag = (itemId: string, groupId: string) => {
+    const targetGroup = watchGroups[groupId];
+    if (!targetGroup || targetGroup.key === 'all') return;
+    removeItemsFromGroup([itemId], groupId);
+  };
+
+  const executeBulkDelete = () => {
+    if (!watchUI.selectedIds.length) return;
+    if (!window.confirm('選択した銘柄をまとめて削除します。よろしいですか？')) return;
+    deleteItems(watchUI.selectedIds);
     clearSelection();
+    setSelectionMode(false);
   };
 
   const openGroupSelector = (target: SelectorTarget) => {
@@ -313,14 +325,14 @@ export default function Dashboard() {
 
       <BulkActionBar
         selectedCount={watchUI.selectedIds.length}
-        activeGroupName={activeGroupName}
-        onAddToGroups={() => openGroupSelector('bulk')}
-        onRemoveFromActive={executeBulkRemove}
+        onAssign={() => openGroupSelector('bulk')}
+        onDelete={executeBulkDelete}
         onClear={() => {
           clearSelection();
           setSelectionMode(false);
         }}
-        removeDisabled={!watchUI.selectedIds.length || !activeGroup || activeGroup.key === 'all'}
+        assignDisabled={!watchUI.selectedIds.length}
+        deleteDisabled={!watchUI.selectedIds.length}
       />
 
       {quotesError && <div className="mb-4 rounded-md border border-red-500/50 bg-red-500/10 text-red-200 px-4 py-2 text-sm">{quotesError}</div>}
@@ -345,11 +357,12 @@ export default function Dashboard() {
                   selectionMode={selectionActive}
                   selected={selectedSet.has(item.id)}
                   dragDisabled={sortMode !== 'none'}
-                  rank={sortMode !== 'none' ? index + 1 : undefined}
                   metricsUrl={metricsLinkFor(item.symbol)}
                   onToggleSelect={() => toggleSelection(item.id)}
                   onOpen={() => handleCardClick(item.id, item.symbol)}
                   onUpdateNote={(note) => updateItemNote(item.id, note)}
+                  onDelete={() => handleDeleteItem(item.id)}
+                  onRemoveTag={(groupId) => handleRemoveTag(item.id, groupId)}
                 />
               ))}
             </div>
@@ -392,14 +405,15 @@ type SortableWatchCardProps = {
   selectionMode: boolean;
   selected: boolean;
   dragDisabled?: boolean;
-  rank?: number;
   metricsUrl?: string;
   onToggleSelect: () => void;
   onOpen: () => void;
   onUpdateNote: (note: string) => void;
+  onDelete: () => void;
+  onRemoveTag: (groupId: string) => void;
 };
 
-function SortableWatchCard({ item, quote, groups, selectionMode, selected, dragDisabled, rank, metricsUrl, onToggleSelect, onOpen, onUpdateNote }: SortableWatchCardProps) {
+function SortableWatchCard({ item, quote, groups, selectionMode, selected, dragDisabled, metricsUrl, onToggleSelect, onOpen, onUpdateNote, onDelete, onRemoveTag }: SortableWatchCardProps) {
   const { setNodeRef, listeners, attributes, transform, transition, isDragging } = useSortable({ id: item.id, disabled: selectionMode || dragDisabled });
   const style: CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -420,11 +434,12 @@ function SortableWatchCard({ item, quote, groups, selectionMode, selected, dragD
         groups={groups}
         selectionMode={selectionMode}
         selected={selected}
-        rank={rank}
         metricsUrl={metricsUrl}
         onToggleSelect={onToggleSelect}
         onOpen={onOpen}
         onUpdateNote={onUpdateNote}
+        onDelete={onDelete}
+        onRemoveTag={onRemoveTag}
       />
     </div>
   );

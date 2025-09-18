@@ -139,6 +139,7 @@ async function simulateQuotes(symbols: TickerSymbol[]): Promise<Record<string, M
       currency,
       per: randRange(8, 30), pbr: randRange(0.8, 5), dividendYieldPct: Math.max(0, randRange(-0.5, 4)), marketCap: Math.round(randRange(1, 200) * 1e10),
       trend: 'flat',
+      updatedAt: Date.now(),
     } as any;
   }
   return out;

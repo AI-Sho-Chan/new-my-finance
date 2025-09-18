@@ -30,7 +30,7 @@ export default function WatchTabs({ tabs, activeId, onSelect, onReorder, onAdd, 
   };
 
   return (
-    <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-1">
+    <div className="mb-4 flex items-center gap-2 overflow-x-auto pb-1">
       <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={ids} strategy={horizontalListSortingStrategy}>
           {tabs.map((tab) => (
@@ -39,19 +39,25 @@ export default function WatchTabs({ tabs, activeId, onSelect, onReorder, onAdd, 
               tab={tab}
               active={tab.id === activeId}
               onSelect={() => onSelect(tab.id)}
-              onOpenMenu={() => setMenuFor((cur) => (cur === tab.id ? null : tab.id))}
+              onOpenMenu={(open) => setMenuFor(open ? tab.id : null)}
               menuOpen={menuFor === tab.id}
-              onEdit={() => { setMenuFor(null); onEdit(tab.id); }}
-              onDelete={() => { setMenuFor(null); onDelete(tab.id); }}
+              onEdit={() => {
+                setMenuFor(null);
+                onEdit(tab.id);
+              }}
+              onDelete={() => {
+                setMenuFor(null);
+                onDelete(tab.id);
+              }}
             />
           ))}
         </SortableContext>
       </DndContext>
       <button
         onClick={onAdd}
-        className="flex-shrink-0 px-3 py-2 text-sm font-semibold rounded-md bg-gray-700 text-gray-200 hover:bg-gray-600"
+        className="flex-shrink-0 rounded-md bg-gray-700 px-3 py-2 text-sm font-semibold text-gray-200 transition hover:bg-gray-600"
       >
-        ＋ グループ
+        {"\u65b0\u898f\u30b0\u30eb\u30fc\u30d7"}
       </button>
     </div>
   );
@@ -61,14 +67,14 @@ type SortableTabProps = {
   tab: Tab;
   active: boolean;
   onSelect: () => void;
-  onOpenMenu: () => void;
+  onOpenMenu: (open: boolean) => void;
   menuOpen: boolean;
   onEdit: () => void;
   onDelete: () => void;
 };
 
 function SortableTab({ tab, active, onSelect, onOpenMenu, menuOpen, onEdit, onDelete }: SortableTabProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: tab.id });
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: tab.id });
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -78,27 +84,44 @@ function SortableTab({ tab, active, onSelect, onOpenMenu, menuOpen, onEdit, onDe
   const canDelete = tab.type === 'user';
 
   return (
-    <div ref={setNodeRef} style={style} className="relative">
+    <div ref={setNodeRef} style={style} className="relative flex items-center gap-1">
       <button
         type="button"
-        className={`flex items-center gap-2 px-3 py-2 rounded-md border ${active ? 'bg-gray-100 text-gray-900 border-transparent shadow' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
+        className={`flex items-center gap-2 rounded-md border px-3 py-2 ${active ? 'bg-gray-100 text-gray-900 border-transparent shadow' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
         onClick={onSelect}
+      >
+        <span className="inline-flex items-center gap-2">
+          <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: tab.color }} />
+          <span className="text-sm font-semibold whitespace-nowrap">{tab.name}</span>
+        </span>
+        <span
+          className="ml-2 text-xs text-gray-400"
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenMenu(!menuOpen);
+          }}
+        >
+          ⋯
+        </span>
+      </button>
+      <span
+        ref={setActivatorNodeRef}
+        className="cursor-grab select-none text-gray-500 hover:text-gray-300"
         {...attributes}
         {...listeners}
       >
-        <span className="inline-flex items-center gap-2">
-          <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: tab.color }} />
-          <span className="text-sm font-semibold whitespace-nowrap">{tab.name}</span>
-        </span>
-        <span className="ml-2 text-xs text-gray-400" onClick={(e) => { e.stopPropagation(); onOpenMenu(); }}>⋯</span>
-      </button>
+        ⋮
+      </span>
       {menuOpen && (
-        <div className="absolute top-full left-0 mt-1 w-36 rounded-md border border-gray-600 bg-gray-800 shadow-lg z-30" onMouseLeave={() => onOpenMenu()}>
-          <button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-700" onClick={(e) => { e.preventDefault(); onEdit(); }}>編集</button>
+        <div
+          className="absolute top-full left-0 z-30 mt-1 w-36 rounded-md border border-gray-600 bg-gray-800 shadow-lg"
+          onMouseLeave={() => onOpenMenu(false)}
+        >
+          <button className="w-full px-3 py-2 text-left text-sm hover:bg-gray-700" onClick={(e) => { e.preventDefault(); onEdit(); }}>{"\u7de8\u96c6"}</button>
           {canDelete ? (
-            <button className="w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-gray-700" onClick={(e) => { e.preventDefault(); onDelete(); }}>削除</button>
+            <button className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-gray-700" onClick={(e) => { e.preventDefault(); onDelete(); }}>{"\u524a\u9664"}</button>
           ) : (
-            <div className="px-3 py-2 text-xs text-gray-500 border-t border-gray-700">固定タブ</div>
+            <div className="border-t border-gray-700 px-3 py-2 text-xs text-gray-500">{"\u56fa\u5b9a\u30bf\u30d6"}</div>
           )}
         </div>
       )}

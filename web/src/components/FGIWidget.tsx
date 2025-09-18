@@ -25,7 +25,8 @@ const GAUGE_CENTER = 40;
 const GAUGE_RADIUS = 34;
 const GAUGE_PATH = `M ${GAUGE_CENTER - GAUGE_RADIUS} ${GAUGE_CENTER} A ${GAUGE_RADIUS} ${GAUGE_RADIUS} 0 0 1 ${GAUGE_CENTER + GAUGE_RADIUS} ${GAUGE_CENTER}`;
 const GAUGE_CIRCUMFERENCE = Math.PI * GAUGE_RADIUS;
-const PRICE_LEVELS = Array.from({ length: 11 }, (_, idx) => idx * 10);
+const CENTER_GUIDE_PRICE = 50;
+const PRICE_LEVELS = Array.from({ length: 11 }, (_, idx) => idx * 10).filter((level) => level !== CENTER_GUIDE_PRICE);
 
 function toSeries(points: unknown): SeriesPoint[] {
   if (!Array.isArray(points)) return [];
@@ -46,17 +47,27 @@ function clamp(value: number, min: number, max: number) {
 }
 
 function createGuideLines(series: ISeriesApi<'Line'>): IPriceLine[] {
-  return PRICE_LEVELS.map((level) =>
+  const lines = PRICE_LEVELS.map((level) =>
     series.createPriceLine({
       price: level,
       color: 'rgba(148, 163, 184, 0.18)',
       lineWidth: level % 20 === 0 ? 2 : 1,
       lineStyle: LineStyle.Solid,
-      axisLabelVisible: true,
+      axisLabelVisible: level % 20 === 0,
       title: '',
     }),
   );
+  const center = series.createPriceLine({
+    price: CENTER_GUIDE_PRICE,
+    color: 'rgba(148, 163, 184, 0.55)',
+    lineWidth: 2,
+    lineStyle: LineStyle.Dashed,
+    axisLabelVisible: false,
+    title: '',
+  });
+  return [...lines, center];
 }
+
 
 export default function FGIWidget() {
   const [state, setState] = useState<FgiState>({ now: null, previousClose: null, history: [] });
@@ -132,6 +143,9 @@ export default function FGIWidget() {
         lineWidth: 2,
         priceScaleId: 'right',
         priceFormat: { type: 'custom', minMove: 1, formatter: (price) => `${Math.round(price)}` },
+        priceLineVisible: false,
+        lastValueVisible: false,
+        crosshairMarkerVisible: false,
       });
       lineSeries.applyOptions({
         autoscaleInfoProvider: () => ({
@@ -223,3 +237,4 @@ export default function FGIWidget() {
     </div>
   );
 }
+

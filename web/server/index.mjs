@@ -68,7 +68,7 @@ function normalizeQuote(q) {
     per: q.trailingPE ?? q.forwardPE ?? null,
     pbr: q.priceToBook ?? null,
     dividendYieldPct: dividendYield != null ? Math.round(dividendYield * 10000) / 100 : null,
-    marketCap: q.marketCap ?? null,
+    marketCap: q.marketCap ?? null,\n    updatedAt: Date.now(),
   };
 }
 
@@ -523,6 +523,7 @@ app.listen(PORT, () => {
   refresh();
   setInterval(refresh, 6 * 60 * 60_000);
 });
+
 
 
 

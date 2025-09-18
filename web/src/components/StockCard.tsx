@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState, type MouseEvent } from 'react';
 import clsx from 'clsx';
 import type { MarketQuote, WatchGroup, WatchItem, Trend } from '../types';
 import { TrendingDown, TrendingUp } from './icons';
@@ -7,7 +7,7 @@ import GroupTag from './watch/GroupTag';
 const TREND_LABEL: Record<Trend, string> = {
   up: '上昇トレンド',
   down: '下降トレンド',
-  flat: 'トレンドなし',
+  flat: 'トレンド不明',
 };
 
 const TREND_CLASS: Record<Trend, string> = {
@@ -16,17 +16,23 @@ const TREND_CLASS: Record<Trend, string> = {
   flat: 'text-gray-400',
 };
 
+function formatUpdatedAt(ts?: number | null) {
+  if (!ts) return null;
+  return new Date(ts).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+}
+
 type Props = {
   item: WatchItem;
   quote?: MarketQuote;
   groups: WatchGroup[];
   selectionMode?: boolean;
   selected?: boolean;
-  rank?: number;
   metricsUrl?: string;
   onToggleSelect?: () => void;
   onOpen?: () => void;
   onUpdateNote?: (note: string) => void;
+  onDelete?: () => void;
+  onRemoveTag?: (groupId: string) => void;
 };
 
 export default function StockCard({
@@ -35,11 +41,12 @@ export default function StockCard({
   groups,
   selectionMode = false,
   selected = false,
-  rank,
   metricsUrl,
   onToggleSelect,
   onOpen,
   onUpdateNote,
+  onDelete,
+  onRemoveTag,
 }: Props) {
   const [editingNote, setEditingNote] = useState(false);
   const [noteDraft, setNoteDraft] = useState(item.note || '');
@@ -57,6 +64,7 @@ export default function StockCard({
   const trend: Trend = quote?.trend ?? 'flat';
   const trendClass = TREND_CLASS[trend];
   const trendLabel = TREND_LABEL[trend];
+  const updatedLabel = formatUpdatedAt(quote?.updatedAt ?? item.updatedAt ?? null);
 
   const handleOpen = () => {
     if (selectionMode) {
@@ -67,7 +75,7 @@ export default function StockCard({
   };
 
   const cardStyle = clsx(
-    'relative bg-gray-800 rounded-lg p-3 shadow-lg transition-transform duration-200 flex flex-col gap-3 h-full',
+    'relative flex h-full flex-col gap-3 rounded-lg bg-gray-800 p-3 shadow-lg transition-transform duration-200',
     selectionMode ? 'cursor-pointer' : 'cursor-pointer hover:scale-[1.02] hover:shadow-xl',
   );
 
@@ -76,14 +84,18 @@ export default function StockCard({
     setEditingNote(false);
   };
 
+  const handleDelete = (event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    onDelete?.();
+  };
+
+  const handleRemoveTag = (groupId: string) => {
+    onRemoveTag?.(groupId);
+  };
+
   return (
     <div className={cardStyle} onClick={handleOpen}>
-      {typeof rank === 'number' && (
-        <div className="absolute top-2 left-2 bg-indigo-600 text-xs text-white font-semibold rounded-full px-2 py-0.5">
-          #{rank}
-        </div>
-      )}
-      <div className="flex justify-between items-start">
+      <div className="flex items-start justify-between">
         <div className="flex items-start gap-2">
           {selectionMode && (
             <input
@@ -98,34 +110,53 @@ export default function StockCard({
             />
           )}
           <div>
-            <h3 className="text-sm font-bold text-gray-100 truncate max-w-[160px]" title={item.name}>
+            <h3 className="max-w-[160px] truncate text-sm font-bold text-gray-100" title={item.name}>
               {item.name}
             </h3>
-            <p className="text-xs text-gray-400">{quote?.symbol || item.symbol}</p>
+            <p className="flex items-center gap-2 text-[11px] text-gray-500">
+              <span>{quote?.symbol || item.symbol}</span>
+              {updatedLabel && <span className="text-[10px] text-gray-500 opacity-70">更新 {updatedLabel}</span>}
+            </p>
           </div>
         </div>
-        <div className={clsx('text-lg flex items-center min-h-[1.5rem]', trendClass)} title={trendLabel}>
-          {trend === 'up' && <TrendingUp />}
-          {trend === 'down' && <TrendingDown />}
-          {trend === 'flat' && <span className="text-base text-gray-400">―</span>}
+        <div className="flex items-center gap-2">
+          {!selectionMode && (
+            <button
+              type="button"
+              onClick={handleDelete}
+              className="rounded-md bg-transparent px-2 py-1 text-xs text-gray-400 transition hover:bg-red-500/10 hover:text-red-300"
+              title="この銘柄カードを削除"
+            >
+              削除
+            </button>
+          )}
+          <div className={clsx('flex min-h-[1.5rem] items-center text-lg', trendClass)} title={trendLabel}>
+            {trend === 'up' && <TrendingUp />}
+            {trend === 'down' && <TrendingDown />}
+            {trend === 'flat' && <span className="text-base text-gray-400">―</span>}
+          </div>
         </div>
       </div>
 
       {displayGroups.length > 0 && (
         <div className="flex flex-wrap gap-1" onClick={(e) => e.stopPropagation()}>
           {displayGroups.map((group) => (
-            <GroupTag key={group.id} label={group.name} color={group.color} compact />
+            <GroupTag
+              key={group.id}
+              label={group.name}
+              color={group.color}
+              compact
+              removable={Boolean(onRemoveTag && group.key !== 'all')}
+              onRemove={() => handleRemoveTag(group.id)}
+            />
           ))}
         </div>
       )}
 
-      <div className="flex flex-col gap-2 select-none">
-        <div className="flex items-baseline justify-between">
-          <span className={clsx('text-2xl font-bold', changePct != null ? (changePct >= 0 ? 'text-emerald-400' : 'text-rose-400') : 'text-gray-400')}>
-            {changeDisplay}
-          </span>
-          <span className={clsx('text-xs font-semibold', trendClass)}>{trendLabel}</span>
-        </div>
+      <div className="select-none">
+        <span className={clsx('text-2xl font-bold', changePct != null ? (changePct >= 0 ? 'text-emerald-400' : 'text-rose-400') : 'text-gray-400')}>
+          {changeDisplay}
+        </span>
       </div>
 
       {metricsUrl && (
@@ -146,7 +177,7 @@ export default function StockCard({
         <div className="mt-auto" onClick={(e) => e.stopPropagation()}>
           {onUpdateNote ? (
             editingNote ? (
-              <div className="bg-gray-900/80 rounded-md border border-gray-700 p-2">
+              <div className="rounded-md border border-gray-700 bg-gray-900/80 p-2">
                 <textarea
                   className="w-full bg-transparent text-xs text-gray-100 focus:outline-none"
                   rows={3}
@@ -155,7 +186,7 @@ export default function StockCard({
                 />
                 <div className="mt-2 flex justify-end gap-2">
                   <button
-                    className="px-2 py-1 text-xs bg-gray-700 rounded-md text-gray-200 hover:bg-gray-600"
+                    className="rounded-md bg-gray-700 px-2 py-1 text-xs text-gray-200 hover:bg-gray-600"
                     onClick={() => {
                       setEditingNote(false);
                       setNoteDraft(item.note || '');
@@ -164,7 +195,7 @@ export default function StockCard({
                     キャンセル
                   </button>
                   <button
-                    className="px-2 py-1 text-xs bg-indigo-600 text-white rounded-md hover:bg-indigo-500"
+                    className="rounded-md bg-indigo-600 px-2 py-1 text-xs text-white hover:bg-indigo-500"
                     onClick={handleSaveNote}
                   >
                     保存
@@ -173,7 +204,7 @@ export default function StockCard({
               </div>
             ) : (
               <button
-                className="w-full text-left text-xs text-gray-300 bg-gray-900/60 border border-gray-800 rounded-md px-2 py-2 hover:border-gray-600"
+                className="w-full rounded-md border border-gray-800 bg-gray-900/60 px-2 py-2 text-left text-xs text-gray-300 hover:border-gray-600"
                 onClick={() => setEditingNote(true)}
               >
                 {item.note ? (
@@ -184,8 +215,8 @@ export default function StockCard({
               </button>
             )
           ) : item.note ? (
-            <div className="w-full text-xs text-gray-300 bg-gray-900/60 border border-gray-800 rounded-md px-2 py-2 whitespace-pre-wrap break-words">
-              {item.note}
+            <div className="w-full rounded-md border border-gray-800 bg-gray-900/60 px-2 py-2 text-xs text-gray-300">
+              <span className="whitespace-pre-wrap break-words">{item.note}</span>
             </div>
           ) : null}
         </div>

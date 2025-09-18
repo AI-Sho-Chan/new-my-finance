@@ -39,6 +39,7 @@ type WatchActions = {
   addItems: (entries: WatchItemInput[], groupIds?: string[]) => string[];
   assignItemsToGroups: (itemIds: string[], groupIds: string[]) => void;
   removeItemsFromGroup: (itemIds: string[], groupId: string) => void;
+  deleteItems: (itemIds: string[]) => void;
   updateItemNote: (itemId: string, note: string) => void;
   createGroup: (input: { name: string; color?: string; description?: string }) => WatchGroup;
   updateGroup: (groupId: string, patch: Partial<Pick<WatchGroup, 'name' | 'color' | 'description'>>) => void;
@@ -161,6 +162,34 @@ export const useStore = create<State & Actions>()(
           group.itemIds = group.itemIds.filter((id) => !setIds.has(id));
           group.updatedAt = Date.now();
           return { watchGroups: groups };
+        });
+      },
+
+      deleteItems: (itemIds) => {
+        if (!itemIds.length) return;
+        set((state) => {
+          const ids = itemIds.filter((id, index, arr) => arr.indexOf(id) === index);
+          if (!ids.length) return {};
+          const removeSet = new Set(ids);
+          const items = { ...state.watchItems };
+          ids.forEach((id) => { delete items[id]; });
+          const groups = cloneGroups(state.watchGroups);
+          Object.values(groups).forEach((group) => {
+            const before = group.itemIds.length;
+            group.itemIds = group.itemIds.filter((id) => !removeSet.has(id));
+            if (group.itemIds.length !== before) {
+              group.updatedAt = Date.now();
+            }
+          });
+          const ui: WatchUIState = {
+            ...state.watchUI,
+            selectedIds: state.watchUI.selectedIds.filter((id) => !removeSet.has(id)),
+          };
+          if (ui.activeGroupId && !groups[ui.activeGroupId]) {
+            const fallback = Object.values(groups).sort((a, b) => a.order - b.order)[0];
+            ui.activeGroupId = fallback ? fallback.id : '';
+          }
+          return { watchItems: items, watchGroups: groups, watchUI: ui };
         });
       },
 

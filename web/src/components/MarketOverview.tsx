@@ -1,8 +1,9 @@
-﻿import { useEffect, useMemo, useState } from 'react';
-import type { MarketQuote, TickerSymbol } from '../types';
-import { fetchMarketQuotes } from '../lib/data';
-import StockChartModal from './StockChartModal';
+import { useEffect, useMemo, useState } from 'react';
 import clsx from 'clsx';
+import type { MarketQuote, TickerSymbol, Trend } from '../types';
+import { fetchHistoricalCandles, fetchMarketQuotes, inferTrend } from '../lib/data';
+import StockChartModal from './StockChartModal';
+import { TrendingDown, TrendingUp } from './icons';
 
 const ITEMS: { symbol: TickerSymbol; name: string }[] = [
   { symbol: '^VIX', name: 'VIX' },
@@ -13,6 +14,18 @@ const ITEMS: { symbol: TickerSymbol; name: string }[] = [
   { symbol: 'GC=F', name: 'Gold' },
   { symbol: 'BTC-USD', name: 'Bitcoin' },
 ];
+
+const TREND_CLASS: Record<Trend, string> = {
+  up: 'text-emerald-400',
+  down: 'text-rose-400',
+  flat: 'text-gray-400',
+};
+
+const TREND_LABEL: Record<Trend, string> = {
+  up: '上昇トレンド',
+  down: '下降トレンド',
+  flat: 'トレンド不明',
+};
 
 function formatChange(changePct: number | undefined) {
   if (typeof changePct !== 'number' || !Number.isFinite(changePct)) return '--';
@@ -29,44 +42,83 @@ function formatPrice(price: number | undefined, currency: MarketQuote['currency'
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(price);
 }
 
+function formatUpdatedAt(ts?: number | null) {
+  if (!ts) return '--:--';
+  return new Date(ts).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+}
+
 export default function MarketOverview() {
   const symbols = useMemo<TickerSymbol[]>(() => ITEMS.map((item) => item.symbol), []);
-  const [quotes, setQuotes] = useState<Record<string, MarketQuote> | null>(null);
+  const [quotes, setQuotes] = useState<Record<string, MarketQuote>>({});
   const [modal, setModal] = useState<{ symbol: string } | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
-    fetchMarketQuotes(symbols)
-      .then((q) => {
-        if (mounted) {
-          setQuotes(q);
-          setLastUpdated(new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }));
-        }
-      })
-      .catch((e) => console.warn('overview quotes failed', e));
+    (async () => {
+      try {
+        const response = await fetchMarketQuotes(symbols);
+        if (!mounted) return;
+        const fetchTime = Date.now();
+        const enriched: Record<string, MarketQuote> = {};
+        Object.entries(response || {}).forEach(([sym, quote]) => {
+          if (!quote) return;
+          enriched[sym] = { ...quote, updatedAt: quote.updatedAt ?? fetchTime };
+        });
+        setQuotes(enriched);
+        setLastUpdated(new Date(fetchTime).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }));
+
+        const trendEntries = await Promise.all(
+          Object.keys(enriched).map(async (sym) => {
+            try {
+              const candles = await fetchHistoricalCandles(sym, 'D');
+              return [sym, inferTrend(candles)] as const;
+            } catch {
+              return [sym, 'flat'] as const;
+            }
+          }),
+        );
+
+        if (!mounted) return;
+        setQuotes((prev) => {
+          const next = { ...prev };
+          trendEntries.forEach(([sym, trend]) => {
+            if (next[sym]) next[sym] = { ...next[sym], trend };
+          });
+          return next;
+        });
+      } catch (e) {
+        console.warn('overview quotes failed', e);
+      }
+    })();
     return () => {
       mounted = false;
     };
-  }, [symbols.join(',')]);
+  }, [symbols]);
 
-  if (!quotes) return null;
+  const hasQuotes = Object.keys(quotes).length > 0;
+  if (!hasQuotes) return null;
 
   return (
-    <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-4">
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-        <h3 className="text-lg font-semibold text-gray-100">マーケット概況</h3>
-        <span className="text-xs text-gray-500">最終更新: {lastUpdated ?? '--:--'}</span>
+    <div className='rounded-lg border border-gray-800 bg-gray-900/60 p-4'>
+      <div className='flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between'>
+        <h3 className='text-lg font-semibold text-gray-100'>マーケット概況</h3>
+        <span className='text-xs text-gray-500'>最終更新: {lastUpdated ?? '--:--'}</span>
       </div>
-      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <div className='mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3'>
         {ITEMS.map(({ symbol, name }) => {
           const quote = quotes[symbol];
           if (!quote) {
             return (
-              <div key={symbol} className="rounded-lg border border-gray-800 bg-gray-900/80 p-3">
-                <p className="text-xs text-gray-500">{name}</p>
-                <p className="mt-2 text-2xl font-bold text-gray-500">--</p>
-                <p className="text-xs text-gray-600">データなし</p>
+              <div key={symbol} className='relative overflow-hidden rounded-lg border border-gray-800 bg-gray-900/80 p-3'>
+                <span className='absolute right-3 top-2 text-sm text-gray-600'>--</span>
+                <div className='flex items-center justify-between text-[11px] text-gray-500'>
+                  <span>{symbol}</span>
+                  <span>--:--</span>
+                </div>
+                <p className='mt-1 text-sm text-gray-300'>{name}</p>
+                <p className='mt-3 text-2xl font-bold text-gray-500'>--</p>
+                <p className='mt-1 text-xs text-gray-600'>データなし</p>
               </div>
             );
           }
@@ -76,18 +128,36 @@ export default function MarketOverview() {
           const displayPrice = symbol === '^VIX'
             ? (typeof quote.price === 'number' && Number.isFinite(quote.price) ? quote.price.toFixed(2) : '--')
             : priceText;
-          const changeClass = typeof changePct === 'number' ? (changePct >= 0 ? 'text-emerald-400' : 'text-rose-400') : 'text-gray-400';
+          const changeClass = typeof changePct === 'number'
+            ? (changePct >= 0 ? 'text-emerald-400' : 'text-rose-400')
+            : 'text-gray-400';
+          const trend: Trend = quote.trend ?? 'flat';
+          const trendClass = TREND_CLASS[trend];
+          const trendLabel = TREND_LABEL[trend];
+          const updatedLabel = formatUpdatedAt(quote.updatedAt ?? null);
           return (
             <button
               key={symbol}
-              type="button"
+              type='button'
               onClick={() => setModal({ symbol })}
-              className="rounded-lg border border-gray-800 bg-gray-900/80 p-3 text-left hover:border-indigo-500/60 hover:bg-gray-800/90 transition-colors"
+              className='relative overflow-hidden rounded-lg border border-gray-800 bg-gray-900/80 p-3 text-left transition-colors hover:border-indigo-500/60 hover:bg-gray-800/90'
             >
-              <p className="text-xs text-gray-500">{symbol}</p>
-              <p className="mt-1 text-sm text-gray-300">{name}</p>
-              <p className={clsx('mt-2 text-2xl font-bold', changeClass)}>{changeText}</p>
-              <p className="mt-1 text-xs text-gray-400">{displayPrice}</p>
+              <span
+                className={clsx('absolute right-3 top-2 text-lg', trendClass)}
+                aria-label={trendLabel}
+                title={trendLabel}
+              >
+                {trend === 'up' && <TrendingUp />}
+                {trend === 'down' && <TrendingDown />}
+                {trend === 'flat' && <span className='text-sm text-gray-500'>―</span>}
+              </span>
+              <div className='flex items-center justify-between text-[11px] text-gray-500'>
+                <span>{symbol}</span>
+                <span>{updatedLabel}</span>
+              </div>
+              <p className='mt-1 text-sm text-gray-300'>{name}</p>
+              <p className={clsx('mt-3 text-2xl font-bold', changeClass)}>{changeText}</p>
+              <p className='mt-1 text-xs text-gray-400'>{displayPrice}</p>
             </button>
           );
         })}

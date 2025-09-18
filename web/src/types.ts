@@ -12,6 +12,7 @@ export interface MarketQuote {
   change: number; // price - prevClose
   changePct: number; // (change/prevClose)*100
   currency: 'JPY' | 'USD';
+  updatedAt?: number;
   per?: number;
   pbr?: number;
   dividendYieldPct?: number;
@@ -105,3 +106,4 @@ export interface WatchSnapshot {
   groups: Record<string, WatchGroup>;
   ui: WatchUIState;
 }
+
