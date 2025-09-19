@@ -38,16 +38,16 @@
   <div class="wrap">
     <div class="topnav">
       <div>
-        <a class="navbtn" href="/NMY.html">ダッシュボード</a>
-        <a class="navbtn" href="/NMY.html?tab=assets">資産</a>
-        <a class="navbtn active" href="/analysis.html">分析</a>
-        <a class="navbtn" href="/backtest.html">バックテスト</a>
+        <a class="navbtn" href="./NMY.html">ダチE��ュボ�EチE/a>
+        <a class="navbtn" href="./NMY.html?tab=assets">賁E��</a>
+        <a class="navbtn active" href="./analysis.html">刁E��</a>
+        <a class="navbtn" href="./backtest.html">バックチE��チE/a>
       </div>
     </div>
 
     <h1 style="font-size:20px; font-weight:800; margin:8px 0 12px;">Scatter + Heatmap</h1>
     <div class="card">
-      <div class="title">Scatter：F・V 指標 <span class="small" id="meta"></span></div>
+      <div class="title">Scatter�E�F・V 持E��E<span class="small" id="meta"></span></div>
       <div class="legend small" style="margin-bottom:6px; display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
         <span class="chip q1">Q1</span>
         <span class="chip q2">Q2</span>
@@ -56,11 +56,11 @@
         <span class="small" style="margin-left:12px; color:#cbd5e1;">
           <span style="color:#9ca3af"><span class="shape circle"></span>US株</span>
           <span style="color:#9ca3af; margin-left:8px"><span class="shape square"></span>日本株</span>
-          <span style="color:#9ca3af; margin-left:8px"><span class="shape diamond"></span>指数</span>
+          <span style="color:#9ca3af; margin-left:8px"><span class="shape diamond"></span>持E��</span>
           <span style="color:#9ca3af; margin-left:8px"><span class="shape triup"></span>為替</span>
-          <span style="color:#9ca3af; margin-left:8px"><span class="shape tridown"></span>暗号資産</span>
+          <span style="color:#9ca3af; margin-left:8px"><span class="shape tridown"></span>暗号賁E��</span>
         </span>
-        <span class="small">F: 63日リターンのZスコア／V: SMA50乖離のZスコア</span>
+        <span class="small">F: 63日リターンのZスコア�E�V: SMA50乖離のZスコア</span>
       </div>
       <svg id="scatter" height="420" style="width:100%; background:#0b1220; border:1px solid #374151; border-radius:6px;"></svg>
     </div>
@@ -71,12 +71,12 @@
     </div>
 
     <div class="card">
-      <div class="title">用語と算出方法</div>
+      <div class="title">用語と算�E方況E/div>
       <div class="small">
-        <p><b>Force (F)</b> 過去63営業日のリターンを各銘柄で標準化。Scatter縦軸、Heatmap F。</p>
-        <p><b>Velocity (V)</b> SMA50に対する現在値の乖離率を標準化。Scatter横軸、Heatmap V。</p>
-        <p><b>Average (A)</b> A=(F+V)/2。Heatmap A。</p>
-        <p><b>Q1〜Q4</b> Q1: F≥0,V≥0／Q2: F≥0,V<0／Q3: F<0,V≥0／Q4: F<0,V<0</p>
+        <p><b>Force (F)</b> 過去63営業日のリターンを各銘柄で標準化。Scatter縦軸、Heatmap F、E/p>
+        <p><b>Velocity (V)</b> SMA50に対する現在値の乖離玁E��標準化。Scatter横軸、Heatmap V、E/p>
+        <p><b>Average (A)</b> A=(F+V)/2、Eeatmap A、E/p>
+        <p><b>Q1〜Q4</b> Q1: F≥0,V≥0�E�Q2: F≥0,V<0�E�Q3: F<0,V≥0�E�Q4: F<0,V<0</p>
       </div>
       <div class="small" id="dataDate"></div>
     </div>
@@ -102,7 +102,7 @@
       if(Array.isArray(arr)&&arr.length){ return arr.map(w=>({ symbol:String(w.symbol||''), name:String(w.name||w.symbol||'') })); }
     }catch{};
     return [
-      {symbol:'^GSPC',name:'S&P500'}, {symbol:'^N225',name:'日経平均'},
+      {symbol:'^GSPC',name:'S&P500'}, {symbol:'^N225',name:'日経平坁E},
       {symbol:'7203.T',name:'トヨタ'}, {symbol:'AAPL',name:'Apple'}, {symbol:'NVDA',name:'NVIDIA'}
     ];
   }
@@ -174,10 +174,10 @@
     const byClassDivId = 'byClass';
     let byDiv = document.getElementById(byClassDivId);
     if(!byDiv){ byDiv = document.createElement('div'); byDiv.id = byClassDivId; tbl.parentElement.appendChild(byDiv); }
-    const klass=(sym)=>(/=X$/.test(sym)||/-JPY$/.test(sym)?'為替': sym==='BTC-JPY'?'暗号資産': /^\^/.test(sym)?'指数': /\.T$/.test(sym)?'日本株':'US株');
+    const klass=(sym)=>(/=X$/.test(sym)||/-JPY$/.test(sym)?'為替': sym==='BTC-JPY'?'暗号賁E��': /^\^/.test(sym)?'持E��': /\.T$/.test(sym)?'日本株':'US株');
     const groups = {};
     for(const it of items){ const gname = klass(it.symbol); (groups[gname] ||= []).push(it); }
-    const order = ['US株','日本株','指数','為替','暗号資産'];
+    const order = ['US株','日本株','持E��','為替','暗号賁E��'];
     byDiv.innerHTML = order.map(name=>{
       const arr = (groups[name]||[]).slice().sort((a,b)=> (b.A??-99)-(a.A??-99));
       const rows = arr.map(it=>`<tr><td>${it.name||it.symbol}</td><td style="text-align:right">${Number.isFinite(it.A)? it.A.toFixed(2):'-'}</td></tr>`).join('');
@@ -203,8 +203,7 @@
         const idx=s.indexByTs[t]; if(idx==null) continue; const close=s.close||[]; const n=close.length; if(idx>=n) continue;
         // 63日リターン
         rmap[s.symbol] = (idx>=63 && close[idx-63]>0) ? (close[idx]/close[idx-63]-1) : NaN;
-        // SMA50乖離率
-        const winStart=Math.max(0, idx-49); const win=close.slice(winStart, idx+1);
+        // SMA50乖離玁E        const winStart=Math.max(0, idx-49); const win=close.slice(winStart, idx+1);
         const sum=win.reduce((a,b)=>a+(Number.isFinite(b)?b:0),0), cnt=win.filter(Number.isFinite).length||1;
         const sma=sum/cnt; vmap[s.symbol]=(sma>0 && Number.isFinite(close[idx]))? (sma-close[idx])/sma : NaN;
       }
@@ -251,7 +250,7 @@
     __itemsCache = items;
     renderScatter(items);
     renderHeatmap(items);
-    document.getElementById('dataDate').textContent = latestTs? `データ最終日: ${fmtDate(latestTs)}`: '';
+    document.getElementById('dataDate').textContent = latestTs? `チE�Eタ最終日: ${fmtDate(latestTs)}`: '';
     document.getElementById('meta').textContent = `n=${items.length}`;
     try{ await buildAndPersistBacktest(series); }catch{}
   }
@@ -270,3 +269,4 @@
   </script>
 </body>
 </html>
+

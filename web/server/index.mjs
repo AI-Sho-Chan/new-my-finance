@@ -174,15 +174,30 @@ app.get('/api/chart', async (req, res) => {
 
 // Fundamentals (YoY metrics) via quoteSummary
 app.get('/api/fundamentals', async (req, res) => {
+  const fallback = { yoyRevenuePct: null, yoyOperatingIncomePct: null };
+  let symbol = '';
+  let key = '';
   try {
-    const symbol = String(req.query.symbol || '').trim();
+    symbol = String(req.query.symbol || '').trim();
     if (!symbol) return res.status(400).json({ error: 'symbol required' });
-    const key = `f:${symbol}`;
+    key = `f:${symbol}`;
     const cached = getCache(key);
     if (cached) return res.json(cached);
     const modules = ['incomeStatementHistoryQuarterly','defaultKeyStatistics','financialData','summaryDetail'];
-    const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=${modules.join(',')}`;
-    const data = await fetchJson(url);
+    const urls = [
+      `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=${modules.join(',')}`,
+      `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=${modules.join(',')}`,
+    ];
+
+    let data;
+    try {
+      data = await fetchJsonTry(urls);
+    } catch (err) {
+      console.warn('fundamentals upstream failed', symbol, err);
+      if (key) setCache(key, fallback, 5 * 60_000);
+      return res.json(fallback);
+    }
+
     const r = data?.quoteSummary?.result?.[0] ?? {};
     const inc = r?.incomeStatementHistoryQuarterly?.incomeStatementHistory ?? [];
     let yoyRevenuePct = null;
@@ -199,9 +214,11 @@ app.get('/api/fundamentals', async (req, res) => {
     }
     const out = { yoyRevenuePct, yoyOperatingIncomePct };
     setCache(key, out, 12 * 60 * 60_000);
-    res.json(out);
+    return res.json(out);
   } catch (e) {
-    res.status(500).json({ error: String(e?.message || e) });
+    console.warn('fundamentals handler error', symbol, e);
+    if (key) setCache(key, fallback, 5 * 60_000);
+    return res.json(fallback);
   }
 });
 

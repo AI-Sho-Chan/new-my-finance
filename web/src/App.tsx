@@ -25,7 +25,21 @@ export default function App() {
     } catch {}
     return 'dashboard';
   }, []);
+
   const [tab, setTab] = useState<TabKey>(initialTab);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handle = () => {
+      try {
+        const hash = (window.location.hash || '').replace('#', '').toLowerCase();
+        if (hash === 'dashboard' || hash === 'portfolio' || hash === 'analysis' || hash === 'settings') {
+          setTab((prev) => (prev === hash ? prev : (hash as TabKey)));
+        }
+      } catch {}
+    };
+    window.addEventListener('hashchange', handle);
+    return () => window.removeEventListener('hashchange', handle);
+  }, []);
 
   const isEmbed = useMemo(() => {
     try {
@@ -66,17 +80,6 @@ export default function App() {
     } catch {}
   }, []);
 
-  useEffect(() => {
-    try {
-      const h = (window.location.hash || '').replace('#', '').toLowerCase();
-      const q = new URLSearchParams(window.location.search);
-      const via = (h || q.get('tab') || '').toLowerCase();
-      if (via === 'analysis' && tab !== 'analysis') {
-        const t = setTimeout(() => setTab('analysis'), 0);
-        return () => clearTimeout(t);
-      }
-    } catch {}
-  }, [tab]);
 
   useEffect(() => {
     try {

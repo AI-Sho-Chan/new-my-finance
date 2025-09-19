@@ -14,6 +14,7 @@ export default function NavBar({ activeTab, setActiveTab }: { activeTab: TabKey;
         {items.map((i) => (
           <button
             key={i.id}
+            type="button"
             onClick={() => setActiveTab(i.id)}
             className={`flex items-center gap-2 px-4 py-3 ${activeTab === i.id ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-gray-300'}`}
           >
