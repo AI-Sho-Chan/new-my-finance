@@ -16,6 +16,8 @@ import type {
 
 type PortfolioHistoryItem = { key: string; ts: number; note?: string; portfolio: AssetItem[]; hash: string };
 
+type PortfolioMetricsEntry = { valueJPY: number; changeJPY: number; gainLossPercent?: number };
+
 type WatchItemInput = {
   symbol: string;
   name: string;
@@ -33,6 +35,8 @@ type State = WatchState & {
   portfolio: AssetItem[];
   portfolioHistory: PortfolioHistoryItem[];
   chartTimeframe: Timeframe;
+  portfolioMetrics: Record<string, PortfolioMetricsEntry>;
+  portfolioTotals: { total: number; cash: number; invest: number };
 };
 
 type WatchActions = {
@@ -62,7 +66,9 @@ type PortfolioActions = {
   reorderAsset: (id: string, dir: 'up' | 'down') => void;
   savePortfolioSnapshot: (note?: string) => void;
   restorePortfolioSnapshot: (key: string) => void;
+  loadPortfolioBackup: (payload: { portfolio: AssetItem[]; portfolioHistory?: PortfolioHistoryItem[] }) => void;
   setTimeframe: (tf: Timeframe) => void;
+  setPortfolioComputed: (metrics: Record<string, PortfolioMetricsEntry>, totals: { total: number; cash: number; invest: number }) => void;
 };
 
 type Actions = WatchActions & PortfolioActions;
@@ -401,7 +407,45 @@ export const useStore = create<State & Actions>()(
         };
       }),
 
+      loadPortfolioBackup: (payload) => set((state) => {
+        const imported = Array.isArray(payload.portfolio) ? payload.portfolio : [];
+        const cloned = imported
+          .map((a, idx) => ({ ...a, id: uuidv4(), order: typeof a.order === 'number' ? a.order : idx }))
+          .sort((a, b) => a.order - b.order)
+          .map((a, idx) => ({ ...a, order: idx }));
+        const synced = syncHoldingsWithPortfolio({ watchItems: state.watchItems, watchGroups: state.watchGroups }, cloned);
+        let history = state.portfolioHistory;
+        if (Array.isArray(payload.portfolioHistory)) {
+          history = payload.portfolioHistory.map((snap) => ({
+            ...snap,
+            key: snap.key || uuidv4(),
+            ts: typeof snap.ts === 'number' ? snap.ts : Date.now(),
+            portfolio: Array.isArray(snap.portfolio)
+              ? snap.portfolio.map((asset, idx) => ({ ...asset, id: uuidv4(), order: idx }))
+              : [],
+          }));
+        } else {
+          history = pushSnapshot(state.portfolioHistory, cloned, 'import');
+        }
+        return {
+          portfolio: cloned,
+          portfolioHistory: history,
+          watchItems: synced.watchItems,
+          watchGroups: synced.watchGroups,
+        };
+      }),
+
       setTimeframe: (tf) => set({ chartTimeframe: tf }),
+
+      setPortfolioComputed: (metrics, totals) => set((state) => {
+        const sameTotals =
+          Math.round(state.portfolioTotals.total) === Math.round(totals.total) &&
+          Math.round(state.portfolioTotals.cash) === Math.round(totals.cash) &&
+          Math.round(state.portfolioTotals.invest) === Math.round(totals.invest);
+        const sameMetrics = metricsEqual(state.portfolioMetrics, metrics);
+        if (sameTotals && sameMetrics) return {};
+        return { portfolioMetrics: metrics, portfolioTotals: totals };
+      }),
     }),
     {
       name: 'myfinance-store',
@@ -434,6 +478,8 @@ function createInitialState(): State {
     ],
     portfolioHistory: [],
     chartTimeframe: 'D',
+    portfolioMetrics: {},
+    portfolioTotals: { total: 0, cash: 0, invest: 0 },
   };
 }
 
@@ -468,6 +514,9 @@ function migrateState(state: any, version: number): State {
     ...base,
     ...state,
   };
+
+  if (!state?.portfolioMetrics) next.portfolioMetrics = base.portfolioMetrics;
+  if (!state?.portfolioTotals) next.portfolioTotals = base.portfolioTotals;
 
   if (!state.watchItems || !state.watchGroups) {
     const legacyList: any[] = Array.isArray(state.watchlist) ? state.watchlist : [];
@@ -744,6 +793,25 @@ function pushSnapshot(history: PortfolioHistoryItem[], portfolio: AssetItem[], n
   }
 }
 
+function metricsEqual(a: Record<string, PortfolioMetricsEntry>, b: Record<string, PortfolioMetricsEntry>): boolean {
+  const aKeys = Object.keys(a);
+  const bKeys = Object.keys(b);
+  if (aKeys.length !== bKeys.length) return false;
+  for (const key of aKeys) {
+    const va = a[key];
+    const vb = b[key];
+    if (!vb) return false;
+    if (Math.round(va.valueJPY) !== Math.round(vb.valueJPY)) return false;
+    if (Math.round(va.changeJPY) !== Math.round(vb.changeJPY)) return false;
+    const ga = va.gainLossPercent ?? null;
+    const gb = vb.gainLossPercent ?? null;
+    if (ga == null && gb == null) continue;
+    if (ga == null || gb == null) return false;
+    if (Math.round(ga * 100) !== Math.round(gb * 100)) return false;
+  }
+  return true;
+}
+
 function syncHoldingsWithPortfolio(state: { watchItems: Record<string, WatchItem>; watchGroups: Record<string, WatchGroup> }, portfolio: AssetItem[]): { watchItems: Record<string, WatchItem>; watchGroups: Record<string, WatchGroup> } {
   const items = { ...state.watchItems };
   const groups = cloneGroups(state.watchGroups);
@@ -795,4 +863,8 @@ function syncHoldingsWithPortfolio(state: { watchItems: Record<string, WatchItem
 
   return { watchItems: items, watchGroups: groups };
 }
+
+
+
+
 

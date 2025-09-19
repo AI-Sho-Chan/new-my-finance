@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import clsx from 'clsx';
 import type { MarketQuote, TickerSymbol, Trend } from '../types';
 import { fetchHistoricalCandles, fetchMarketQuotes, inferTrend } from '../lib/data';
 import StockChartModal from './StockChartModal';
 import { TrendingDown, TrendingUp } from './icons';
 
-const ITEMS: { symbol: TickerSymbol; name: string }[] = [
+const ITEMS: Array<{ symbol: TickerSymbol; name: string }> = [
   { symbol: '^VIX', name: 'VIX' },
   { symbol: '^GSPC', name: 'S&P 500' },
   { symbol: '^IXIC', name: 'NASDAQ' },
@@ -37,7 +37,7 @@ function formatPrice(price: number | undefined, currency: MarketQuote['currency'
   if (typeof price !== 'number' || !Number.isFinite(price)) return '--';
   if (!currency) return price.toFixed(2);
   if (currency === 'JPY') {
-    return new Intl.NumberFormat('ja-JP', { style: 'currency', currency: 'JPY', maximumFractionDigits: 2 }).format(price);
+    return new Intl.NumberFormat('ja-JP', { style: 'currency', currency: 'JPY', maximumFractionDigits: 0 }).format(price);
   }
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(price);
 }
@@ -103,22 +103,21 @@ export default function MarketOverview() {
     <div className='rounded-lg border border-gray-800 bg-gray-900/60 p-4'>
       <div className='flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between'>
         <h3 className='text-lg font-semibold text-gray-100'>マーケット概況</h3>
-        <span className='text-xs text-gray-500'>最終更新: {lastUpdated ?? '--:--'}</span>
+        <span className='text-xs font-medium text-gray-300'>最終更新: {lastUpdated ?? '--:--'}</span>
       </div>
       <div className='mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3'>
         {ITEMS.map(({ symbol, name }) => {
           const quote = quotes[symbol];
           if (!quote) {
             return (
-              <div key={symbol} className='relative overflow-hidden rounded-lg border border-gray-800 bg-gray-900/80 p-3'>
-                <span className='absolute right-3 top-2 text-sm text-gray-600'>--</span>
+              <div key={symbol} className='flex h-full flex-col gap-3 overflow-hidden rounded-lg border border-gray-800 bg-gray-900/80 p-3'>
                 <div className='flex items-center justify-between text-[11px] text-gray-500'>
                   <span>{symbol}</span>
-                  <span>--:--</span>
+                  <span className='rounded-full bg-gray-800/70 px-2 py-0.5 text-[10px] text-gray-400'>--:--</span>
                 </div>
-                <p className='mt-1 text-sm text-gray-300'>{name}</p>
-                <p className='mt-3 text-2xl font-bold text-gray-500'>--</p>
-                <p className='mt-1 text-xs text-gray-600'>データなし</p>
+                <p className='text-sm text-gray-300'>{name}</p>
+                <p className='text-2xl font-bold text-gray-500'>--</p>
+                <p className='text-xs text-gray-600'>データなし</p>
               </div>
             );
           }
@@ -140,24 +139,30 @@ export default function MarketOverview() {
               key={symbol}
               type='button'
               onClick={() => setModal({ symbol })}
-              className='relative overflow-hidden rounded-lg border border-gray-800 bg-gray-900/80 p-3 text-left transition-colors hover:border-indigo-500/60 hover:bg-gray-800/90'
+              className='flex h-full flex-col gap-3 rounded-lg border border-gray-800 bg-gray-900/80 p-3 text-left transition-colors hover:border-indigo-500/60 hover:bg-gray-800/90'
             >
-              <span
-                className={clsx('absolute right-3 top-2 text-lg', trendClass)}
-                aria-label={trendLabel}
-                title={trendLabel}
-              >
-                {trend === 'up' && <TrendingUp />}
-                {trend === 'down' && <TrendingDown />}
-                {trend === 'flat' && <span className='text-sm text-gray-500'>―</span>}
-              </span>
-              <div className='flex items-center justify-between text-[11px] text-gray-500'>
-                <span>{symbol}</span>
-                <span>{updatedLabel}</span>
+              <div className='flex items-start justify-between gap-2'>
+                <span className='text-[11px] text-gray-400'>{symbol}</span>
+                <div className='flex items-center gap-2'>
+                  <span className='rounded-full bg-gray-800/70 px-2 py-0.5 text-[10px] font-semibold text-gray-200'>
+                    {updatedLabel}
+                  </span>
+                  <span
+                    className={clsx('text-xl', trendClass)}
+                    aria-label={trendLabel}
+                    title={trendLabel}
+                  >
+                    {trend === 'up' && <TrendingUp />}
+                    {trend === 'down' && <TrendingDown />}
+                    {trend === 'flat' && <span className='text-base text-gray-500'>―</span>}
+                  </span>
+                </div>
               </div>
-              <p className='mt-1 text-sm text-gray-300'>{name}</p>
-              <p className={clsx('mt-3 text-2xl font-bold', changeClass)}>{changeText}</p>
-              <p className='mt-1 text-xs text-gray-400'>{displayPrice}</p>
+              <p className='text-sm text-gray-200'>{name}</p>
+              <div className='mt-auto space-y-1'>
+                <p className={clsx('text-2xl font-bold', changeClass)}>{changeText}</p>
+                <p className='text-xs text-gray-400'>{displayPrice}</p>
+              </div>
             </button>
           );
         })}
@@ -166,3 +171,4 @@ export default function MarketOverview() {
     </div>
   );
 }
+

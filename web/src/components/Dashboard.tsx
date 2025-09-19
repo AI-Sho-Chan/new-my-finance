@@ -43,6 +43,7 @@ export default function Dashboard() {
   const updateItemNote = useStore((s) => s.updateItemNote);
   const setPendingAssignGroupIds = useStore((s) => s.setPendingAssignGroupIds);
   const setSortMode = useStore((s) => s.setSortMode);
+  const portfolioMetrics = useStore((s) => s.portfolioMetrics);
 
   const orderedGroups = useMemo(() => Object.values(watchGroups).sort((a, b) => a.order - b.order), [watchGroups]);
   const activeGroup = useMemo(() => orderedGroups.find((g) => g.id === watchUI.activeGroupId) || orderedGroups[0], [orderedGroups, watchUI.activeGroupId]);
@@ -348,29 +349,35 @@ export default function Dashboard() {
         <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={displayedIds} strategy={rectSortingStrategy}>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
-              {displayItems.map((item, index) => (
-                <SortableWatchCard
-                  key={item.id}
-                  item={item}
-                  quote={quotesMap[item.symbol]}
-                  groups={itemGroupMap[item.id] || []}
-                  selectionMode={selectionActive}
-                  selected={selectedSet.has(item.id)}
-                  dragDisabled={sortMode !== 'none'}
-                  metricsUrl={metricsLinkFor(item.symbol)}
-                  onToggleSelect={() => toggleSelection(item.id)}
-                  onOpen={() => handleCardClick(item.id, item.symbol)}
-                  onUpdateNote={(note) => updateItemNote(item.id, note)}
-                  onDelete={() => handleDeleteItem(item.id)}
-                  onRemoveTag={(groupId) => handleRemoveTag(item.id, groupId)}
-                />
-              ))}
+              {displayItems.map((item) => {
+                const groupsForItem = itemGroupMap[item.id] || [];
+                const metricsKey = item.symbol.toUpperCase();
+                const portfolioGainLoss = groupsForItem.some((group) => group.key === 'holding')
+                  ? (portfolioMetrics[item.symbol]?.gainLossPercent ?? portfolioMetrics[metricsKey]?.gainLossPercent)
+                  : undefined;
+                return (
+                  <SortableWatchCard
+                    key={item.id}
+                    item={item}
+                    quote={quotesMap[item.symbol]}
+                    groups={groupsForItem}
+                    selectionMode={selectionActive}
+                    selected={selectedSet.has(item.id)}
+                    dragDisabled={sortMode !== 'none'}
+                    metricsUrl={metricsLinkFor(item.symbol)}
+                    portfolioGainLoss={portfolioGainLoss}
+                    onToggleSelect={() => toggleSelection(item.id)}
+                    onOpen={() => handleCardClick(item.id, item.symbol)}
+                    onUpdateNote={(note) => updateItemNote(item.id, note)}
+                    onDelete={() => handleDeleteItem(item.id)}
+                    onRemoveTag={(groupId) => handleRemoveTag(item.id, groupId)}
+                  />
+                );
+              })}
             </div>
           </SortableContext>
         </DndContext>
       )}
-
-      {modal && <StockChartModal symbol={modal.symbol} open={true} onClose={() => setModal(null)} />}
       <GroupEditorModal
         open={editor.open}
         mode={editor.mode}
@@ -406,6 +413,7 @@ type SortableWatchCardProps = {
   selected: boolean;
   dragDisabled?: boolean;
   metricsUrl?: string;
+  portfolioGainLoss?: number;
   onToggleSelect: () => void;
   onOpen: () => void;
   onUpdateNote: (note: string) => void;
@@ -413,7 +421,7 @@ type SortableWatchCardProps = {
   onRemoveTag: (groupId: string) => void;
 };
 
-function SortableWatchCard({ item, quote, groups, selectionMode, selected, dragDisabled, metricsUrl, onToggleSelect, onOpen, onUpdateNote, onDelete, onRemoveTag }: SortableWatchCardProps) {
+function SortableWatchCard({ item, quote, groups, selectionMode, selected, dragDisabled, metricsUrl, portfolioGainLoss, onToggleSelect, onOpen, onUpdateNote, onDelete, onRemoveTag }: SortableWatchCardProps) {
   const { setNodeRef, listeners, attributes, transform, transition, isDragging } = useSortable({ id: item.id, disabled: selectionMode || dragDisabled });
   const style: CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -444,6 +452,8 @@ function SortableWatchCard({ item, quote, groups, selectionMode, selected, dragD
     </div>
   );
 }
+
+
 
 
 

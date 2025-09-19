@@ -1,6 +1,5 @@
-import { HomeIcon, PieChartIcon, SettingsIcon } from './icons';
-
-type TabKey = 'dashboard' | 'portfolio' | 'analysis' | 'settings';
+﻿import { HomeIcon, PieChartIcon, SettingsIcon } from './icons';
+import type { TabKey } from '../lib/navigation';
 
 export default function NavBar({ activeTab, setActiveTab }: { activeTab: TabKey; setActiveTab: (t: TabKey) => void }) {
   const items: { id: TabKey; label: string; icon: JSX.Element }[] = [
