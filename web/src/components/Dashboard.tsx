@@ -67,6 +67,7 @@ export default function Dashboard() {
     { value: 'none', label: '手動順' },
     { value: 'changeDesc', label: '上昇率(降順)' },
     { value: 'changeAsc', label: '上昇率(昇順)' },
+    { value: 'gainLossDesc', label: '損益率(降順)' },
     { value: 'trendUpFirst', label: '上昇トレンド優先' },
     { value: 'trendDownFirst', label: '下降トレンド優先' },
   ];
@@ -127,6 +128,13 @@ export default function Dashboard() {
       const v = quotesMap[item.symbol]?.changePct;
       return typeof v === 'number' && Number.isFinite(v) ? v : null;
     };
+    const gainLossValue = (item: WatchItem): number | null => {
+      const direct = portfolioMetrics[item.symbol]?.gainLossPercent;
+      if (typeof direct === 'number' && Number.isFinite(direct)) return direct;
+      const key = (item.symbol || '').toUpperCase();
+      const fallback = key ? portfolioMetrics[key]?.gainLossPercent : undefined;
+      return typeof fallback === 'number' && Number.isFinite(fallback) ? fallback : null;
+    };
     const asc = (a: WatchItem, b: WatchItem) => {
       const av = changeValue(a);
       const bv = changeValue(b);
@@ -147,6 +155,15 @@ export default function Dashboard() {
     if (sortMode === 'changeDesc') {
       return [...activeItems].sort(desc);
     }
+    if (sortMode === 'gainLossDesc') {
+      return [...activeItems].sort((a, b) => {
+        const av = gainLossValue(a);
+        const bv = gainLossValue(b);
+        const na = av ?? Number.NEGATIVE_INFINITY;
+        const nb = bv ?? Number.NEGATIVE_INFINITY;
+        return nb - na;
+      });
+    }
     if (sortMode === 'trendUpFirst') {
       const ups = activeItems.filter((item) => quotesMap[item.symbol]?.trend === 'up').sort(asc);
       const rest = activeItems.filter((item) => quotesMap[item.symbol]?.trend !== 'up');
@@ -158,7 +175,7 @@ export default function Dashboard() {
       return [...downs, ...rest];
     }
     return activeItems;
-  }, [activeItems, sortMode, quotesMap]);
+  }, [activeItems, sortMode, quotesMap, portfolioMetrics]);
   const displayedIds = useMemo(() => displayItems.map((item) => item.id), [displayItems]);
   const itemGroupMap = useMemo(() => buildItemGroupMap(orderedGroups), [orderedGroups]);
   const selectedSet = useMemo(() => new Set(watchUI.selectedIds), [watchUI.selectedIds]);
@@ -352,9 +369,8 @@ export default function Dashboard() {
               {displayItems.map((item) => {
                 const groupsForItem = itemGroupMap[item.id] || [];
                 const metricsKey = item.symbol.toUpperCase();
-                const portfolioGainLoss = groupsForItem.some((group) => group.key === 'holding')
-                  ? (portfolioMetrics[item.symbol]?.gainLossPercent ?? portfolioMetrics[metricsKey]?.gainLossPercent)
-                  : undefined;
+                const portfolioGainLoss =
+                  portfolioMetrics[item.symbol]?.gainLossPercent ?? portfolioMetrics[metricsKey]?.gainLossPercent;
                 return (
                   <SortableWatchCard
                     key={item.id}
@@ -443,6 +459,7 @@ function SortableWatchCard({ item, quote, groups, selectionMode, selected, dragD
         selectionMode={selectionMode}
         selected={selected}
         metricsUrl={metricsUrl}
+        portfolioGainLoss={portfolioGainLoss}
         onToggleSelect={onToggleSelect}
         onOpen={onOpen}
         onUpdateNote={onUpdateNote}

@@ -160,26 +160,32 @@ export default function Portfolio() {
   }, [totals.total, totals.cash]);
 
   const metricsPayload = useMemo(() => {
-    const map: Record<string, { valueJPY: number; changeJPY: number; gainLossPercent?: number }> = {};
+    const aggregates: Record<string, { valueJPY: number; changeJPY: number; costJPY: number }> = {};
     valued.forEach((asset) => {
       if (asset.type !== 'STOCK' && asset.type !== 'CRYPTO') return;
-      const key = asset.details.symbol.toUpperCase();
-      if (!map[key]) {
-        map[key] = { valueJPY: 0, changeJPY: 0 };
+      const rawSymbol = asset.details.symbol;
+      const key = typeof rawSymbol === 'string' ? rawSymbol.toUpperCase() : '';
+      if (!key) return;
+      if (!aggregates[key]) {
+        aggregates[key] = { valueJPY: 0, changeJPY: 0, costJPY: 0 };
       }
-      map[key].valueJPY += Number.isFinite(asset.valueJPY) ? asset.valueJPY : 0;
-      map[key].changeJPY += Number.isFinite(asset.changeJPY) ? asset.changeJPY : 0;
-      map[key].gainLossPercent = map[key].valueJPY > 0 && asset.costJPY > 0
-        ? ((map[key].valueJPY - (map[key].valueJPY - map[key].changeJPY)) / (map[key].valueJPY - map[key].changeJPY)) * 100
-        : map[key].gainLossPercent;
+      aggregates[key].valueJPY += Number.isFinite(asset.valueJPY) ? asset.valueJPY : 0;
+      aggregates[key].changeJPY += Number.isFinite(asset.changeJPY) ? asset.changeJPY : 0;
+      aggregates[key].costJPY += Number.isFinite(asset.costJPY) ? asset.costJPY : 0;
     });
 
-    Object.entries(map).forEach(([key, entry]) => {
-      const baseValue = entry.valueJPY - entry.changeJPY;
-      entry.gainLossPercent = baseValue > 0 ? ((entry.valueJPY - baseValue) / baseValue) * 100 : undefined;
+    const result: Record<string, { valueJPY: number; changeJPY: number; gainLossPercent?: number }> = {};
+    Object.entries(aggregates).forEach(([key, entry]) => {
+      const rawPercent = entry.costJPY > 0 ? ((entry.valueJPY - entry.costJPY) / entry.costJPY) * 100 : undefined;
+      const gainLossPercent = typeof rawPercent === 'number' && Number.isFinite(rawPercent) ? rawPercent : undefined;
+      result[key] = {
+        valueJPY: entry.valueJPY,
+        changeJPY: entry.changeJPY,
+        gainLossPercent,
+      };
     });
 
-    return map;
+    return result;
   }, [valued]);
 
   useEffect(() => {

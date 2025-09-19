@@ -457,6 +457,8 @@ export const useStore = create<State & Actions>()(
         watchUI: state.watchUI,
         portfolio: state.portfolio,
         portfolioHistory: state.portfolioHistory,
+        portfolioMetrics: state.portfolioMetrics,
+        portfolioTotals: state.portfolioTotals,
         chartTimeframe: state.chartTimeframe,
       }),
       migrate: (persisted, version) => migrateState(persisted as any, version),

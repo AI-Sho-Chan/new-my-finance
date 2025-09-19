@@ -151,17 +151,21 @@ export default function StockCard({
         </span>
       </div>
 
-      {portfolioGainLoss != null && (
-        <div className="-mt-1 text-xs text-gray-400">
-          <span className={clsx(portfolioGainLoss >= 0 ? 'text-emerald-300' : 'text-rose-300', 'font-semibold')}>
-            {portfolioGainLoss >= 0 ? '+' : ''}{portfolioGainLoss.toFixed(2)}%
-          </span>
-          <span className="ml-1">保有損益</span>
-        </div>
-      )}
-
-      {displayGroups.length > 0 && (
-        <div className="flex flex-wrap gap-1 text-xs" onClick={(e) => e.stopPropagation()}>
+      {(portfolioGainLoss != null || displayGroups.length > 0) && (
+        <div className="flex flex-wrap items-center gap-1 text-[12px] text-gray-300" onClick={(e) => e.stopPropagation()}>
+          {portfolioGainLoss != null && (
+            <span
+              className={clsx(
+                'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-semibold',
+                portfolioGainLoss >= 0
+                  ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
+                  : 'border-rose-500/40 bg-rose-500/10 text-rose-300'
+              )}
+            >
+              <span className="text-indigo-200/80">損益率</span>
+              <span>{portfolioGainLoss >= 0 ? '+' : ''}{portfolioGainLoss.toFixed(2)}%</span>
+            </span>
+          )}
           {displayGroups.map((group) => (
             <GroupTag
               key={group.id}

@@ -78,7 +78,7 @@ export interface WatchItem {
 export type WatchGroupSortMode = 'addedAt' | 'symbol' | 'price' | 'custom';
 export type WatchGroupSortDirection = 'asc' | 'desc';
 
-export type WatchSortMode = 'none' | 'changeAsc' | 'changeDesc' | 'trendUpFirst' | 'trendDownFirst';
+export type WatchSortMode = 'none' | 'changeAsc' | 'changeDesc' | 'gainLossDesc' | 'trendUpFirst' | 'trendDownFirst';
 
 export interface WatchGroup {
   id: string;
