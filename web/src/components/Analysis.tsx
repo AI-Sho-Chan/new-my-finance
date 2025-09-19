@@ -2,7 +2,7 @@
 import { computeSnapshotWithTrails, DEFAULT_PARAMS, type SnapshotItem, type SnapshotTrails, type SnapshotMeta, UNIVERSE, UNIVERSE_US_SECTORS, UNIVERSE_JP_SECTORS, type AssetDef } from '../lib/analysis';
 import { useStore } from '../store';
 import { collectGroupItemIds } from '../lib/watch-helpers';
-import type { MarketQuote, TickerSymbol, WatchItem } from '../types';
+import type { WatchItem } from '../types';
 
 function colorForQuad(q: SnapshotItem['quadrant']) {
   switch (q) {
@@ -29,7 +29,7 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
   const [trails, setTrails] = useState<SnapshotTrails | null>(null);
   const [meta, setMeta] = useState<SnapshotMeta | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [view, setView] = useState<'GLOBAL' | 'US_SECTOR' | 'JP_SECTOR' | 'US_STOCKS' | 'JP_STOCKS'>('GLOBAL');
+  const [view, setView] = useState<'GLOBAL' | 'US_SECTOR' | 'JP_SECTOR' | 'ALL_WATCH'>('GLOBAL');
 
   // Read watchlist from NMY localStorage, fallback to Zustand
   const readNMYWatch = () => {
@@ -43,18 +43,23 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
   const watchItemsMap = useStore((s) => s.watchItems);
   const watchGroupsMap = useStore((s) => s.watchGroups);
   const [nmyWatch, setNmyWatch] = useState<{ symbol: string; name: string }[]>(() => readNMYWatch());
-  const groupsOrdered = useMemo(() => Object.values(watchGroupsMap).sort((a, b) => a.order - b.order), [watchGroupsMap]);
-  const defaultGroupId = useMemo(() => groupsOrdered.find((g) => g.key === 'all')?.id || groupsOrdered[0]?.id || '', [groupsOrdered]);
-  const [analysisGroupId, setAnalysisGroupId] = useState(defaultGroupId);
+  const allGroup = useMemo(() => {
+    const groups = Object.values(watchGroupsMap);
+    if (!groups.length) return null;
+    const sorted = [...groups].sort((a, b) => a.order - b.order);
+    return sorted.find((g) => g.key === 'all') || sorted[0];
+  }, [watchGroupsMap]);
+  const storeWatch = useMemo(() => {
+    if (!allGroup) return [] as { symbol: string; name: string }[];
+    const ids = collectGroupItemIds(allGroup, watchItemsMap);
+    return ids
+      .map((id) => watchItemsMap[id])
+      .filter((item): item is WatchItem => Boolean(item))
+      .map((item) => ({ symbol: item.symbol, name: item.name }));
+  }, [allGroup, watchItemsMap]);
+  const mergedWatch = storeWatch.length ? storeWatch : nmyWatch;
+  const watchKey = useMemo(() => mergedWatch.map((w) => w.symbol).join(','), [mergedWatch]);
 
-  useEffect(() => {
-    if (!groupsOrdered.length) return;
-    if (!analysisGroupId || !groupsOrdered.some((g) => g.id === analysisGroupId)) {
-      setAnalysisGroupId(groupsOrdered[0].id);
-    }
-  }, [groupsOrdered, analysisGroupId]);
-
-  // NMY 側からの受信（postMessage）
   useEffect(() => {
     const onMsg = (ev: MessageEvent) => {
       try {
@@ -76,33 +81,55 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
     return () => { window.removeEventListener('storage', onStorage); window.clearInterval(iv); };
   }, []);
 
-  const selectedGroup = useMemo(() => groupsOrdered.find((g) => g.id === analysisGroupId) || groupsOrdered[0], [groupsOrdered, analysisGroupId]);
-  const storeWatch = useMemo(() => {
-    if (!selectedGroup) return [] as { symbol: string; name: string }[];
-    const ids = collectGroupItemIds(selectedGroup, watchItemsMap);
-    return ids
-      .map((id) => watchItemsMap[id])
-      .filter((item): item is WatchItem => Boolean(item))
-      .map((item) => ({ symbol: item.symbol, name: item.name }));
-  }, [selectedGroup, watchItemsMap]);
-  const mergedWatch = storeWatch.length ? storeWatch : nmyWatch;
-  const watchKey = useMemo(() => `${analysisGroupId}:${mergedWatch.map((w) => w.symbol).join(',')}`, [analysisGroupId, mergedWatch]);
-
   useEffect(() => {
     let alive = true;
-    setLoading(true); setErr(null);
-    const watchUS: AssetDef[] = mergedWatch.filter(w=>!String(w.symbol).endsWith('.T')).map(w=>({ id:w.symbol, name:w.name||w.symbol, cls:'EQ', symbol:String(w.symbol), currency:'USD' }));
-    const watchJP: AssetDef[] = mergedWatch.filter(w=> String(w.symbol).endsWith('.T')).map(w=>({ id:w.symbol, name:w.name||w.symbol, cls:'EQ', symbol:String(w.symbol), currency:'JPY', priceToUSD:'JPY' }));
+    setLoading(true);
+    setErr(null);
+
+    const toAssetDef = (w: { symbol: string; name: string }): AssetDef => {
+      const symbol = String(w.symbol);
+      const name = w.name || symbol;
+      if (symbol.endsWith('.T')) {
+        return { id: symbol, name, cls: 'EQ', symbol, currency: 'JPY', priceToUSD: 'JPY' };
+      }
+      if (symbol.includes('-USD')) {
+        return { id: symbol, name, cls: 'CRYPTO', symbol, currency: 'USD' };
+      }
+      if (symbol.endsWith('=X')) {
+        if (symbol.endsWith('JPY=X')) {
+          return { id: symbol, name, cls: 'FX', symbol, currency: 'JPY', priceToUSD: 'JPY' };
+        }
+        return { id: symbol, name, cls: 'FX', symbol, currency: 'USD' };
+      }
+      if (symbol.startsWith('^')) {
+        return { id: symbol, name, cls: 'INDEX', symbol, currency: 'USD' };
+      }
+      return { id: symbol, name, cls: 'EQ', symbol, currency: 'USD' };
+    };
+
+    const watchAll: AssetDef[] = mergedWatch.map(toAssetDef);
     const uni: AssetDef[] = (
       view==='GLOBAL' ? UNIVERSE :
       view==='US_SECTOR' ? UNIVERSE_US_SECTORS :
       view==='JP_SECTOR' ? UNIVERSE_JP_SECTORS :
-      view==='US_STOCKS' ? watchUS : watchJP
+      watchAll
     );
+
+    if (view === 'ALL_WATCH' && watchAll.length === 0) {
+      if (alive) {
+        setItems([]);
+        setTrails(null);
+        setMeta(null);
+        setErr('Watchlist ALL group is empty.');
+        setLoading(false);
+      }
+      return () => { alive = false; };
+    }
+
     computeSnapshotWithTrails(DEFAULT_PARAMS, uni, 6)
       .then((r) => { if (alive) { setItems(r.items); setTrails(r.trails); setMeta(r.meta); } })
-      .catch((e) => setErr(String(e?.message||e)))
-      .finally(()=> alive && setLoading(false));
+      .catch((e) => setErr(String(e?.message || e)))
+      .finally(() => alive && setLoading(false));
     return () => { alive = false; };
   }, [view, watchKey]);
 
@@ -132,25 +159,11 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center flex-wrap gap-2 text-sm">
-        <span className="text-gray-400">分析対象:</span>
-        {groupsOrdered.map((group) => (
-          <button
-            key={group.id}
-            className={`px-3 py-1 rounded-full ${analysisGroupId === group.id ? 'bg-indigo-600 text-white' : 'bg-gray-700 text-gray-200 hover:bg-gray-600'}`}
-            onClick={() => setAnalysisGroupId(group.id)}
-          >
-            {group.name}
-          </button>
-        ))}
-      </div>
-      <div className="flex items-center gap-2 text-sm">
         <span className="text-gray-400">View:</span>
         <button className={`px-2 py-1 rounded ${view==='GLOBAL'?'bg-indigo-600 text-white':'bg-gray-700 text-gray-200'}`} onClick={()=>setView('GLOBAL')}>Global</button>
         <button className={`px-2 py-1 rounded ${view==='US_SECTOR'?'bg-indigo-600 text-white':'bg-gray-700 text-gray-200'}`} onClick={()=>setView('US_SECTOR')}>US Sectors</button>
         <button className={`px-2 py-1 rounded ${view==='JP_SECTOR'?'bg-indigo-600 text-white':'bg-gray-700 text-gray-200'}`} onClick={()=>setView('JP_SECTOR')}>JP Sectors</button>
-        <span className="mx-2 text-gray-600">|</span>
-        <button className={`px-2 py-1 rounded ${view==='US_STOCKS'?'bg-indigo-600 text-white':'bg-gray-700 text-gray-200'}`} onClick={()=>setView('US_STOCKS')}>US Stocks (watch)</button>
-        <button className={`px-2 py-1 rounded ${view==='JP_STOCKS'?'bg-indigo-600 text-white':'bg-gray-700 text-gray-200'}`} onClick={()=>setView('JP_STOCKS')}>JP Stocks (watch)</button>
+        <button className={`px-2 py-1 rounded ${view==='ALL_WATCH'?'bg-indigo-600 text-white':'bg-gray-700 text-gray-200'}`} onClick={()=>setView('ALL_WATCH')}>ALL</button>
       </div>
 
       {loading && <div className="card">Loading...</div>}
