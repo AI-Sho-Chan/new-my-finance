@@ -3,6 +3,12 @@ import { createChart, ColorType } from 'lightweight-charts';
 
 type SeriesPoint = { time: number; total: number; cash: number; invest: number };
 
+const LEGEND_ITEMS = [
+  { key: 'total', label: '総資産', color: '#3b82f6' },
+  { key: 'cash', label: '現金資産', color: '#22c55e' },
+  { key: 'invest', label: '投資資産', color: '#f59e0b' },
+];
+
 export default function PortfolioChart({ data }: { data: SeriesPoint[] }) {
   const ref = useRef<HTMLDivElement | null>(null);
 
@@ -61,7 +67,22 @@ export default function PortfolioChart({ data }: { data: SeriesPoint[] }) {
     };
   }, [JSON.stringify(data)]);
 
-  return <div ref={ref} className="w-full h-[260px]" />;
+  return (
+    <div className="relative">
+      <div className="absolute right-4 top-3 z-10 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-300">
+        {LEGEND_ITEMS.map((item) => (
+          <div key={item.key} className="flex items-center gap-2">
+            <span
+              className="inline-flex h-2 w-2 rounded-full"
+              style={{ backgroundColor: item.color }}
+            />
+            <span>{item.label}</span>
+          </div>
+        ))}
+      </div>
+      <div ref={ref} className="w-full h-[260px]" />
+    </div>
+  );
 }
 
 

@@ -14,7 +14,9 @@ import type {
   WatchSortMode,
 } from './types';
 
-type PortfolioHistoryItem = { key: string; ts: number; note?: string; portfolio: AssetItem[]; hash: string };
+type PortfolioTotals = { total: number; cash: number; invest: number };
+
+type PortfolioHistoryItem = { key: string; ts: number; note?: string; portfolio: AssetItem[]; hash: string; totals?: PortfolioTotals };
 
 type PortfolioMetricsEntry = { valueJPY: number; changeJPY: number; gainLossPercent?: number };
 
@@ -36,7 +38,7 @@ type State = WatchState & {
   portfolioHistory: PortfolioHistoryItem[];
   chartTimeframe: Timeframe;
   portfolioMetrics: Record<string, PortfolioMetricsEntry>;
-  portfolioTotals: { total: number; cash: number; invest: number };
+  portfolioTotals: PortfolioTotals;
 };
 
 type WatchActions = {
@@ -68,7 +70,7 @@ type PortfolioActions = {
   restorePortfolioSnapshot: (key: string) => void;
   loadPortfolioBackup: (payload: { portfolio: AssetItem[]; portfolioHistory?: PortfolioHistoryItem[] }) => void;
   setTimeframe: (tf: Timeframe) => void;
-  setPortfolioComputed: (metrics: Record<string, PortfolioMetricsEntry>, totals: { total: number; cash: number; invest: number }) => void;
+  setPortfolioComputed: (metrics: Record<string, PortfolioMetricsEntry>, totals: PortfolioTotals) => void;
 };
 
 type Actions = WatchActions & PortfolioActions;
@@ -416,14 +418,21 @@ export const useStore = create<State & Actions>()(
         const synced = syncHoldingsWithPortfolio({ watchItems: state.watchItems, watchGroups: state.watchGroups }, cloned);
         let history = state.portfolioHistory;
         if (Array.isArray(payload.portfolioHistory)) {
-          history = payload.portfolioHistory.map((snap) => ({
-            ...snap,
-            key: snap.key || uuidv4(),
-            ts: typeof snap.ts === 'number' ? snap.ts : Date.now(),
-            portfolio: Array.isArray(snap.portfolio)
+          history = payload.portfolioHistory.map((snap) => {
+            const portfolio = Array.isArray(snap.portfolio)
               ? snap.portfolio.map((asset, idx) => ({ ...asset, id: uuidv4(), order: idx }))
-              : [],
-          }));
+              : [];
+            const hash = typeof snap.hash === 'string' ? snap.hash : JSON.stringify(portfolio);
+            const totals = sanitizeTotals((snap as any)?.totals);
+            return {
+              ...snap,
+              key: snap.key || uuidv4(),
+              ts: typeof snap.ts === 'number' ? snap.ts : Date.now(),
+              portfolio,
+              hash,
+              totals: totals ?? undefined,
+            };
+          });
         } else {
           history = pushSnapshot(state.portfolioHistory, cloned, 'import');
         }
@@ -438,13 +447,14 @@ export const useStore = create<State & Actions>()(
       setTimeframe: (tf) => set({ chartTimeframe: tf }),
 
       setPortfolioComputed: (metrics, totals) => set((state) => {
-        const sameTotals =
-          Math.round(state.portfolioTotals.total) === Math.round(totals.total) &&
-          Math.round(state.portfolioTotals.cash) === Math.round(totals.cash) &&
-          Math.round(state.portfolioTotals.invest) === Math.round(totals.invest);
+        const sameTotals = totalsEqual(state.portfolioTotals, totals);
         const sameMetrics = metricsEqual(state.portfolioMetrics, metrics);
-        if (sameTotals && sameMetrics) return {};
-        return { portfolioMetrics: metrics, portfolioTotals: totals };
+        const history = syncSnapshotTotals(state.portfolioHistory, totals);
+        const nextState: Partial<State> = {};
+        if (!sameMetrics) nextState.portfolioMetrics = metrics;
+        if (!sameTotals) nextState.portfolioTotals = totals;
+        if (history !== state.portfolioHistory) nextState.portfolioHistory = history;
+        return Object.keys(nextState).length ? nextState : {};
       }),
     }),
     {
@@ -780,15 +790,30 @@ function reindexGroupOrders(groups: Record<string, WatchGroup>): Record<string, 
   return result;
 }
 
-function pushSnapshot(history: PortfolioHistoryItem[], portfolio: AssetItem[], note?: string): PortfolioHistoryItem[] {
+function pushSnapshot(
+  history: PortfolioHistoryItem[],
+  portfolio: AssetItem[],
+  meta?: string | { note?: string; totals?: PortfolioTotals }
+): PortfolioHistoryItem[] {
   try {
     const MAX = 365;
     const ser = JSON.stringify(portfolio);
     const last = history[history.length - 1];
-    if (last && last.hash === ser) return history;
+    const note = typeof meta === 'string' ? meta : meta?.note;
+    const totals = typeof meta === 'object' && meta ? sanitizeTotals(meta.totals) : undefined;
+    if (last && last.hash === ser) {
+      if (totals && (!last.totals || !totalsEqual(last.totals, totals))) {
+        const updated = [...history];
+        updated[updated.length - 1] = { ...last, totals };
+        return updated;
+      }
+      return history;
+    }
     const ts = Date.now();
     const key = `${ts}-${Math.random().toString(36).slice(2, 8)}`;
-    const next = [...history, { key, ts, note, portfolio: JSON.parse(ser), hash: ser }];
+    const entry: PortfolioHistoryItem = { key, ts, note, portfolio: JSON.parse(ser), hash: ser };
+    if (totals) entry.totals = totals;
+    const next = [...history, entry];
     return next.length > MAX ? next.slice(next.length - MAX) : next;
   } catch {
     return history;
@@ -866,7 +891,52 @@ function syncHoldingsWithPortfolio(state: { watchItems: Record<string, WatchItem
   return { watchItems: items, watchGroups: groups };
 }
 
+function syncSnapshotTotals(history: PortfolioHistoryItem[], totals: PortfolioTotals): PortfolioHistoryItem[] {
+  if (!history.length) return history;
+  const sanitized = sanitizeTotals(totals);
+  if (!sanitized) return history;
+  const last = history[history.length - 1];
+  if (!isSameDay(last.ts, Date.now())) return history;
+  if (last.totals && totalsEqual(last.totals, sanitized)) return history;
+  const updated = [...history];
+  updated[updated.length - 1] = { ...last, totals: sanitized };
+  return updated;
+}
 
+function sanitizeTotals(raw?: Partial<PortfolioTotals> | null): PortfolioTotals | undefined {
+  if (!raw) return undefined;
+  const total = toNumberOrNull(raw.total);
+  if (total == null) return undefined;
+  const cashRaw = toNumberOrNull(raw.cash);
+  const investRaw = toNumberOrNull(raw.invest);
+  const cash = cashRaw ?? (investRaw != null ? total - investRaw : 0);
+  const invest = investRaw ?? (total - cash);
+  return { total, cash, invest };
+}
 
+function toNumberOrNull(value: unknown): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
 
+function totalsEqual(a: PortfolioTotals, b: PortfolioTotals): boolean {
+  return (
+    Math.round(a.total) === Math.round(b.total) &&
+    Math.round(a.cash) === Math.round(b.cash) &&
+    Math.round(a.invest) === Math.round(b.invest)
+  );
+}
 
+function startOfDay(ts: number): number {
+  const d = new Date(ts);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+function isSameDay(a: number, b: number): boolean {
+  return startOfDay(a) === startOfDay(b);
+}

@@ -31,6 +31,46 @@ const toFiniteNumber = (value: unknown, fallback = 0): number => {
 
 const formatJPY = (value: number) => (Number.isFinite(value) ? Math.round(value).toLocaleString('ja-JP') : '--');
 
+const toNumberOrNull = (value: unknown): number | null => {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+};
+
+const normalizeHistoryTotals = (raw: any): { total: number; cash: number; invest: number } | null => {
+  if (!raw) return null;
+  const total = toNumberOrNull(raw.total);
+  if (total == null) return null;
+  const cashRaw = toNumberOrNull(raw.cash);
+  const investRaw = toNumberOrNull(raw.invest);
+  const cash = cashRaw ?? (investRaw != null ? total - investRaw : 0);
+  const invest = investRaw ?? (total - cash);
+  return { total, cash, invest };
+};
+
+const startOfDay = (ts: number): number => {
+  const d = new Date(ts);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+};
+
+const formatDelta = (value: number | null | undefined): string => {
+  if (value == null || !Number.isFinite(value)) return '--';
+  const rounded = Math.round(value);
+  const sign = rounded > 0 ? '+' : '';
+  return `${sign}${rounded.toLocaleString('ja-JP')} �~`;
+};
+
+const deltaClassName = (value: number | null | undefined): string => {
+  if (value == null || !Number.isFinite(value)) return 'text-gray-500';
+  if (value > 0) return 'text-emerald-400';
+  if (value < 0) return 'text-rose-400';
+  return 'text-gray-400';
+};
+
 export default function Portfolio() {
   const portfolio = useStore((s) => [...s.portfolio].sort((a, b) => a.order - b.order));
   const remove = useStore((s) => s.removeAsset);
@@ -132,32 +172,57 @@ export default function Portfolio() {
   }, [valued]);
 
   const timeseries = useMemo(() => {
-    const safeTotals = {
-      total: Number.isFinite(totals.total) ? totals.total : 0,
-      cash: Number.isFinite(totals.cash) ? totals.cash : 0,
-    };
-    const days = 120;
-    const now = Date.now();
-    const out: { time: number; total: number; cash: number; invest: number }[] = [];
-    let t = safeTotals.total * 0.8;
-    if (!Number.isFinite(t)) t = 0;
-    for (let i = days - 1; i >= 0; i--) {
-      const time = Math.floor((now - i * 24 * 3600 * 1000) / 1000);
-      t = t * (1 + (Math.random() - 0.48) * 0.01);
-      if (!Number.isFinite(t)) t = 0;
-      const cashNoise = safeTotals.cash * (1 + (Math.random() - 0.5) * 0.002);
-      const safeCash = Number.isFinite(cashNoise) ? cashNoise : 0;
-      const safeTotal = Number.isFinite(t) ? t : 0;
-      const safeInvest = Number.isFinite(safeTotal - safeCash) ? safeTotal - safeCash : 0;
-      out.push({
-        time,
-        total: Math.max(0, safeTotal),
-        cash: Math.max(0, safeCash),
-        invest: Math.max(0, safeInvest),
+    const daily = new Map<number, { time: number; total: number; cash: number; invest: number }>();
+    if (Array.isArray(portfolioHistory) && portfolioHistory.length) {
+      const sorted = [...portfolioHistory].sort((a, b) => a.ts - b.ts);
+      sorted.forEach((snap) => {
+        const totals = normalizeHistoryTotals((snap as any).totals);
+        if (!totals) return;
+        const dayKey = startOfDay(snap.ts);
+        daily.set(dayKey, {
+          time: Math.floor(snap.ts / 1000),
+          total: totals.total,
+          cash: totals.cash,
+          invest: totals.invest,
+        });
       });
     }
-    return out;
-  }, [totals.total, totals.cash]);
+    if (Number.isFinite(totals.total) || Number.isFinite(totals.cash) || Number.isFinite(totals.invest)) {
+      const todayKey = startOfDay(Date.now());
+      daily.set(todayKey, {
+        time: Math.floor(Date.now() / 1000),
+        total: totals.total,
+        cash: totals.cash,
+        invest: totals.invest,
+      });
+    }
+    return Array.from(daily.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([, value]) => value)
+      .filter((entry) => Number.isFinite(entry.total));
+  }, [portfolioHistory, totals.total, totals.cash, totals.invest]);
+
+
+  const previousTotals = useMemo(() => {
+    if (!Array.isArray(portfolioHistory) || !portfolioHistory.length) return null;
+    const todayKey = startOfDay(Date.now());
+    const sorted = [...portfolioHistory].sort((a, b) => b.ts - a.ts);
+    for (const snap of sorted) {
+      if (snap.ts >= todayKey) continue;
+      const totals = normalizeHistoryTotals((snap as any).totals);
+      if (totals) return totals;
+    }
+    return null;
+  }, [portfolioHistory]);
+
+  const totalsDiff = useMemo(() => {
+    if (!previousTotals) return null;
+    return {
+      total: totals.total - previousTotals.total,
+      cash: totals.cash - previousTotals.cash,
+      invest: totals.invest - previousTotals.invest,
+    };
+  }, [totals.total, totals.cash, totals.invest, previousTotals]);
 
   const metricsPayload = useMemo(() => {
     const aggregates: Record<string, { valueJPY: number; changeJPY: number; costJPY: number }> = {};
@@ -303,14 +368,17 @@ export default function Portfolio() {
         <div className="card">
           <div className="text-sm text-gray-400">総資産</div>
           <div className="text-2xl font-bold">{formatJPY(totals.total)} 円</div>
+          <div className={`text-xs ${deltaClassName(totalsDiff?.total)}`}>前日比 {formatDelta(totalsDiff?.total)}</div>
         </div>
         <div className="card">
           <div className="text-sm text-gray-400">現金資産</div>
           <div className="text-2xl font-bold">{formatJPY(totals.cash)} 円</div>
+          <div className={`text-xs ${deltaClassName(totalsDiff?.cash)}`}>前日比 {formatDelta(totalsDiff?.cash)}</div>
         </div>
         <div className="card">
           <div className="text-sm text-gray-400">投資資産</div>
           <div className="text-2xl font-bold">{formatJPY(totals.invest)} 円</div>
+          <div className={`text-xs ${deltaClassName(totalsDiff?.invest)}`}>前日比 {formatDelta(totalsDiff?.invest)}</div>
         </div>
       </div>
 
