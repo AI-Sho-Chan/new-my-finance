@@ -130,6 +130,7 @@ export async function computeSnapshot(params = DEFAULT_PARAMS, universe?: AssetD
   const uni = universe && universe.length ? universe : UNIVERSE;
   const daily: Record<string, Series> = {};
   const weekly: Record<string, Series> = {};
+  const overrideMap = opts.overrides || {} as SnapshotOverrides;
 
   // FX for JPY conversion
   const fxJPY = await fetchHistoricalCandles('USDJPY=X', 'D').catch(()=>[]) as Candle[];
@@ -306,11 +307,14 @@ export async function computeSnapshot(params = DEFAULT_PARAMS, universe?: AssetD
   return { items, params };
 }
 
-export async function computeSnapshotWithTrails(params = DEFAULT_PARAMS, uni: AssetDef[], monthsBack = 6): Promise<{ items: SnapshotItem[]; trails: SnapshotTrails; meta: SnapshotMeta; params: typeof DEFAULT_PARAMS }>
+type SnapshotOverrides = Record<string, { daily: Candle[]; weekly: Candle[] }>;
+
+export async function computeSnapshotWithTrails(params = DEFAULT_PARAMS, uni: AssetDef[], monthsBack = 6, opts: { overrides?: SnapshotOverrides } = {}): Promise<{ items: SnapshotItem[]; trails: SnapshotTrails; meta: SnapshotMeta; params: typeof DEFAULT_PARAMS }>
 {
   type Series = { time: number, price: number | null }[];
   const daily: Record<string, Series> = {};
   const weekly: Record<string, Series> = {};
+  const overrideMap = opts.overrides || {} as SnapshotOverrides;
 
   const fxJPY = await fetchHistoricalCandles('USDJPY=X', 'D').catch(()=>[]) as Candle[];
   const fxJPY_W = await fetchHistoricalCandles('USDJPY=X', 'W').catch(()=>[]) as Candle[];
@@ -329,6 +333,12 @@ export async function computeSnapshotWithTrails(params = DEFAULT_PARAMS, uni: As
   function nearestValue(series: Series, t: number): number | null { for (let i=series.length-1;i>=0;i--) if (series[i].time <= t) return series[i].price ?? null; return null; }
 
   await Promise.all(uni.map(async a => {
+    const override = overrideMap[a.id] || overrideMap[a.symbol];
+    if (override) {
+      daily[a.id] = toSeries(override.daily, a.priceToUSD, fxD);
+      weekly[a.id] = toSeries(override.weekly, a.priceToUSD, fxW);
+      return;
+    }
     const [cd, cw] = await Promise.all([
       fetchHistoricalCandles(a.symbol, 'D').catch(()=>[]),
       fetchHistoricalCandles(a.symbol, 'W').catch(()=>[]),

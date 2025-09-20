@@ -1,5 +1,7 @@
-﻿import { useEffect, useMemo, useState } from 'react';
-import { computeSnapshotWithTrails, DEFAULT_PARAMS, type SnapshotItem, type SnapshotTrails, type SnapshotMeta, UNIVERSE, UNIVERSE_US_SECTORS, UNIVERSE_JP_SECTORS, type AssetDef } from '../lib/analysis';
+﻿import { fetchTopix33History, buildTopix33Overrides, type Topix33Overrides } from '../lib/topix33';
+import { fetchUSIndustriesHistory, buildUSIndustryOverrides, type USIndustryOverrides } from '../lib/usIndustries';
+import { useEffect, useMemo, useState } from 'react';
+import { computeSnapshotWithTrails, DEFAULT_PARAMS, type SnapshotItem, type SnapshotTrails, type SnapshotMeta, UNIVERSE, UNIVERSE_US_SECTORS, type AssetDef } from '../lib/analysis';
 import { useStore } from '../store';
 import { collectGroupItemIds } from '../lib/watch-helpers';
 import type { WatchItem } from '../types';
@@ -29,7 +31,11 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
   const [trails, setTrails] = useState<SnapshotTrails | null>(null);
   const [meta, setMeta] = useState<SnapshotMeta | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [view, setView] = useState<'GLOBAL' | 'US_SECTOR' | 'JP_SECTOR' | 'ALL_WATCH'>('GLOBAL');
+  const [view, setView] = useState<'GLOBAL' | 'US_SECTOR' | 'US_INDUSTRY' | 'JP_SECTOR' | 'ALL_WATCH'>('GLOBAL');
+  const [topixData, setTopixData] = useState<Topix33Overrides | null>(null);
+  const [topixLoadErr, setTopixLoadErr] = useState<string | null>(null);
+  const [usIndustryData, setUsIndustryData] = useState<USIndustryOverrides | null>(null);
+  const [usIndustryLoadErr, setUsIndustryLoadErr] = useState<string | null>(null);
 
   // Read watchlist from NMY localStorage, fallback to Zustand
   const readNMYWatch = () => {
@@ -82,56 +88,174 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+    fetchTopix33History()
+      .then((history) => buildTopix33Overrides(history))
+      .then((result) => {
+        if (cancelled) return;
+        setTopixData(result);
+        setTopixLoadErr(null);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setTopixData(null);
+        setTopixLoadErr(error instanceof Error ? error.message : String(error));
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchUSIndustriesHistory()
+      .then((history) => buildUSIndustryOverrides(history))
+      .then((result) => {
+        if (cancelled) return;
+        setUsIndustryData(result);
+        setUsIndustryLoadErr(null);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setUsIndustryData(null);
+        setUsIndustryLoadErr(error instanceof Error ? error.message : String(error));
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  const topixAssets = useMemo(() => topixData?.assets ?? [], [topixData]);
+  const topixOverridesMap = useMemo(() => topixData?.overrides ?? null, [topixData]);
+  const topixStats = useMemo(() => {
+    if (!topixData) return null;
+    const overrides = topixData.overrides ?? {};
+    const entries = Object.values(overrides);
+    if (!entries.length) return null;
+    let withHistory = 0;
+    let longCount = 0;
+    let start: string | null = null;
+    let end: string | null = null;
+    entries.forEach(({ daily }) => {
+      if (!daily.length) return;
+      withHistory += 1;
+      if (daily.length >= 252) longCount += 1;
+      const first = daily[0];
+      const last = daily[daily.length - 1];
+      const firstDate = new Date(first.time * 1000).toISOString().slice(0, 10);
+      const lastDate = new Date(last.time * 1000).toISOString().slice(0, 10);
+      if (!start || firstDate < start) start = firstDate;
+      if (!end || lastDate > end) end = lastDate;
+    });
+    return { total: entries.length, withHistory, longCount, start, end };
+  }, [topixData]);
+
+  const usIndustryAssets = useMemo(() => usIndustryData?.assets ?? [], [usIndustryData]);
+  const usIndustryOverridesMap = useMemo(() => usIndustryData?.overrides ?? null, [usIndustryData]);
+  const usIndustryStats = useMemo(() => usIndustryData?.metadata ?? null, [usIndustryData]);
+
+  useEffect(() => {
     let alive = true;
-    setLoading(true);
-    setErr(null);
 
-    const toAssetDef = (w: { symbol: string; name: string }): AssetDef => {
-      const symbol = String(w.symbol);
-      const name = w.name || symbol;
-      if (symbol.endsWith('.T')) {
-        return { id: symbol, name, cls: 'EQ', symbol, currency: 'JPY', priceToUSD: 'JPY' };
-      }
-      if (symbol.includes('-USD')) {
-        return { id: symbol, name, cls: 'CRYPTO', symbol, currency: 'USD' };
-      }
-      if (symbol.endsWith('=X')) {
-        if (symbol.endsWith('JPY=X')) {
-          return { id: symbol, name, cls: 'FX', symbol, currency: 'JPY', priceToUSD: 'JPY' };
-        }
-        return { id: symbol, name, cls: 'FX', symbol, currency: 'USD' };
-      }
-      if (symbol.startsWith('^')) {
-        return { id: symbol, name, cls: 'INDEX', symbol, currency: 'USD' };
-      }
-      return { id: symbol, name, cls: 'EQ', symbol, currency: 'USD' };
-    };
-
-    const watchAll: AssetDef[] = mergedWatch.map(toAssetDef);
-    const uni: AssetDef[] = (
-      view==='GLOBAL' ? UNIVERSE :
-      view==='US_SECTOR' ? UNIVERSE_US_SECTORS :
-      view==='JP_SECTOR' ? UNIVERSE_JP_SECTORS :
-      watchAll
-    );
-
-    if (view === 'ALL_WATCH' && watchAll.length === 0) {
-      if (alive) {
-        setItems([]);
+    const run = async () => {
+      if (view === 'JP_SECTOR' && !topixOverridesMap) {
+        setItems(null);
         setTrails(null);
         setMeta(null);
-        setErr('Watchlist ALL group is empty.');
-        setLoading(false);
+        if (topixLoadErr) {
+          setErr(topixLoadErr);
+          setLoading(false);
+        } else {
+          setErr(null);
+          setLoading(true);
+        }
+        return;
       }
-      return () => { alive = false; };
-    }
+      if (view === 'US_INDUSTRY' && !usIndustryOverridesMap) {
+        setItems(null);
+        setTrails(null);
+        setMeta(null);
+        if (usIndustryLoadErr) {
+          setErr(usIndustryLoadErr);
+          setLoading(false);
+        } else {
+          setErr(null);
+          setLoading(true);
+        }
+        return;
+      }
 
-    computeSnapshotWithTrails(DEFAULT_PARAMS, uni, 6)
-      .then((r) => { if (alive) { setItems(r.items); setTrails(r.trails); setMeta(r.meta); } })
-      .catch((e) => setErr(String(e?.message || e)))
-      .finally(() => alive && setLoading(false));
+      setLoading(true);
+      setErr(null);
+
+      const toAssetDef = (w: { symbol: string; name: string }): AssetDef => {
+        const symbol = String(w.symbol);
+        const name = w.name || symbol;
+        if (symbol.endsWith('.T')) {
+          return { id: symbol, name, cls: 'EQ', symbol, currency: 'JPY', priceToUSD: 'JPY' };
+        }
+        if (symbol.includes('-USD')) {
+          return { id: symbol, name, cls: 'CRYPTO', symbol, currency: 'USD' };
+        }
+        if (symbol.endsWith('=X')) {
+          if (symbol.endsWith('JPY=X')) {
+            return { id: symbol, name, cls: 'FX', symbol, currency: 'JPY', priceToUSD: 'JPY' };
+          }
+          return { id: symbol, name, cls: 'FX', symbol, currency: 'USD' };
+        }
+        if (symbol.startsWith('^')) {
+          return { id: symbol, name, cls: 'INDEX', symbol, currency: 'USD' };
+        }
+        return { id: symbol, name, cls: 'EQ', symbol, currency: 'USD' };
+      };
+
+      const watchAll: AssetDef[] = mergedWatch.map(toAssetDef);
+      const uni: AssetDef[] = (
+        view==='GLOBAL' ? UNIVERSE :
+        view==='US_SECTOR' ? UNIVERSE_US_SECTORS :
+        view==='US_INDUSTRY' ? usIndustryAssets :
+        view==='JP_SECTOR' ? topixAssets :
+        watchAll
+      );
+
+      if (view === 'ALL_WATCH' && watchAll.length === 0) {
+        if (alive) {
+          setItems([]);
+          setTrails(null);
+          setMeta(null);
+          setErr('Watchlist ALL group is empty.');
+          setLoading(false);
+        }
+        return;
+      }
+
+      try {
+        const overridesArg =
+          view === 'JP_SECTOR' ? topixOverridesMap ?? undefined :
+          view === 'US_INDUSTRY' ? usIndustryOverridesMap ?? undefined :
+          undefined;
+        const result = await computeSnapshotWithTrails(
+          DEFAULT_PARAMS,
+          uni,
+          6,
+          overridesArg ? { overrides: overridesArg } : undefined
+        );
+        if (!alive) return;
+        setItems(result.items);
+        setTrails(result.trails);
+        setMeta(result.meta);
+        setErr(null);
+      } catch (error) {
+        if (!alive) return;
+        setItems(null);
+        setTrails(null);
+        setMeta(null);
+        setErr(error instanceof Error ? error.message : String(error));
+      } finally {
+        if (alive) setLoading(false);
+      }
+    };
+
+    run();
+
     return () => { alive = false; };
-  }, [view, watchKey]);
+  }, [view, watchKey, topixAssets, topixOverridesMap, topixLoadErr, usIndustryAssets, usIndustryOverridesMap, usIndustryLoadErr]);
 
   const domain = useMemo(() => {
     if (!items) return { f:[-3,3] as [number,number], v:[-3,3] as [number,number] };
@@ -162,9 +286,37 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
         <span className="text-gray-400">View:</span>
         <button className={`px-2 py-1 rounded ${view==='GLOBAL'?'bg-indigo-600 text-white':'bg-gray-700 text-gray-200'}`} onClick={()=>setView('GLOBAL')}>Global</button>
         <button className={`px-2 py-1 rounded ${view==='US_SECTOR'?'bg-indigo-600 text-white':'bg-gray-700 text-gray-200'}`} onClick={()=>setView('US_SECTOR')}>US Sectors</button>
-        <button className={`px-2 py-1 rounded ${view==='JP_SECTOR'?'bg-indigo-600 text-white':'bg-gray-700 text-gray-200'}`} onClick={()=>setView('JP_SECTOR')}>JP Sectors</button>
+        <button className={`px-2 py-1 rounded ${view==='US_INDUSTRY'?'bg-indigo-600 text-white':'bg-gray-700 text-gray-200'}`} onClick={()=>setView('US_INDUSTRY')}>US Industries</button>
+        <button className={`px-2 py-1 rounded ${view==='JP_SECTOR'?'bg-indigo-600 text-white':'bg-gray-700 text-gray-200'}`} onClick={()=>setView('JP_SECTOR')}>Japan Index</button>
         <button className={`px-2 py-1 rounded ${view==='ALL_WATCH'?'bg-indigo-600 text-white':'bg-gray-700 text-gray-200'}`} onClick={()=>setView('ALL_WATCH')}>ALL</button>
       </div>
+
+      {view === 'JP_SECTOR' && (
+        <div className="text-xs text-gray-400">
+          {topixStats ? (
+            <span>
+              TOPIX-33 coverage: {topixStats.withHistory}/{topixStats.total} sectors ({topixStats.longCount} with at least 252 daily bars) | history window: {topixStats.start ?? 'n/a'} to {topixStats.end ?? 'n/a'}
+            </span>
+          ) : topixLoadErr ? (
+            'Failed to load TOPIX-33 dataset.'
+          ) : (
+            'Loading TOPIX-33 dataset...'
+          )}
+        </div>
+      )}
+      {view === 'US_INDUSTRY' && (
+        <div className="text-xs text-gray-400">
+          {usIndustryStats ? (
+            <span>
+              US industry coverage: {usIndustryStats.withHistory}/{usIndustryStats.total} composites ({usIndustryStats.longCount} with {'>='} 750 daily bars) | history window: {usIndustryStats.start ?? 'n/a'} to {usIndustryStats.end ?? 'n/a'}
+            </span>
+          ) : usIndustryLoadErr ? (
+            'Failed to load US industry dataset.'
+          ) : (
+            'Loading US industry dataset...'
+          )}
+        </div>
+      )}
 
       {loading && <div className="card">Loading...</div>}
       {err && <div className="card text-red-400">{err}</div>}
@@ -248,6 +400,15 @@ function Scatter({ items, trails, xDomain, yDomain }: { items: SnapshotItem[]; t
 
 function Heatmap({ items }: { items: SnapshotItem[] }) {
   const cols = ['F','V','A'] as const;
+  const quadrantOrder: Record<string, number> = { Q1: 0, Q2: 1, Q3: 2, Q4: 3 };
+  const sortedItems = [...items].sort((a, b) => {
+    const oa = quadrantOrder[a.quadrant] ?? 99;
+    const ob = quadrantOrder[b.quadrant] ?? 99;
+    if (oa !== ob) return oa - ob;
+    const nameA = a.name || a.id;
+    const nameB = b.name || b.id;
+    return nameA.localeCompare(nameB);
+  });
   const aVals = items.map(i => i.A).filter((x): x is number => typeof x === 'number' && Number.isFinite(x));
   const aPctl = (v: number | null) => {
     if (v == null || !Number.isFinite(v)) return null;
@@ -265,7 +426,7 @@ function Heatmap({ items }: { items: SnapshotItem[] }) {
           <th className="px-2 py-1 text-center">Quad</th>
         </tr></thead>
         <tbody>
-          {items.map(it => {
+          {sortedItems.map(it => {
             const ap = aPctl(it.A ?? null);
             return (
               <tr key={it.id} className="border-t border-gray-700">

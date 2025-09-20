@@ -1,0 +1,2326 @@
+{
+  "generatedAt": "2025-09-20T11:15:07.765478+00:00",
+  "source": "FinanceDatabase 2.3.1",
+  "maxComponents": 5,
+  "industries": [
+    {
+      "id": "DiversifiedTelecommunicationServices",
+      "sector": "Communication Services",
+      "industryGroup": "Telecommunication Services",
+      "industry": "Diversified Telecommunication Services",
+      "components": [
+        {
+          "symbol": "GOOG",
+          "name": "Alphabet Inc.",
+          "marketCap": "Mega Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "META",
+          "name": "Meta Platforms Inc.",
+          "marketCap": "Mega Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "T",
+          "name": "AT&T Inc.",
+          "marketCap": "Mega Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "TMUS",
+          "name": "T-Mobile US, Inc.",
+          "marketCap": "Mega Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "VZ",
+          "name": "Verizon Communications Inc.",
+          "marketCap": "Mega Cap",
+          "exchange": "NYQ"
+        }
+      ]
+    },
+    {
+      "id": "Entertainment",
+      "sector": "Communication Services",
+      "industryGroup": "Media & Entertainment",
+      "industry": "Entertainment",
+      "components": [
+        {
+          "symbol": "DIS",
+          "name": "The Walt Disney Company",
+          "marketCap": "Mega Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "NFLX",
+          "name": "Netflix, Inc.",
+          "marketCap": "Mega Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "CHTR",
+          "name": "Charter Communications, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "CMCSA",
+          "name": "Comcast Corporation",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "DISCA",
+          "name": "Discovery, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        }
+      ]
+    },
+    {
+      "id": "InteractiveMediaServices",
+      "sector": "Communication Services",
+      "industryGroup": "Media & Entertainment",
+      "industry": "Interactive Media & Services",
+      "components": [
+        {
+          "symbol": "ATVI",
+          "name": "Activision Blizzard, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "EA",
+          "name": "Electronic Arts Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "RBLX",
+          "name": "Roblox Corporation",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "ZNGA",
+          "name": "Zynga Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "GLUU",
+          "name": "Glu Mobile Inc.",
+          "marketCap": "Mid Cap",
+          "exchange": "NMS"
+        }
+      ]
+    },
+    {
+      "id": "Media",
+      "sector": "Communication Services",
+      "industryGroup": "Media & Entertainment",
+      "industry": "Media",
+      "components": [
+        {
+          "symbol": "FOX",
+          "name": "Fox Corporation",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "NWS",
+          "name": "News Corporation",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "PSKY",
+          "name": "Paramount Skydance Corporation Class B Common Stock",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "GTN-A",
+          "name": "Gray Television, Inc.",
+          "marketCap": "Mid Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "IHRTB",
+          "name": "iHeartMedia, Inc.",
+          "marketCap": "Mid Cap",
+          "exchange": "PNK"
+        }
+      ]
+    },
+    {
+      "id": "AutoComponents",
+      "sector": "Consumer Discretionary",
+      "industryGroup": "Automobiles & Components",
+      "industry": "Auto Components",
+      "components": [
+        {
+          "symbol": "QS-WT",
+          "name": "QuantumScape Corporation",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "ALSN",
+          "name": "Allison Transmission Holdings, Inc.",
+          "marketCap": "Mid Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "BWA",
+          "name": "BorgWarner Inc.",
+          "marketCap": "Mid Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "CTB",
+          "name": "Cooper Tire & Rubber Company",
+          "marketCap": "Mid Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "DAN",
+          "name": "Dana Incorporated",
+          "marketCap": "Mid Cap",
+          "exchange": "NYQ"
+        }
+      ]
+    },
+    {
+      "id": "Automobiles",
+      "sector": "Consumer Discretionary",
+      "industryGroup": "Automobiles & Components",
+      "industry": "Automobiles",
+      "components": [
+        {
+          "symbol": "TSLA",
+          "name": "Tesla, Inc.",
+          "marketCap": "Mega Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "F",
+          "name": "Ford Motor Company",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "GM",
+          "name": "General Motors Company",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "PAG",
+          "name": "Penske Automotive Group, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "RIVN",
+          "name": "Rivian Automotive Inc. Class A Common Stock",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        }
+      ]
+    },
+    {
+      "id": "Distributors",
+      "sector": "Consumer Discretionary",
+      "industryGroup": "Retailing",
+      "industry": "Distributors",
+      "components": [
+        {
+          "symbol": "BALL",
+          "name": "Ball Corporation Common Stock",
+          "marketCap": "Large Cap",
+          "exchange": "ASE"
+        },
+        {
+          "symbol": "BLL",
+          "name": "Ball Corporation",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "CCK",
+          "name": "Crown Holdings, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "IP",
+          "name": "International Paper Company",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "PKG",
+          "name": "Packaging Corporation of America",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        }
+      ]
+    },
+    {
+      "id": "DiversifiedConsumerServices",
+      "sector": "Consumer Discretionary",
+      "industryGroup": "Consumer Services",
+      "industry": "Diversified Consumer Services",
+      "components": [
+        {
+          "symbol": "DJSP",
+          "name": "DJSP Enterprises, Inc.",
+          "marketCap": "Nano Cap",
+          "exchange": "PNK"
+        },
+        {
+          "symbol": "DRSV",
+          "name": "Debt Resolve, Inc.",
+          "marketCap": "Nano Cap",
+          "exchange": "PNK"
+        },
+        {
+          "symbol": "FUEG",
+          "name": "Face Up Entertainment Group, Inc.",
+          "marketCap": "Nano Cap",
+          "exchange": "PNK"
+        },
+        {
+          "symbol": "ITEC",
+          "name": "Intertech Solutions , Inc.",
+          "marketCap": "Nano Cap",
+          "exchange": "PNK"
+        },
+        {
+          "symbol": "LTNC",
+          "name": "Labor Smart, Inc.",
+          "marketCap": "Nano Cap",
+          "exchange": "PNK"
+        }
+      ]
+    },
+    {
+      "id": "HotelsRestaurantsLeisure",
+      "sector": "Consumer Discretionary",
+      "industryGroup": "Consumer Services",
+      "industry": "Hotels, Restaurants & Leisure",
+      "components": [
+        {
+          "symbol": "MCD",
+          "name": "McDonald's Corporation",
+          "marketCap": "Mega Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "ARMK",
+          "name": "Aramark",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "BKNG",
+          "name": "Booking Holdings Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "CCL",
+          "name": "Carnival Corporation & plc",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "CMG",
+          "name": "Chipotle Mexican Grill, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        }
+      ]
+    },
+    {
+      "id": "HouseholdDurables",
+      "sector": "Consumer Discretionary",
+      "industryGroup": "Consumer Durables & Apparel",
+      "industry": "Household Durables",
+      "components": [
+        {
+          "symbol": "HD",
+          "name": "The Home Depot, Inc.",
+          "marketCap": "Mega Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "FBHS",
+          "name": "Fortune Brands Home & Security, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "LOW",
+          "name": "Lowe's Companies, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "SGI",
+          "name": "Somnigroup International Inc. Common Stock",
+          "marketCap": "Large Cap",
+          "exchange": "ASE"
+        },
+        {
+          "symbol": "TPX",
+          "name": "Tempur Sealy International, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        }
+      ]
+    },
+    {
+      "id": "InternetDirectMarketingRetail",
+      "sector": "Consumer Discretionary",
+      "industryGroup": "Retailing",
+      "industry": "Internet & Direct Marketing Retail",
+      "components": [
+        {
+          "symbol": "AMZN",
+          "name": "Amazon.com, Inc.",
+          "marketCap": "Mega Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "CHWY",
+          "name": "Chewy, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "CVNA",
+          "name": "Carvana Co.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "EBAY",
+          "name": "eBay Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "QRTEP",
+          "name": "Qurate Retail, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        }
+      ]
+    },
+    {
+      "id": "SpecialtyRetail",
+      "sector": "Consumer Discretionary",
+      "industryGroup": "Retailing",
+      "industry": "Specialty Retail",
+      "components": [
+        {
+          "symbol": "AIABF",
+          "name": "RH",
+          "marketCap": "Large Cap",
+          "exchange": "PNK"
+        },
+        {
+          "symbol": "BBY",
+          "name": "Best Buy Co., Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "DKS",
+          "name": "DICK'S Sporting Goods, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "GME",
+          "name": "GameStop Corp.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "GPC",
+          "name": "Genuine Parts Company",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        }
+      ]
+    },
+    {
+      "id": "TextilesApparelLuxuryGoods",
+      "sector": "Consumer Discretionary",
+      "industryGroup": "Consumer Durables & Apparel",
+      "industry": "Textiles, Apparel & Luxury Goods",
+      "components": [
+        {
+          "symbol": "BURL",
+          "name": "Burlington Stores, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "DECK",
+          "name": "Deckers Outdoor Corporation",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "GRLB",
+          "name": "L Brands, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "PNK"
+        },
+        {
+          "symbol": "NKE",
+          "name": "NIKE, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "RL",
+          "name": "Ralph Lauren Corporation",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        }
+      ]
+    },
+    {
+      "id": "Beverages",
+      "sector": "Consumer Staples",
+      "industryGroup": "Food, Beverage & Tobacco",
+      "industry": "Beverages",
+      "components": [
+        {
+          "symbol": "KO",
+          "name": "The Coca-Cola Company",
+          "marketCap": "Mega Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "BF-A",
+          "name": "Brown-Forman Corporation",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "CELH",
+          "name": "Celsius Holdings, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "COKE",
+          "name": "Coca-Cola Consolidated, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "KDP",
+          "name": "Keurig Dr Pepper Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        }
+      ]
+    },
+    {
+      "id": "FoodStaplesRetailing",
+      "sector": "Consumer Staples",
+      "industryGroup": "Food & Staples Retailing",
+      "industry": "Food & Staples Retailing",
+      "components": [
+        {
+          "symbol": "ACI",
+          "name": "Albertsons Companies, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "CASY",
+          "name": "Casey's General Stores, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "GIS",
+          "name": "General Mills, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "HRL",
+          "name": "Hormel Foods Corporation",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "HSY",
+          "name": "The Hershey Company",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        }
+      ]
+    },
+    {
+      "id": "HouseholdProducts",
+      "sector": "Consumer Staples",
+      "industryGroup": "Household & Personal Products",
+      "industry": "Household Products",
+      "components": [
+        {
+          "symbol": "COST",
+          "name": "Costco Wholesale Corporation",
+          "marketCap": "Mega Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "PG",
+          "name": "The Procter & Gamble Company",
+          "marketCap": "Mega Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "WMT",
+          "name": "Walmart Inc.",
+          "marketCap": "Mega Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "ADM",
+          "name": "Archer-Daniels-Midland Company",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "BG",
+          "name": "Bunge Limited",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        }
+      ]
+    },
+    {
+      "id": "Tobacco",
+      "sector": "Consumer Staples",
+      "industryGroup": "Food, Beverage & Tobacco",
+      "industry": "Tobacco",
+      "components": [
+        {
+          "symbol": "PM",
+          "name": "Philip Morris International Inc.",
+          "marketCap": "Mega Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "MO",
+          "name": "Altria Group, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "VGR",
+          "name": "Vector Group Ltd.",
+          "marketCap": "Mid Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "TPB",
+          "name": "Turning Point Brands, Inc.",
+          "marketCap": "Small Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "UVV",
+          "name": "Universal Corporation",
+          "marketCap": "Small Cap",
+          "exchange": "NYQ"
+        }
+      ]
+    },
+    {
+      "id": "EnergyEquipmentServices",
+      "sector": "Energy",
+      "industryGroup": "Energy",
+      "industry": "Energy Equipment & Services",
+      "components": [
+        {
+          "symbol": "BKR",
+          "name": "Baker Hughes Company",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "HAL",
+          "name": "Halliburton Company",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "SLB",
+          "name": "Schlumberger Limited",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "AROC",
+          "name": "Archrock, Inc.",
+          "marketCap": "Mid Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "CHX",
+          "name": "ChampionX Corporation",
+          "marketCap": "Mid Cap",
+          "exchange": "NMS"
+        }
+      ]
+    },
+    {
+      "id": "OilGasConsumableFuels",
+      "sector": "Energy",
+      "industryGroup": "Energy",
+      "industry": "Oil, Gas & Consumable Fuels",
+      "components": [
+        {
+          "symbol": "CVX",
+          "name": "Chevron Corporation",
+          "marketCap": "Mega Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "XOM",
+          "name": "Exxon Mobil Corporation",
+          "marketCap": "Mega Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "AR",
+          "name": "Antero Resources Corporation",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "CHK",
+          "name": "Chesapeake Energy Corporation",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "CLR",
+          "name": "Continental Resources, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        }
+      ]
+    },
+    {
+      "id": "Banks",
+      "sector": "Financials",
+      "industryGroup": "Banks",
+      "industry": "Banks",
+      "components": [
+        {
+          "symbol": "BAC",
+          "name": "Bank of America Corporation",
+          "marketCap": "Mega Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "JPM",
+          "name": "JPMorgan Chase & Co.",
+          "marketCap": "Mega Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "WFC",
+          "name": "Wells Fargo & Company",
+          "marketCap": "Mega Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "C",
+          "name": "Citigroup Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "CFG",
+          "name": "Citizens Financial Group, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        }
+      ]
+    },
+    {
+      "id": "CapitalMarkets",
+      "sector": "Financials",
+      "industryGroup": "Diversified Financials",
+      "industry": "Capital Markets",
+      "components": [
+        {
+          "symbol": "GOOI",
+          "name": "Gooi Global, Inc.",
+          "marketCap": "Mega Cap",
+          "exchange": "PNK"
+        },
+        {
+          "symbol": "GS",
+          "name": "The Goldman Sachs Group, Inc.",
+          "marketCap": "Mega Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "MS",
+          "name": "Morgan Stanley",
+          "marketCap": "Mega Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "AMP",
+          "name": "Ameriprise Financial, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "APO",
+          "name": "Apollo Global Management, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        }
+      ]
+    },
+    {
+      "id": "ConsumerFinance",
+      "sector": "Financials",
+      "industryGroup": "Diversified Financials",
+      "industry": "Consumer Finance",
+      "components": [
+        {
+          "symbol": "AXP",
+          "name": "American Express Company",
+          "marketCap": "Mega Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "MA",
+          "name": "Mastercard Incorporated",
+          "marketCap": "Mega Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "V",
+          "name": "Visa Inc.",
+          "marketCap": "Mega Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "AGRIP",
+          "name": "AgriBank, FCB",
+          "marketCap": "Large Cap",
+          "exchange": "PNK"
+        },
+        {
+          "symbol": "ALLY",
+          "name": "Ally Financial Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        }
+      ]
+    },
+    {
+      "id": "DiversifiedFinancialServices",
+      "sector": "Financials",
+      "industryGroup": "Diversified Financials",
+      "industry": "Diversified Financial Services",
+      "components": [
+        {
+          "symbol": "ANET",
+          "name": "two",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "AZO",
+          "name": "one",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "SYM",
+          "name": "Symbotic Inc. Class A Common Stock",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "CCIV",
+          "name": "Churchill Capital Corp IV",
+          "marketCap": "Mid Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "PSTH",
+          "name": "Pershing Square Tontine Holding",
+          "marketCap": "Mid Cap",
+          "exchange": "NYQ"
+        }
+      ]
+    },
+    {
+      "id": "Insurance",
+      "sector": "Financials",
+      "industryGroup": "Insurance",
+      "industry": "Insurance",
+      "components": [
+        {
+          "symbol": "BRK-A",
+          "name": "Berkshire Hathaway Inc.",
+          "marketCap": "Mega Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "AFG",
+          "name": "American Financial Group, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "AFL",
+          "name": "Aflac Incorporated",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "AIG",
+          "name": "American International Group, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "AIZ",
+          "name": "Assurant, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        }
+      ]
+    },
+    {
+      "id": "ThriftsMortgageFinance",
+      "sector": "Financials",
+      "industryGroup": "Banks",
+      "industry": "Thrifts & Mortgage Finance",
+      "components": [
+        {
+          "symbol": "COOP",
+          "name": "Mr. Cooper Group Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NCM"
+        },
+        {
+          "symbol": "RKT",
+          "name": "Rocket Companies, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "UWMC",
+          "name": "UWM Holdings Corporation",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "FMCCG",
+          "name": "Federal Home Loan Mortgage Corporation",
+          "marketCap": "Mid Cap",
+          "exchange": "PNK"
+        },
+        {
+          "symbol": "FNMA",
+          "name": "Federal National Mortgage Association",
+          "marketCap": "Mid Cap",
+          "exchange": "PNK"
+        }
+      ]
+    },
+    {
+      "id": "Biotechnology",
+      "sector": "Health Care",
+      "industryGroup": "Pharmaceuticals, Biotechnology & Life Sciences",
+      "industry": "Biotechnology",
+      "components": [
+        {
+          "symbol": "A",
+          "name": "Agilent Technologies, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "ALNY",
+          "name": "Alnylam Pharmaceuticals, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "ALXN",
+          "name": "Alexion Pharmaceuticals, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "BMRN",
+          "name": "BioMarin Pharmaceutical Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "DGX",
+          "name": "Quest Diagnostics Incorporated",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        }
+      ]
+    },
+    {
+      "id": "HealthCareEquipmentSupplies",
+      "sector": "Health Care",
+      "industryGroup": "Health Care Equipment & Services",
+      "industry": "Health Care Equipment & Supplies",
+      "components": [
+        {
+          "symbol": "BAX",
+          "name": "Baxter International Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "BDX",
+          "name": "Becton, Dickinson and Company",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "BKDT",
+          "name": "Brookdale Senior Living Inc. 7.00% Tangible Equity Units",
+          "marketCap": "Large Cap",
+          "exchange": "ASE"
+        },
+        {
+          "symbol": "COO",
+          "name": "The Cooper Companies, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "EHC",
+          "name": "Encompass Health Corporation",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        }
+      ]
+    },
+    {
+      "id": "HealthCareProvidersServices",
+      "sector": "Health Care",
+      "industryGroup": "Health Care Equipment & Services",
+      "industry": "Health Care Providers & Services",
+      "components": [
+        {
+          "symbol": "UNH",
+          "name": "UnitedHealth Group Incorporated",
+          "marketCap": "Mega Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "ABC",
+          "name": "AmerisourceBergen Corporation",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "ANTM",
+          "name": "Anthem, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "CAH",
+          "name": "Cardinal Health, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "CERN",
+          "name": "Cerner Corporation",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        }
+      ]
+    },
+    {
+      "id": "HealthCareTechnology",
+      "sector": "Health Care",
+      "industryGroup": "Health Care Equipment & Services",
+      "industry": "Health Care Technology",
+      "components": [
+        {
+          "symbol": "ABT",
+          "name": "Abbott Laboratories",
+          "marketCap": "Mega Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "ABMD",
+          "name": "Abiomed, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "EW",
+          "name": "Edwards Lifesciences Corporation",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "PEN",
+          "name": "Penumbra, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "PODD",
+          "name": "Insulet Corporation",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        }
+      ]
+    },
+    {
+      "id": "Pharmaceuticals",
+      "sector": "Health Care",
+      "industryGroup": "Pharmaceuticals, Biotechnology & Life Sciences",
+      "industry": "Pharmaceuticals",
+      "components": [
+        {
+          "symbol": "ABBV",
+          "name": "AbbVie Inc.",
+          "marketCap": "Mega Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "JNJ",
+          "name": "Johnson & Johnson",
+          "marketCap": "Mega Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "LLY",
+          "name": "Eli Lilly and Company",
+          "marketCap": "Mega Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "MRK",
+          "name": "Merck & Co., Inc.",
+          "marketCap": "Mega Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "AMGN",
+          "name": "Amgen Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        }
+      ]
+    },
+    {
+      "id": "AerospaceDefense",
+      "sector": "Industrials",
+      "industryGroup": "Capital Goods",
+      "industry": "Aerospace & Defense",
+      "components": [
+        {
+          "symbol": "RTX",
+          "name": "Raytheon Technologies Corporation",
+          "marketCap": "Mega Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "AVAV",
+          "name": "AeroVironment, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "AXON",
+          "name": "Axon Enterprise, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "BA",
+          "name": "The Boeing Company",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "BWXT",
+          "name": "BWX Technologies, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        }
+      ]
+    },
+    {
+      "id": "AirFreightLogistics",
+      "sector": "Industrials",
+      "industryGroup": "Transportation",
+      "industry": "Air Freight & Logistics",
+      "components": [
+        {
+          "symbol": "CHRW",
+          "name": "C.H. Robinson Worldwide, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "EXPD",
+          "name": "Expeditors International of Washington, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "FDX",
+          "name": "FedEx Corporation",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "JBHT",
+          "name": "J.B. Hunt Transport Services, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "UPS",
+          "name": "United Parcel Service, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        }
+      ]
+    },
+    {
+      "id": "Airlines",
+      "sector": "Industrials",
+      "industryGroup": "Transportation",
+      "industry": "Airlines",
+      "components": [
+        {
+          "symbol": "DAL",
+          "name": "Delta Air Lines, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "LUV",
+          "name": "Southwest Airlines Co.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "UAL",
+          "name": "United Airlines Holdings, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "AAL",
+          "name": "American Airlines Group Inc.",
+          "marketCap": "Mid Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "ALK",
+          "name": "Alaska Air Group, Inc.",
+          "marketCap": "Mid Cap",
+          "exchange": "NYQ"
+        }
+      ]
+    },
+    {
+      "id": "BuildingProducts",
+      "sector": "Industrials",
+      "industryGroup": "Capital Goods",
+      "industry": "Building Products",
+      "components": [
+        {
+          "symbol": "ATI",
+          "name": "Allegheny Technologies Incorporated",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "BKDKP",
+          "name": "Stanley Black & Decker, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "PNK"
+        },
+        {
+          "symbol": "BLDR",
+          "name": "Builders FirstSource, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "CARR",
+          "name": "Carrier Global Corporation",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "CRS",
+          "name": "Carpenter Technology Corporation",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        }
+      ]
+    },
+    {
+      "id": "CommercialServicesSupplies",
+      "sector": "Industrials",
+      "industryGroup": "Commercial & Professional Services",
+      "industry": "Commercial Services & Supplies",
+      "components": [
+        {
+          "symbol": "AVY",
+          "name": "Avery Dennison Corporation",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "FTAI",
+          "name": "Fortress Transportation and Infrastructure Investors LLC",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "UHAL",
+          "name": "AMERCO",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "URI",
+          "name": "United Rentals, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "AL",
+          "name": "Air Lease Corporation",
+          "marketCap": "Mid Cap",
+          "exchange": "NYQ"
+        }
+      ]
+    },
+    {
+      "id": "ConstructionEngineering",
+      "sector": "Industrials",
+      "industryGroup": "Capital Goods",
+      "industry": "Construction & Engineering",
+      "components": [
+        {
+          "symbol": "ACM",
+          "name": "AECOM",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "APG",
+          "name": "APi Group Corporation",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "BLD",
+          "name": "TopBuild Corp.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "CF",
+          "name": "IES Holdings, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "DHI",
+          "name": "D.R. Horton, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        }
+      ]
+    },
+    {
+      "id": "ElectricalEquipment",
+      "sector": "Industrials",
+      "industryGroup": "Capital Goods",
+      "industry": "Electrical Equipment",
+      "components": [
+        {
+          "symbol": "AYI",
+          "name": "Acuity Brands, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "BE",
+          "name": "Bloom Energy Corporation",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "HUBB",
+          "name": "Hubbell Incorporated",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "VRT",
+          "name": "Vertiv Holdings Co",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "AEIS",
+          "name": "Advanced Energy Industries, Inc.",
+          "marketCap": "Mid Cap",
+          "exchange": "NMS"
+        }
+      ]
+    },
+    {
+      "id": "IndustrialConglomerates",
+      "sector": "Industrials",
+      "industryGroup": "Capital Goods",
+      "industry": "Industrial Conglomerates",
+      "components": [
+        {
+          "symbol": "IEP",
+          "name": "Icahn Enterprises L.P.",
+          "marketCap": "Mid Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "SEB",
+          "name": "Seaboard Corporation",
+          "marketCap": "Mid Cap",
+          "exchange": "ASE"
+        },
+        {
+          "symbol": "VRTV",
+          "name": "Veritiv Corporation",
+          "marketCap": "Mid Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "ACAN",
+          "name": "NN, Inc.",
+          "marketCap": "Small Cap",
+          "exchange": "PNK"
+        },
+        {
+          "symbol": "CODI",
+          "name": "Compass Diversified",
+          "marketCap": "Small Cap",
+          "exchange": "NYQ"
+        }
+      ]
+    },
+    {
+      "id": "Machinery",
+      "sector": "Industrials",
+      "industryGroup": "Capital Goods",
+      "industry": "Machinery",
+      "components": [
+        {
+          "symbol": "CAT",
+          "name": "Caterpillar Inc.",
+          "marketCap": "Mega Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "GE",
+          "name": "General Electric Company",
+          "marketCap": "Mega Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "AME",
+          "name": "AMETEK, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "AOS",
+          "name": "A. O. Smith Corporation",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "B",
+          "name": "Barnes Group Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        }
+      ]
+    },
+    {
+      "id": "Marine",
+      "sector": "Industrials",
+      "industryGroup": "Transportation",
+      "industry": "Marine",
+      "components": [
+        {
+          "symbol": "INSW",
+          "name": "International Seaways, Inc.",
+          "marketCap": "Mid Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "KEX",
+          "name": "Kirby Corporation",
+          "marketCap": "Mid Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "MATX",
+          "name": "Matson, Inc.",
+          "marketCap": "Mid Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "EGKPF",
+          "name": "EAGLE BULK SHIPPING INC",
+          "marketCap": "Small Cap",
+          "exchange": "PNK"
+        },
+        {
+          "symbol": "GNK",
+          "name": "Genco Shipping & Trading Limited",
+          "marketCap": "Small Cap",
+          "exchange": "NYQ"
+        }
+      ]
+    },
+    {
+      "id": "ProfessionalServices",
+      "sector": "Industrials",
+      "industryGroup": "Commercial & Professional Services",
+      "industry": "Professional Services",
+      "components": [
+        {
+          "symbol": "ADP",
+          "name": "Automatic Data Processing, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "BAH",
+          "name": "Booz Allen Hamilton Holding Corporation",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "CPRT",
+          "name": "Copart, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "CTAS",
+          "name": "Cintas Corporation",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "EFX",
+          "name": "Equifax Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        }
+      ]
+    },
+    {
+      "id": "RoadRail",
+      "sector": "Industrials",
+      "industryGroup": "Transportation",
+      "industry": "Road & Rail",
+      "components": [
+        {
+          "symbol": "CSX",
+          "name": "CSX Corporation",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "KSU",
+          "name": "Kansas City Southern",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "NSC",
+          "name": "Norfolk Southern Corporation",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "UNP",
+          "name": "Union Pacific Corporation",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "WAB",
+          "name": "Westinghouse Air Brake Technologies Corporation",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        }
+      ]
+    },
+    {
+      "id": "TradingCompaniesDistributors",
+      "sector": "Industrials",
+      "industryGroup": "Capital Goods",
+      "industry": "Trading Companies & Distributors",
+      "components": [
+        {
+          "symbol": "FAST",
+          "name": "Fastenal Company",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "GWW",
+          "name": "W.W. Grainger, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "WCC",
+          "name": "WESCO International, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "WSO",
+          "name": "Watsco, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "AIT",
+          "name": "Applied Industrial Technologies, Inc.",
+          "marketCap": "Mid Cap",
+          "exchange": "NYQ"
+        }
+      ]
+    },
+    {
+      "id": "TransportationInfrastructure",
+      "sector": "Industrials",
+      "industryGroup": "Transportation",
+      "industry": "Transportation Infrastructure",
+      "components": [
+        {
+          "symbol": "CIWT",
+          "name": "Waste Management, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "PNK"
+        },
+        {
+          "symbol": "CLH",
+          "name": "Clean Harbors, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "ODFL",
+          "name": "Old Dominion Freight Line, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "RSG",
+          "name": "Republic Services, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "ACA",
+          "name": "Arcosa, Inc.",
+          "marketCap": "Mid Cap",
+          "exchange": "NYQ"
+        }
+      ]
+    },
+    {
+      "id": "CommunicationsEquipment",
+      "sector": "Information Technology",
+      "industryGroup": "Technology Hardware & Equipment",
+      "industry": "Communications Equipment",
+      "components": [
+        {
+          "symbol": "CSCO",
+          "name": "Cisco Systems, Inc.",
+          "marketCap": "Mega Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "CIEN",
+          "name": "Ciena Corporation",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "HPE",
+          "name": "Hewlett Packard Enterprise Company",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "LITE",
+          "name": "Lumentum Holdings Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "MSI",
+          "name": "Motorola Solutions, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        }
+      ]
+    },
+    {
+      "id": "ElectronicEquipmentInstrumentsComponents",
+      "sector": "Information Technology",
+      "industryGroup": "Technology Hardware & Equipment",
+      "industry": "Electronic Equipment, Instruments & Components",
+      "components": [
+        {
+          "symbol": "AAPL",
+          "name": "Apple Inc.",
+          "marketCap": "Mega Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "APH",
+          "name": "Amphenol Corporation",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "COHR",
+          "name": "Coherent, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "FTV",
+          "name": "Fortive Corporation",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "GLW",
+          "name": "Corning Incorporated",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        }
+      ]
+    },
+    {
+      "id": "ItServices",
+      "sector": "Information Technology",
+      "industryGroup": "Software & Services",
+      "industry": "IT Services",
+      "components": [
+        {
+          "symbol": "IBM",
+          "name": "International Business Machines Corporation",
+          "marketCap": "Mega Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "AFRM",
+          "name": "Affirm Holdings, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "BR",
+          "name": "Broadridge Financial Solutions, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "CACI",
+          "name": "CACI International Inc",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "CDW",
+          "name": "CDW Corporation",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        }
+      ]
+    },
+    {
+      "id": "SemiconductorsSemiconductorEquipment",
+      "sector": "Information Technology",
+      "industryGroup": "Semiconductors & Semiconductor Equipment",
+      "industry": "Semiconductors & Semiconductor Equipment",
+      "components": [
+        {
+          "symbol": "AMD",
+          "name": "Advanced Micro Devices, Inc.",
+          "marketCap": "Mega Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "AVGO",
+          "name": "Broadcom Inc.",
+          "marketCap": "Mega Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "NVDA",
+          "name": "NVIDIA Corporation",
+          "marketCap": "Mega Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "ADI",
+          "name": "Analog Devices, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "AMAT",
+          "name": "Applied Materials, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        }
+      ]
+    },
+    {
+      "id": "Software",
+      "sector": "Information Technology",
+      "industryGroup": "Software & Services",
+      "industry": "Software",
+      "components": [
+        {
+          "symbol": "CRM",
+          "name": "salesforce.com, inc.",
+          "marketCap": "Mega Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "MSFT",
+          "name": "Microsoft Corporation",
+          "marketCap": "Mega Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "ORCL",
+          "name": "Oracle Corporation",
+          "marketCap": "Mega Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "PLTR",
+          "name": "Palantir Technologies Inc.",
+          "marketCap": "Mega Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "ADBE",
+          "name": "Adobe Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        }
+      ]
+    },
+    {
+      "id": "TechnologyHardwareStoragePeripherals",
+      "sector": "Information Technology",
+      "industryGroup": "Technology Hardware & Equipment",
+      "industry": "Technology Hardware, Storage & Peripherals",
+      "components": [
+        {
+          "symbol": "DELL",
+          "name": "Dell Technologies Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "FSLR",
+          "name": "First Solar, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "HPQ",
+          "name": "HP Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "NTAP",
+          "name": "NetApp, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "PSTG",
+          "name": "Pure Storage, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        }
+      ]
+    },
+    {
+      "id": "Chemicals",
+      "sector": "Materials",
+      "industryGroup": "Materials",
+      "industry": "Chemicals",
+      "components": [
+        {
+          "symbol": "APD",
+          "name": "Air Products and Chemicals, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "AVTR-PA",
+          "name": "Avantor, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "DD",
+          "name": "DuPont de Nemours, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "DOW",
+          "name": "Dow Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "ECL",
+          "name": "Ecolab Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        }
+      ]
+    },
+    {
+      "id": "ConstructionMaterials",
+      "sector": "Materials",
+      "industryGroup": "Materials",
+      "industry": "Construction Materials",
+      "components": [
+        {
+          "symbol": "CTA-PA",
+          "name": "E. I. du Pont de Nemours and Company",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "CTVA",
+          "name": "Corteva, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "MLM",
+          "name": "Martin Marietta Materials, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "MOS",
+          "name": "The Mosaic Company",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "VMC",
+          "name": "Vulcan Materials Company",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        }
+      ]
+    },
+    {
+      "id": "MetalsMining",
+      "sector": "Materials",
+      "industryGroup": "Materials",
+      "industry": "Metals & Mining",
+      "components": [
+        {
+          "symbol": "FCX",
+          "name": "Freeport-McMoRan Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "MP",
+          "name": "MP Materials Corp.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "NEM",
+          "name": "Newmont Corporation",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "NUE",
+          "name": "Nucor Corporation",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "RGLD",
+          "name": "Royal Gold, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        }
+      ]
+    },
+    {
+      "id": "PaperForestProducts",
+      "sector": "Materials",
+      "industryGroup": "Materials",
+      "industry": "Paper & Forest Products",
+      "components": [
+        {
+          "symbol": "BCC",
+          "name": "Boise Cascade Company",
+          "marketCap": "Mid Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "UFPI",
+          "name": "UFP Industries, Inc.",
+          "marketCap": "Mid Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "UFS",
+          "name": "Domtar Corporation",
+          "marketCap": "Mid Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "CLW",
+          "name": "Clearwater Paper Corporation",
+          "marketCap": "Small Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "HNST",
+          "name": "The Honest Company Inc. Common Stock",
+          "marketCap": "Small Cap",
+          "exchange": "NMS"
+        }
+      ]
+    },
+    {
+      "id": "EquityRealEstateInvestmentTrustsReits",
+      "sector": "Real Estate",
+      "industryGroup": "Real Estate",
+      "industry": "Equity Real Estate Investment Trusts (REITs)",
+      "components": [
+        {
+          "symbol": "AGNC",
+          "name": "AGNC Investment Corp.",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "AGNCL",
+          "name": "AGNC Investment Corp. Depositary Shares Each Representing a 1/1000th Interest in a Share of 7.75% Series G Fixed-Rate Reset Cumulative Redeemable Preferred Stock",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "AMH",
+          "name": "American Homes 4 Rent",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "AMT",
+          "name": "American Tower Corporation (REIT)",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "ARE",
+          "name": "Alexandria Real Estate Equities, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        }
+      ]
+    },
+    {
+      "id": "RealEstateManagementDevelopment",
+      "sector": "Real Estate",
+      "industryGroup": "Real Estate",
+      "industry": "Real Estate Management & Development",
+      "components": [
+        {
+          "symbol": "CBRE",
+          "name": "CBRE Group, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "CSGP",
+          "name": "CoStar Group, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "CURB",
+          "name": "Curbline Properties Corp. Common Stock",
+          "marketCap": "Mid Cap",
+          "exchange": "ASE"
+        },
+        {
+          "symbol": "CWK",
+          "name": "Cushman & Wakefield plc",
+          "marketCap": "Mid Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "DBRG",
+          "name": "DigitalBridge Group Inc.",
+          "marketCap": "Mid Cap",
+          "exchange": "ASE"
+        }
+      ]
+    },
+    {
+      "id": "ElectricUtilities",
+      "sector": "Utilities",
+      "industryGroup": "Utilities",
+      "industry": "Electric Utilities",
+      "components": [
+        {
+          "symbol": "PCGU",
+          "name": "PG&E Corporation",
+          "marketCap": "Mega Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "AEE",
+          "name": "Ameren Corporation",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "AEP",
+          "name": "American Electric Power Company, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "AGR",
+          "name": "Avangrid, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "CEG",
+          "name": "Constellation Energy Corporation Common Stock ",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        }
+      ]
+    },
+    {
+      "id": "GasUtilities",
+      "sector": "Utilities",
+      "industryGroup": "Utilities",
+      "industry": "Gas Utilities",
+      "components": [
+        {
+          "symbol": "ATO",
+          "name": "Atmos Energy Corporation",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "NI",
+          "name": "NISOURCE INC",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "BIPC",
+          "name": "Brookfield Infrastructure Corporation",
+          "marketCap": "Mid Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "CPK",
+          "name": "Chesapeake Utilities Corporation",
+          "marketCap": "Mid Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "NJR",
+          "name": "New Jersey Resources Corporation",
+          "marketCap": "Mid Cap",
+          "exchange": "NYQ"
+        }
+      ]
+    },
+    {
+      "id": "IndependentPowerAndRenewableElectricityProducers",
+      "sector": "Utilities",
+      "industryGroup": "Utilities",
+      "industry": "Independent Power and Renewable Electricity Producers",
+      "components": [
+        {
+          "symbol": "BEPC",
+          "name": "Brookfield Renewable Corporation",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "NRG",
+          "name": "NRG Energy, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "VST",
+          "name": "Vistra Corp.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "CLPE",
+          "name": "Clear Peak Energy, Inc.",
+          "marketCap": "Mid Cap",
+          "exchange": "PNK"
+        },
+        {
+          "symbol": "CWEN",
+          "name": "Clearway Energy, Inc.",
+          "marketCap": "Mid Cap",
+          "exchange": "NYQ"
+        }
+      ]
+    },
+    {
+      "id": "MultiUtilities",
+      "sector": "Utilities",
+      "industryGroup": "Utilities",
+      "industry": "Multi-Utilities",
+      "components": [
+        {
+          "symbol": "AESC",
+          "name": "The AES Corporation",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "EXC",
+          "name": "Exelon Corporation",
+          "marketCap": "Large Cap",
+          "exchange": "NMS"
+        },
+        {
+          "symbol": "PEG",
+          "name": "Public Service Enterprise Group Incorporated",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "PPWLM",
+          "name": "PacifiCorp",
+          "marketCap": "Large Cap",
+          "exchange": "PNK"
+        },
+        {
+          "symbol": "SRE",
+          "name": "Sempra Energy",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        }
+      ]
+    },
+    {
+      "id": "WaterUtilities",
+      "sector": "Utilities",
+      "industryGroup": "Utilities",
+      "industry": "Water Utilities",
+      "components": [
+        {
+          "symbol": "AWK",
+          "name": "American Water Works Company, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "WTRG",
+          "name": "Essential Utilities, Inc.",
+          "marketCap": "Large Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "AWR",
+          "name": "American States Water Company",
+          "marketCap": "Mid Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "CWT",
+          "name": "California Water Service Group",
+          "marketCap": "Mid Cap",
+          "exchange": "NYQ"
+        },
+        {
+          "symbol": "ARTNA",
+          "name": "Artesian Resources Corporation",
+          "marketCap": "Small Cap",
+          "exchange": "NMS"
+        }
+      ]
+    }
+  ],
+  "notes": "Components selected from FinanceDatabase US equities universe (primary listings, USD currency). Prioritized by market cap classification and exchange preference."
+}

@@ -3,10 +3,27 @@ import compression from 'compression';
 import morgan from 'morgan';
 import path from 'node:path';
 import fs from 'node:fs';
+import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const fsp = fs.promises;
+const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
+const US_INDUSTRY_HISTORY_PATH = path.resolve(PROJECT_ROOT, 'data/us-industries/history.json');
+const US_INDUSTRY_TTL_MS = 24 * 60 * 60 * 1000;
+const US_INDUSTRY_PERIOD = '5y';
+const US_INDUSTRY_SCRIPT = path.resolve(PROJECT_ROOT, 'tools/us_industries/update_dataset.py');
+const US_INDUSTRY_PYTHON_CANDIDATES = [
+  process.env.US_INDUSTRY_PYTHON,
+  path.resolve(PROJECT_ROOT, 'backend/.venv/Scripts/python.exe'),
+  path.resolve(PROJECT_ROOT, 'backend/.venv/bin/python'),
+  'python3',
+  'python',
+];
+let usIndustryLastPayload = null;
+let usIndustryLastGeneratedAt = 0;
+let usIndustryUpdatePromise = null;
 
 const app = express();
 app.use(compression());
@@ -49,6 +66,113 @@ async function fetchJsonTry(urls, init) {
   }
   throw lastErr || new Error('all upstream failed');
 }
+function resolveUsIndustryPython() {
+  for (const candidate of US_INDUSTRY_PYTHON_CANDIDATES) {
+    if (!candidate) continue;
+    const looksLikePath = candidate.includes('/') || candidate.includes('\\');
+    if (looksLikePath) {
+      if (fs.existsSync(candidate)) return candidate;
+      continue;
+    }
+    return candidate;
+  }
+  throw new Error('Python executable for US industry updater not found. Set US_INDUSTRY_PYTHON env.');
+}
+
+async function readUsIndustryDatasetFromDisk() {
+  try {
+    const raw = await fsp.readFile(US_INDUSTRY_HISTORY_PATH, 'utf8');
+    const payload = JSON.parse(raw);
+    let generatedMs = null;
+    if (typeof payload?.generatedAt === 'string') {
+      const ts = Date.parse(payload.generatedAt);
+      if (!Number.isNaN(ts)) generatedMs = ts;
+    }
+    if (!generatedMs) {
+      const stat = await fsp.stat(US_INDUSTRY_HISTORY_PATH);
+      generatedMs = stat.mtimeMs;
+    }
+    usIndustryLastPayload = payload;
+    usIndustryLastGeneratedAt = generatedMs || Date.now();
+    return payload;
+  } catch (error) {
+    console.warn('US industry dataset read failed:', error?.message || error);
+    usIndustryLastPayload = null;
+    usIndustryLastGeneratedAt = 0;
+    return null;
+  }
+}
+
+async function runUsIndustryUpdate() {
+  const python = resolveUsIndustryPython();
+  await new Promise((resolve, reject) => {
+    const proc = spawn(python, [US_INDUSTRY_SCRIPT, '--period', US_INDUSTRY_PERIOD], {
+      cwd: PROJECT_ROOT,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let stderr = '';
+    proc.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
+    proc.on('error', reject);
+    proc.on('close', (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error(`US industry updater exited with code ${code}: ${stderr.trim()}`));
+      }
+    });
+  });
+  await readUsIndustryDatasetFromDisk();
+}
+
+function ensureUsIndustryUpdate(force = false) {
+  if (usIndustryUpdatePromise) {
+    return force ? usIndustryUpdatePromise : usIndustryUpdatePromise.catch(() => {});
+  }
+  const promise = runUsIndustryUpdate()
+    .catch((error) => {
+      console.error('US industry dataset update failed:', error);
+      throw error;
+    })
+    .finally(() => {
+      usIndustryUpdatePromise = null;
+    });
+  usIndustryUpdatePromise = promise;
+  return promise;
+}
+
+async function getUsIndustryDataset(force = false) {
+  if (!usIndustryLastPayload) {
+    await readUsIndustryDatasetFromDisk();
+  }
+  if (force) {
+    await ensureUsIndustryUpdate(true);
+    if (!usIndustryLastPayload) throw new Error('US industry dataset unavailable after update');
+    return usIndustryLastPayload;
+  }
+  const stale = !usIndustryLastPayload || !usIndustryLastGeneratedAt || (Date.now() - usIndustryLastGeneratedAt > US_INDUSTRY_TTL_MS);
+  if (stale) {
+    ensureUsIndustryUpdate(false).catch(() => {});
+  }
+  if (!usIndustryLastPayload) {
+    await ensureUsIndustryUpdate(true);
+    if (!usIndustryLastPayload) throw new Error('US industry dataset unavailable');
+  }
+  return usIndustryLastPayload;
+}
+
+
+// US Industries dataset API (auto-refresh at most once per 24h)
+app.get('/api/us-industries/history', async (req, res) => {
+  const rawForce = String(req.query.force ?? '').toLowerCase();
+  const force = rawForce === '1' || rawForce === 'true' || rawForce === 'yes';
+  try {
+    const payload = await getUsIndustryDataset(force);
+    res.json(payload);
+  } catch (error) {
+    console.error('US industry dataset endpoint error:', error);
+    res.status(500).json({ error: 'Failed to load US industry dataset' });
+  }
+});
 
 // Normalize Yahoo Quote (to MarketQuote used by UI)
 function normalizeQuote(q) {
@@ -540,5 +664,6 @@ app.listen(PORT, () => {
   const refresh = async () => { try { await fetch(base + '/api/fgi'); } catch {} };
   refresh();
   setInterval(refresh, 6 * 60 * 60_000);
+  readUsIndustryDatasetFromDisk().catch(() => {});
 });
 

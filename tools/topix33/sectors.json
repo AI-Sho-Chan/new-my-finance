@@ -1,0 +1,200 @@
+﻿[
+    {
+        "nameJa":  "水産・農林業",
+        "nameEn":  "Fisheries, Agriculture \u0026 Forestry",
+        "id":  "FisheriesAgricultureForestry",
+        "qcode":  "321"
+    },
+    {
+        "nameJa":  "鉱業",
+        "nameEn":  "Mining",
+        "id":  "Mining",
+        "qcode":  "322"
+    },
+    {
+        "nameJa":  "建設業",
+        "nameEn":  "Construction",
+        "id":  "Building",
+        "qcode":  "323"
+    },
+    {
+        "nameJa":  "食料品",
+        "nameEn":  "Foods",
+        "id":  "Food",
+        "qcode":  "324"
+    },
+    {
+        "nameJa":  "繊維製品",
+        "nameEn":  "Textiles \u0026 Apparels",
+        "id":  "Textile",
+        "qcode":  "325"
+    },
+    {
+        "nameJa":  "パルプ・紙",
+        "nameEn":  "Pulp \u0026 Paper",
+        "id":  "PulpPaper",
+        "qcode":  "326"
+    },
+    {
+        "nameJa":  "化学",
+        "nameEn":  "Chemicals",
+        "id":  "Chemistry",
+        "qcode":  "327"
+    },
+    {
+        "nameJa":  "医薬品",
+        "nameEn":  "Pharmaceuticals",
+        "id":  "Nostrum",
+        "qcode":  "328"
+    },
+    {
+        "nameJa":  "石油・石炭製品",
+        "nameEn":  "Oil \u0026 Coal Products",
+        "id":  "OilCoal",
+        "qcode":  "329"
+    },
+    {
+        "nameJa":  "ゴム製品",
+        "nameEn":  "Rubber Products",
+        "id":  "Rubber",
+        "qcode":  "330"
+    },
+    {
+        "nameJa":  "ガラス・土石製品",
+        "nameEn":  "Glass \u0026 Ceramics Products",
+        "id":  "GlassStone",
+        "qcode":  "331"
+    },
+    {
+        "nameJa":  "鉄鋼",
+        "nameEn":  "Iron \u0026 Steel",
+        "id":  "Steel",
+        "qcode":  "332"
+    },
+    {
+        "nameJa":  "非鉄金属",
+        "nameEn":  "Nonferrous Metals",
+        "id":  "NonferrousMetal",
+        "qcode":  "333"
+    },
+    {
+        "nameJa":  "金属製品",
+        "nameEn":  "Metal Products",
+        "id":  "Metal",
+        "qcode":  "334"
+    },
+    {
+        "nameJa":  "機械",
+        "nameEn":  "Machinery",
+        "id":  "Machine",
+        "qcode":  "335"
+    },
+    {
+        "nameJa":  "電気機器",
+        "nameEn":  "Electric Appliances",
+        "id":  "Electronic",
+        "qcode":  "336"
+    },
+    {
+        "nameJa":  "輸送用機器",
+        "nameEn":  "Transportation Equipment",
+        "id":  "Transport",
+        "qcode":  "337"
+    },
+    {
+        "nameJa":  "精密機器",
+        "nameEn":  "Precision Instruments",
+        "id":  "Precision",
+        "qcode":  "338"
+    },
+    {
+        "nameJa":  "その他製品",
+        "nameEn":  "Other Products",
+        "id":  "Other",
+        "qcode":  "339"
+    },
+    {
+        "nameJa":  "電気・ガス業",
+        "nameEn":  "Electric Power \u0026 Gas",
+        "id":  "ElectricityGas",
+        "qcode":  "340"
+    },
+    {
+        "nameJa":  "陸運業",
+        "nameEn":  "Land Transportation",
+        "id":  "LandTransport",
+        "qcode":  "341"
+    },
+    {
+        "nameJa":  "海運業",
+        "nameEn":  "Marine Transportation",
+        "id":  "MarineTransport",
+        "qcode":  "342"
+    },
+    {
+        "nameJa":  "空運業",
+        "nameEn":  "Air Transportation",
+        "id":  "AirTransport",
+        "qcode":  "343"
+    },
+    {
+        "nameJa":  "倉庫・運輸関連業",
+        "nameEn":  "Warehousing \u0026 Harbor Transportation",
+        "id":  "WarehouseTransport",
+        "qcode":  "344"
+    },
+    {
+        "nameJa":  "情報・通信業",
+        "nameEn":  "Information \u0026 Communication",
+        "id":  "InformationCommunication",
+        "qcode":  "345"
+    },
+    {
+        "nameJa":  "卸売業",
+        "nameEn":  "Wholesale Trade",
+        "id":  "Wholesale",
+        "qcode":  "346"
+    },
+    {
+        "nameJa":  "小売業",
+        "nameEn":  "Retail Trade",
+        "id":  "Retail",
+        "qcode":  "347"
+    },
+    {
+        "nameJa":  "銀行業",
+        "nameEn":  "Banks",
+        "id":  "Bank",
+        "qcode":  "348"
+    },
+    {
+        "nameJa":  "証券、商品先物取引業",
+        "nameEn":  "Securities \u0026 Commodities Futures",
+        "id":  "InstrumentCommoditiesFutures",
+        "qcode":  "349"
+    },
+    {
+        "nameJa":  "保険業",
+        "nameEn":  "Insurance",
+        "id":  "Insurance",
+        "qcode":  "350"
+    },
+    {
+        "nameJa":  "その他金融業",
+        "nameEn":  "Other Financing Business",
+        "id":  "OtherFinance",
+        "qcode":  "351"
+    },
+    {
+        "nameJa":  "不動産業",
+        "nameEn":  "Real Estate",
+        "id":  "RealEstate",
+        "qcode":  "352"
+    },
+    {
+        "nameJa":  "サービス業",
+        "nameEn":  "Services",
+        "id":  "Service",
+        "qcode":  "353"
+    }
+]
