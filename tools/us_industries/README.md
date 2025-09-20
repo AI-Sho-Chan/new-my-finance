@@ -28,3 +28,20 @@
 - カバレッジ表示にはメタデータ内の `withHistory`、`longCount`、`start`、`end` を用いており、更新状況が一目で確認できます。
 
 手動で更新した場合は `npm run build` を実行して公開用バンドルに最新データを取り込むことを推奨します。
+
+## クイックトンネルで外部確認したい場合
+
+1. `cloudflared-windows-amd64.exe` を `tools` ディレクトリ直下に配置します。
+2. 初回だけ Cloudflare ログインを実行します。
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File tools/cloudflared_quick_tunnel.ps1 -Login
+   ```
+   ブラウザが開くので認証を完了させてください。
+3. トンネルを開始して一時 URL を発行します。
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File tools/cloudflared_quick_tunnel.ps1
+   ```
+   コンソールに表示される `https://*.trycloudflare.com` の URL をスマホ等から開くと、ローカル `http://127.0.0.1:8080` の UI を確認できます。
+4. PowerShell を閉じたり `Ctrl + C` で停止するとトンネルも終了し、URL は無効になります（再実行すると新しい URL が発行されます）。
+
+- launch_tunnel.bat をダブルクリックすると PowerShell 経由で同じ処理が実行されます (初回は launch_tunnel.bat -Login)。
