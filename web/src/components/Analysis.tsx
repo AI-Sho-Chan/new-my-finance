@@ -1,7 +1,7 @@
 ﻿import { fetchTopix33History, buildTopix33Overrides, type Topix33Overrides } from '../lib/topix33';
 import { fetchUSIndustriesHistory, buildUSIndustryOverrides, type USIndustryOverrides } from '../lib/usIndustries';
 import { useEffect, useMemo, useState } from 'react';
-import { computeSnapshotWithTrails, DEFAULT_PARAMS, type SnapshotItem, type SnapshotTrails, type SnapshotMeta, UNIVERSE, UNIVERSE_US_SECTORS, type AssetDef } from '../lib/analysis';
+import { computeSnapshotWithTrails, DEFAULT_PARAMS, type SnapshotItem, type SnapshotTrails, type SnapshotMeta, UNIVERSE, type AssetDef } from '../lib/analysis';
 import { useStore } from '../store';
 import { collectGroupItemIds } from '../lib/watch-helpers';
 import type { WatchItem } from '../types';
@@ -31,7 +31,7 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
   const [trails, setTrails] = useState<SnapshotTrails | null>(null);
   const [meta, setMeta] = useState<SnapshotMeta | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [view, setView] = useState<'GLOBAL' | 'US_SECTOR' | 'US_INDUSTRY' | 'JP_SECTOR' | 'ALL_WATCH'>('GLOBAL');
+  const [view, setView] = useState<'GLOBAL' | 'US_INDUSTRY' | 'JP_SECTOR' | 'ALL_WATCH'>('GLOBAL');
   const [topixData, setTopixData] = useState<Topix33Overrides | null>(null);
   const [topixLoadErr, setTopixLoadErr] = useState<string | null>(null);
   const [usIndustryData, setUsIndustryData] = useState<USIndustryOverrides | null>(null);
@@ -208,7 +208,6 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
       const watchAll: AssetDef[] = mergedWatch.map(toAssetDef);
       const uni: AssetDef[] = (
         view==='GLOBAL' ? UNIVERSE :
-        view==='US_SECTOR' ? UNIVERSE_US_SECTORS :
         view==='US_INDUSTRY' ? usIndustryAssets :
         view==='JP_SECTOR' ? topixAssets :
         watchAll
@@ -454,17 +453,21 @@ function Cell({ val, pctl }: { val: number | null; pctl: number | null }) {
 }
 
 function LegendQuadrant() {
-  const box = (c: string, label: string) => (
-    <span className="inline-flex items-center text-xs text-gray-300 mr-2">
-      <span className="inline-block w-3 h-3 rounded-sm mr-1" style={{ backgroundColor: c }} />{label}
-    </span>
+  const entry = (color: string, title: string, desc: string) => (
+    <div className="flex items-start gap-2">
+      <span className="mt-0.5 inline-block h-3 w-3 flex-none rounded-sm" style={{ backgroundColor: color }} />
+      <div className="text-xs text-gray-300">
+        <span className="font-semibold text-gray-100">{title}</span>
+        <span className="ml-1 text-gray-400">{desc}</span>
+      </div>
+    </div>
   );
   return (
-    <div className="text-xs text-gray-300">
-      {box('#22c55e', 'Q1: strong & value')}
-      {box('#f59e0b', 'Q2: strong & rich')}
-      {box('#3b82f6', 'Q3: weak but value')}
-      {box('#ef4444', 'Q4: avoid')}
+    <div className="text-xs text-gray-300 space-y-1">
+      {entry('#22c55e', 'Q1: 強い × 割安', '資金フローも業績モメンタムも追い風のゾーン。押し目買いや積極的な追加投資が検討しやすい領域です。')}
+      {entry('#f59e0b', 'Q2: 強い × 割高', 'モメンタム優位だが割高圏。短期で勢いに乗るなら利益確定ラインを明確に。')}
+      {entry('#3b82f6', 'Q3: 弱い × 割安', 'トレンドは弱いがバリュエーションは魅力的。底払いを見極めた逆引候補になります。')}
+      {entry('#ef4444', 'Q4: 弱い × 割高', '下落トレンドかつ割高。資金効率が悪く、撤退や見退りを検討したいゾーンです。')}
     </div>
   );
 }
@@ -473,19 +476,34 @@ function HelpBox({ kind }: { kind: 'scatter' | 'heat' }) {
   if (kind === 'scatter') {
     return (
       <details className="mt-2 text-xs text-gray-300">
-        <summary className="cursor-pointer select-none">How to read (F×V scatter)</summary>
-        <div className="mt-1 leading-relaxed">
-          <p>F: multi-horizon flow (20/63/252d) z-score; V: value (weekly 5y trend deviation) z-score (higher = cheaper).</p>
-          <p>Quadrants: Q1 strong & value, Q2 strong & rich, Q3 weak but value, Q4 avoid.</p>
+        <summary className="cursor-pointer select-none">読み方（F×V散布図）</summary>
+        <div className="mt-1 leading-relaxed space-y-2">
+          <div>
+            <p className="font-semibold text-gray-200">F・V・A 指標の意味</p>
+            <ul className="list-disc pl-5 space-y-1 text-gray-300">
+              <li><span className="font-semibold text-gray-100">F（Flow）</span>：20日・63日・252日といった複数期間の資金フローを標準化した値。プラス方向ほど買い需要が強いことを示します。</li>
+              <li><span className="font-semibold text-gray-100">V（Value）</span>：週足ベースで算出した5年トレンド乖離のZスコア。数値が高いほど相対的に割安、低いほど割高です。</li>
+              <li><span className="font-semibold text-gray-100">A（Acceleration）</span>：FとVの変化率を組み合わせた加速度指標で、勢いの変化を捉えてトレンド転換の兆しを早期に察知します。</li>
+            </ul>
+          </div>
+          <div>
+            <p className="font-semibold text-gray-200">4象限の読み方</p>
+            <ul className="list-disc pl-5 space-y-1 text-gray-300">
+              <li><span className="font-semibold text-green-300">Q1</span>：上昇トレンド × 割安。押し目で買い増ししたい優等生ゾーン。</li>
+              <li><span className="font-semibold text-amber-300">Q2</span>：上昇トレンド × 割高。勢いに乗るなら短期で、長期では様子見が無難です。</li>
+              <li><span className="font-semibold text-sky-300">Q3</span>：下落トレンド × 割安。回復待ちの逆張り候補で、底固めを確認したい領域。</li>
+              <li><span className="font-semibold text-rose-300">Q4</span>：下落トレンド × 割高。資金効率が悪く、撤退・回避を優先したいゾーンです。</li>
+            </ul>
+          </div>
         </div>
       </details>
     );
   }
   return (
     <details className="mt-2 text-xs text-gray-300">
-      <summary className="cursor-pointer select-none">How to read (heatmap)</summary>
+      <summary className="cursor-pointer select-none">読み方（ヒートマップ）</summary>
       <div className="mt-1 leading-relaxed">
-        <p>Cells show raw scores; background is percentile among current cross-section.</p>
+        <p>セルの数値が各指標そのもの、背景色はその瞬間の全銘柄に対するパーセンタイルです。色が濃いほど相対的に目立つ値で、注目銘柄の抽出に活用できます。</p>
       </div>
     </details>
   );
