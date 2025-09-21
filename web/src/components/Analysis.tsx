@@ -272,7 +272,7 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
       <div className="space-y-4">
         <LegendQuadrant />
         {/* Scatter (F x V) */}
-        <Scatter items={items} trails={trails || {}} domain={domain} />
+        <Scatter items={items} trails={trails || {}} xDomain={domain.v} yDomain={domain.f} />
         {/* Heatmap (F/V/A) */}
         <Heatmap items={items} />
       </div>
@@ -284,7 +284,6 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
       <div className="flex items-center flex-wrap gap-2 text-sm">
         <span className="text-gray-400">View:</span>
         <button className={`px-2 py-1 rounded ${view==='GLOBAL'?'bg-indigo-600 text-white':'bg-gray-700 text-gray-200'}`} onClick={()=>setView('GLOBAL')}>Global</button>
-        <button className={`px-2 py-1 rounded ${view==='US_SECTOR'?'bg-indigo-600 text-white':'bg-gray-700 text-gray-200'}`} onClick={()=>setView('US_SECTOR')}>US Sectors</button>
         <button className={`px-2 py-1 rounded ${view==='US_INDUSTRY'?'bg-indigo-600 text-white':'bg-gray-700 text-gray-200'}`} onClick={()=>setView('US_INDUSTRY')}>US Industries</button>
         <button className={`px-2 py-1 rounded ${view==='JP_SECTOR'?'bg-indigo-600 text-white':'bg-gray-700 text-gray-200'}`} onClick={()=>setView('JP_SECTOR')}>Japan Index</button>
         <button className={`px-2 py-1 rounded ${view==='ALL_WATCH'?'bg-indigo-600 text-white':'bg-gray-700 text-gray-200'}`} onClick={()=>setView('ALL_WATCH')}>ALL</button>
@@ -466,8 +465,9 @@ function LegendQuadrant() {
     <div className="text-xs text-gray-300 space-y-1">
       {entry('#22c55e', 'Q1: 強い × 割安', '資金フローも業績モメンタムも追い風のゾーン。押し目買いや積極的な追加投資が検討しやすい領域です。')}
       {entry('#f59e0b', 'Q2: 強い × 割高', 'モメンタム優位だが割高圏。短期で勢いに乗るなら利益確定ラインを明確に。')}
-      {entry('#3b82f6', 'Q3: 弱い × 割安', 'トレンドは弱いがバリュエーションは魅力的。底払いを見極めた逆引候補になります。')}
-      {entry('#ef4444', 'Q4: 弱い × 割高', '下落トレンドかつ割高。資金効率が悪く、撤退や見退りを検討したいゾーンです。')}
+      {entry('#3b82f6', 'Q3: 弱い × 割安', 'トレンドは弱いがバリュエーションは魅力的。底打ちを見極めた逆張り候補になります。')}
+      {entry('#ef4444', 'Q4: 弱い × 割高', '下落トレンドかつ割高。資金効率が悪く、撤退や見送りを検討したいゾーンです。')}
+      <p className="text-[11px] text-gray-500">※ F・V のパーセンタイルが条件を満たさない場合やデータ不足のときは NA として表示されます。</p>
     </div>
   );
 }
@@ -520,6 +520,7 @@ function QList({ items }: { items: SnapshotItem[] }) {
     </div>
   );
 }
+
 
 
 
