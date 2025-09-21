@@ -29,26 +29,48 @@ export type USIndustryOverrides = {
   };
 };
 
-const HISTORY_URL = '/api/us-industries/history';
+const API_HISTORY_URL = '/api/us-industries/history';
+const FALLBACK_HISTORY_URLS = [
+  '/data/us-industries/history.json',
+  '/data/us-industries-history.json',
+];
 
 let historyPromise: Promise<USIndustriesHistory> | null = null;
 
 export async function fetchUSIndustriesHistory(): Promise<USIndustriesHistory> {
   if (!historyPromise) {
-    historyPromise = fetch(HISTORY_URL, { cache: 'no-store' })
-      .then((res) => {
-        if (!res.ok) throw new Error(`failed to load ${HISTORY_URL}: ${res.status}`);
-        return res.json();
-      })
-      .then((json) => normalizeHistory(json))
-      .catch((err) => {
-        historyPromise = null;
-        throw err;
-      });
+    historyPromise = loadHistory().catch((err) => {
+      historyPromise = null;
+      throw err;
+    });
   }
   return historyPromise;
 }
 
+async function loadHistory(): Promise<USIndustriesHistory> {
+  try {
+    const res = await fetch(API_HISTORY_URL, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`failed to load ${API_HISTORY_URL}: ${res.status}`);
+    const json = await res.json();
+    return normalizeHistory(json);
+  } catch (primaryError) {
+    for (const candidate of FALLBACK_HISTORY_URLS) {
+      try {
+        const res = await fetch(candidate, { cache: 'no-store' });
+        if (!res.ok) continue;
+        const json = await res.json();
+        console.warn('US industry dataset fallback used:', candidate, primaryError);
+        return normalizeHistory(json);
+      } catch (fallbackError) {
+        console.warn('US industry dataset fallback failed:', candidate, fallbackError);
+      }
+    }
+    if (primaryError instanceof Error) {
+      throw primaryError;
+    }
+    throw new Error(String(primaryError));
+  }
+}
 function normalizeHistory(raw: any): USIndustriesHistory {
   const industries = Array.isArray(raw?.industries) ? raw.industries : [];
   const normalized: USIndustryEntry[] = industries.map((item: any) => ({
