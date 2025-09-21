@@ -417,6 +417,9 @@ export default function Dashboard() {
         onConfirm={onSelectorConfirm}
         onClose={() => setSelectorOpen(false)}
       />
+      {modal && (
+        <StockChartModal symbol={modal.symbol} open={true} onClose={() => setModal(null)} />
+      )}
     </div>
   );
 }
