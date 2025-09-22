@@ -1,4 +1,4 @@
-﻿import { create } from 'zustand';
+import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { v4 as uuidv4 } from 'uuid';
 import type {
@@ -25,6 +25,7 @@ type WatchItemInput = {
   name: string;
   type?: WatchItemType;
   note?: string;
+  source?: 'user' | 'system';
 };
 
 type WatchState = {
@@ -59,6 +60,7 @@ type WatchActions = {
   setPendingAssignGroupIds: (groupIds: string[]) => void;
   setSortMode: (mode: WatchSortMode) => void;
   clearSelection: () => void;
+  syncSystemGroupMembers: (payload: { key: 'q1' | 'q1_drop'; members: WatchItemInput[] }) => void;
 };
 
 type PortfolioActions = {
@@ -81,6 +83,8 @@ const SYSTEM_GROUP_DEFS: Array<{ key: Required<WatchGroup['key']>; name: string;
   { key: 'all', name: 'ALL', color: '#2563eb' },
   { key: 'holding', name: '保有', color: '#f59e0b' },
   { key: 'candidate', name: '候補', color: '#16a34a' },
+  { key: 'q1', name: 'Q1', color: '#22c55e' },
+  { key: 'q1_drop', name: 'Q1落ち', color: '#f97316' },
   { key: 'index', name: '指数', color: '#9333ea' },
 ];
 
@@ -348,6 +352,58 @@ export const useStore = create<State & Actions>()(
         set((state) => ({ watchUI: { ...state.watchUI, selectedIds: [], selectionMode: false } }));
       },
 
+      syncSystemGroupMembers: (payload) => {
+        const key = payload?.key;
+        if (key !== 'q1' && key !== 'q1_drop') return;
+        const rawMembers = Array.isArray(payload?.members) ? payload.members : [];
+        set((state) => {
+          const normalized: WatchItemInput[] = rawMembers.reduce<WatchItemInput[]>((acc, member) => {
+            const symbol = normalizeSymbol(member?.symbol || '');
+            if (!symbol) return acc;
+            const name = (member?.name || symbol).trim();
+            const type = member?.type || inferItemType(symbol);
+            const note = typeof member?.note === 'string' && member.note.trim() !== '' ? member.note.trim() : undefined;
+            acc.push({ symbol, name, type, note, source: 'system' });
+            return acc;
+          }, []);
+          const items = { ...state.watchItems };
+          const groups = cloneGroups(state.watchGroups);
+          const allGroup = ensureSystemGroup(groups, 'all');
+          const targetGroup = ensureSystemGroup(groups, key);
+          const otherKey = key === 'q1' ? 'q1_drop' : 'q1';
+          const otherGroup = groups[getGroupId(otherKey)];
+          const now = Date.now();
+          const memberIds: string[] = [];
+          normalized.forEach((entry) => {
+            const id = ensureItemForSymbol(items, entry, now);
+            memberIds.push(id);
+          });
+          const uniqueIds = Array.from(new Set(memberIds));
+          targetGroup.itemIds = uniqueIds;
+          targetGroup.updatedAt = now;
+          if (otherGroup) {
+            const removal = new Set(uniqueIds);
+            const filtered = otherGroup.itemIds.filter((id) => !removal.has(id));
+            if (filtered.length !== otherGroup.itemIds.length) {
+              otherGroup.itemIds = filtered;
+              otherGroup.updatedAt = now;
+              groups[otherGroup.id] = otherGroup;
+            }
+          }
+          const filteredAllIds = allGroup.itemIds.filter((id) => {
+            const item = items[id];
+            return !item || item.source !== 'system';
+          });
+          if (filteredAllIds.length !== allGroup.itemIds.length) {
+            allGroup.itemIds = filteredAllIds;
+            allGroup.updatedAt = now;
+          }
+          groups[allGroup.id] = allGroup;
+          groups[targetGroup.id] = targetGroup;
+          return { watchItems: items, watchGroups: groups };
+        });
+      },
+
       addAsset: (asset) => set((state) => {
         const next = [...state.portfolio, { ...asset, id: uuidv4(), order: state.portfolio.length } as AssetItem];
         const synced = syncHoldingsWithPortfolio({ watchItems: state.watchItems, watchGroups: state.watchGroups }, next);
@@ -483,10 +539,10 @@ function createInitialState(): State {
     watchGroups: watch.groups,
     watchUI: watch.ui,
     portfolio: [
-      { id: uuidv4(), type: 'CASH', label: 'みずほ銀行 普通', order: 0, details: { currency: 'JPY', amount: 500000 } },
+      { id: uuidv4(), type: 'CASH', label: '生活防衛費 (JPY)', order: 0, details: { currency: 'JPY', amount: 500000 } },
       { id: uuidv4(), type: 'CASH', label: 'USD現金', order: 1, details: { currency: 'USD', amount: 3000, rateJPY: 160 } },
       { id: uuidv4(), type: 'STOCK', label: 'Apple', order: 2, details: { symbol: 'AAPL', avgPrice: 150, qty: 20 } },
-      { id: uuidv4(), type: 'STOCK', label: 'トヨタ', order: 3, details: { symbol: '7203.T', avgPrice: 2000, qty: 50 } },
+      { id: uuidv4(), type: 'STOCK', label: 'トヨタ自動車', order: 3, details: { symbol: '7203.T', avgPrice: 2000, qty: 50 } },
     ],
     portfolioHistory: [],
     chartTimeframe: 'D',
@@ -669,22 +725,39 @@ function ensureItemForSymbol(items: Record<string, WatchItem>, entry: WatchItemI
   const symbol = normalizeSymbol(entry.symbol);
   if (!symbol) throw new Error('symbol is required');
   const existingId = Object.keys(items).find((id) => items[id].symbol === symbol);
+  const nextSource: 'user' | 'system' = entry.source === 'system' ? 'system' : 'user';
   if (existingId) {
     const existing = items[existingId];
+    const resolvedSource = existing.source === 'system' && nextSource === 'user' ? 'user' : (existing.source || nextSource);
     items[existingId] = {
       ...existing,
       name: entry.name?.trim() || existing.name,
       note: entry.note?.trim() || existing.note,
       updatedAt: ts,
+      source: resolvedSource,
     };
     return existingId;
   }
-  const item = createWatchItem(symbol, entry.name?.trim() || symbol, entry.type || inferItemType(symbol), ts, entry.note);
+  const item = createWatchItem(
+    symbol,
+    entry.name?.trim() || symbol,
+    entry.type || inferItemType(symbol),
+    ts,
+    entry.note,
+    nextSource,
+  );
   items[item.id] = item;
   return item.id;
 }
 
-function createWatchItem(symbol: string, name: string, type: WatchItemType, ts: number, note?: string): WatchItem {
+function createWatchItem(
+  symbol: string,
+  name: string,
+  type: WatchItemType,
+  ts: number,
+  note?: string,
+  source: 'user' | 'system' = 'user'
+): WatchItem {
   return {
     id: `item-${uuidv4()}`,
     symbol,
@@ -693,6 +766,7 @@ function createWatchItem(symbol: string, name: string, type: WatchItemType, ts: 
     addedAt: ts,
     updatedAt: ts,
     note: note?.trim() || undefined,
+    source,
   };
 }
 
@@ -714,6 +788,7 @@ function normalizeItems(items: any): Record<string, WatchItem> {
       addedAt: ts,
       updatedAt: typeof (raw as any)?.updatedAt === 'number' ? (raw as any).updatedAt : ts,
       note: typeof (raw as any)?.note === 'string' ? ((raw as any).note || undefined) : undefined,
+      source: (raw as any)?.source === 'system' ? 'system' : 'user',
     };
   });
   return out;
@@ -726,7 +801,7 @@ function normalizeGroups(groups: any): Record<string, WatchGroup> {
     const sort = (raw as any)?.sort || {};
     out[id] = {
       id,
-      key: key === 'all' || key === 'holding' || key === 'candidate' || key === 'index' ? key : undefined,
+      key: key === 'all' || key === 'holding' || key === 'candidate' || key === 'index' || key === 'q1' || key === 'q1_drop' ? key : undefined,
       name: String((raw as any)?.name || 'Unnamed'),
       color: String((raw as any)?.color || pickColor(Object.keys(out).length)),
       order: typeof (raw as any)?.order === 'number' ? (raw as any).order : Object.keys(out).length,
@@ -940,3 +1015,5 @@ function startOfDay(ts: number): number {
 function isSameDay(a: number, b: number): boolean {
   return startOfDay(a) === startOfDay(b);
 }
+
+

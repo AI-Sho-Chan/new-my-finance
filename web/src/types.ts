@@ -1,4 +1,4 @@
-﻿export type TickerSymbol = string;
+export type TickerSymbol = string;
 
 export type Timeframe = 'D' | 'W' | 'M';
 
@@ -73,6 +73,7 @@ export interface WatchItem {
   addedAt: number;
   updatedAt: number;
   note?: string;
+  source?: 'user' | 'system';
 }
 
 export type WatchGroupSortMode = 'addedAt' | 'symbol' | 'price' | 'custom';
@@ -82,7 +83,7 @@ export type WatchSortMode = 'none' | 'changeAsc' | 'changeDesc' | 'gainLossDesc'
 
 export interface WatchGroup {
   id: string;
-  key?: 'all' | 'holding' | 'candidate' | 'index';
+  key?: 'all' | 'holding' | 'candidate' | 'index' | 'q1' | 'q1_drop';
   name: string;
   color: string;
   order: number;
@@ -106,4 +107,5 @@ export interface WatchSnapshot {
   groups: Record<string, WatchGroup>;
   ui: WatchUIState;
 }
+
 

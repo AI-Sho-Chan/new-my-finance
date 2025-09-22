@@ -1,9 +1,10 @@
-﻿import express from 'express';
+import express from 'express';
 import compression from 'compression';
 import morgan from 'morgan';
 import path from 'node:path';
 import fs from 'node:fs';
 import { spawn } from 'node:child_process';
+import { Q1Monitor } from './q1-monitor.mjs';
 import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -32,6 +33,15 @@ app.use(express.json({ limit: '2mb' }));
 
 // Simple in-memory cache
 const cache = new Map(); // key -> { ts: number, data: any, ttl: number }
+const Q1_MONITOR_DISABLED = process.env.Q1_MONITOR_DISABLED === '1';
+const Q1_MONITOR_DATA_DIR = path.resolve(PROJECT_ROOT, 'data/q1-monitor');
+let q1Monitor = null;
+if (!Q1_MONITOR_DISABLED) {
+  q1Monitor = new Q1Monitor({ dataDir: Q1_MONITOR_DATA_DIR });
+  q1Monitor.init().then(() => q1Monitor.start()).catch((err) => {
+    console.error('Failed to start Q1 monitor:', err);
+  });
+}
 const now = () => Date.now();
 
 function setCache(key, data, ttlMs) {
@@ -66,6 +76,29 @@ async function fetchJsonTry(urls, init) {
   }
   throw lastErr || new Error('all upstream failed');
 }
+
+app.get('/api/q1/status', (req, res) => {
+  if (!q1Monitor) {
+    return res.json({ enabled: false, reason: 'disabled' });
+  }
+  try {
+    res.json(q1Monitor.getStatus());
+  } catch (error) {
+    res.status(500).json({ enabled: false, error: String(error?.message || error) });
+  }
+});
+
+app.get('/api/q1/analysis', (req, res) => {
+  if (!q1Monitor) {
+    return res.json({ enabled: false, reason: 'disabled' });
+  }
+  try {
+    res.json(q1Monitor.getAnalysis());
+  } catch (error) {
+    res.status(500).json({ enabled: false, error: String(error?.message || error) });
+  }
+});
+
 function resolveUsIndustryPython() {
   for (const candidate of US_INDUSTRY_PYTHON_CANDIDATES) {
     if (!candidate) continue;

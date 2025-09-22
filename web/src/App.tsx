@@ -1,9 +1,12 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Dashboard from './components/Dashboard';
 import Portfolio from './components/Portfolio';
 import Analysis from './components/Analysis';
 import Settings from './components/Settings';
 import NavBar from './components/NavBar';
+import Q1AlertBanner from './components/Q1AlertBanner';
+import { fetchQ1Status, type Q1Event, type Q1Status } from './lib/q1';
+import type { WatchItemType } from './types';
 import { NavigationContext, TabKey } from './lib/navigation';
 import { migrateLegacyAssetsIfAny } from './lib/legacy';
 import { useStore } from './store';
@@ -27,6 +30,9 @@ export default function App() {
   }, []);
 
   const [tab, setTab] = useState<TabKey>(initialTab);
+  const [q1Banner, setQ1Banner] = useState<Q1Event | null>(null);
+  const dismissedQ1EventRef = useRef<number | null>(null);
+  const lastQ1EventRef = useRef<number | null>(null);
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const handle = () => {
@@ -53,6 +59,7 @@ export default function App() {
   }, []);
   const isBare = isEmbed && tab === 'analysis';
 
+  const syncSystemGroupMembers = useStore((s) => s.syncSystemGroupMembers);
   const saveSnap = useStore((s) => s.savePortfolioSnapshot);
 
   useEffect(() => {
@@ -79,6 +86,52 @@ export default function App() {
       }
     } catch {}
   }, []);
+  useEffect(() => {
+    let cancelled = false;
+    let timer: number | undefined;
+
+    const applySystemGroups = (status: Q1Status) => {
+      const q1Members = (status?.currentQ1 || []).map((entry) => ({
+        symbol: entry.symbol,
+        name: entry.name,
+        type: (entry.symbol.startsWith('^') ? 'index' : 'stock') as WatchItemType,
+      }));
+      const dropMembers = (status?.currentQ1Drop || []).map((entry) => ({
+        symbol: entry.symbol,
+        name: entry.name,
+        type: (entry.symbol.startsWith('^') ? 'index' : 'stock') as WatchItemType,
+      }));
+      syncSystemGroupMembers({ key: 'q1', members: q1Members });
+      syncSystemGroupMembers({ key: 'q1_drop', members: dropMembers });
+    };
+
+    const evaluateBanner = (status: Q1Status) => {
+      const latest = status?.recentEvents?.[0];
+      if (!latest || !latest.ts) return;
+      if (dismissedQ1EventRef.current && latest.ts <= dismissedQ1EventRef.current) return;
+      if (lastQ1EventRef.current && latest.ts <= lastQ1EventRef.current) return;
+      lastQ1EventRef.current = latest.ts;
+      setQ1Banner(latest);
+    };
+
+    const poll = async () => {
+      try {
+        const status = await fetchQ1Status();
+        if (cancelled) return;
+        applySystemGroups(status);
+        evaluateBanner(status);
+      } catch (error) {
+        console.warn('Failed to fetch Q1 status', error);
+      }
+    };
+
+    poll();
+    timer = window.setInterval(poll, 60_000);
+    return () => {
+      cancelled = true;
+      if (timer) window.clearInterval(timer);
+    };
+  }, [syncSystemGroupMembers]);
 
 
   useEffect(() => {
@@ -110,6 +163,10 @@ export default function App() {
     } catch {}
   }, [isBare]);
 
+  const handleDismissQ1Banner = (ts: number) => {
+    dismissedQ1EventRef.current = ts;
+    setQ1Banner(null);
+  };
   if (isBare) {
     return (
       <div className="px-2 py-2">
@@ -122,6 +179,11 @@ export default function App() {
     <NavigationContext.Provider value={{ setTab }}>
       <div className="min-h-screen">
         <NavBar activeTab={tab} setActiveTab={(next) => setTab(next)} />
+        {q1Banner && (
+          <div className="mx-auto mt-4 max-w-4xl px-4">
+            <Q1AlertBanner event={q1Banner} onDismiss={handleDismissQ1Banner} />
+          </div>
+        )}
         <div className="container mx-auto px-4 pt-4 pb-8">
           <Header />
           <main>

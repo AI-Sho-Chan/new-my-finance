@@ -24,3 +24,5 @@ cf-worker/node_modules/
 # Secrets (do not commit)
 tools/.secrets/
 data/Topix/
+data/q1-monitor/
+tools/....

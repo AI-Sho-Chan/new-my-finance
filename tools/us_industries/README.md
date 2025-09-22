@@ -1,4 +1,27 @@
-﻿# US Industries Dataset
+﻿
+PS C:\AI\NewMyFinance\backend>PS C:\AI\NewMyFinance> .\backend\.venv\Scripts\Activate.ps1    
+Get-Process : 引数 '.\backend\
+.venv\Scripts\Activate.ps1' を 
+受け入れる位置指定パラメーター 
+が見つかりません。
+発生場所 行:1 文字:1
++ PS C:\AI\NewMyFinance> .\bac 
+kend\.venv\Scripts\Activate.ps 
+1
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
+~
+    + CategoryInfo          :  
+    InvalidArgument: (:) [Ge   
+  t-Process]、ParameterBindi   
+  ngException
+    + FullyQualifiedErrorId :  
+    PositionalParameterNotFo   
+  und,Microsoft.PowerShell.    
+ Commands.GetProcessComman     
+d
+
+PS C:\AI\NewMyFinance\backend> # US Industries Dataset
 
 このツールチェーンは FinanceDatabase のメタデータを基に、米国 GICS インダストリー（レベル3）それぞれについて最大5銘柄を抽出し、Yahoo Finance (query2 API) の終値を用いて等ウェイト合成指数を作成します。生成されたデータは `data/us-industries/history.json` と `web/public/data/us-industries-history.json` に保存されます。
 
