@@ -1,9 +1,9 @@
-import fs from 'node:fs';
+﻿import fs from 'node:fs';
 import path from 'node:path';
 import { DateTime } from 'luxon';
 import nodemailer from 'nodemailer';
 
-const STATE_VERSION = 2;
+const STATE_VERSION = 3;
 const DEFAULT_INTERVAL_MIN = Math.max(1, Number.parseInt(process.env.Q1_MONITOR_INTERVAL_MIN ?? '5', 10) || 5);
 const FALLBACK_INTERVAL_MIN = Math.max(DEFAULT_INTERVAL_MIN, Number.parseInt(process.env.Q1_MONITOR_FALLBACK_MIN ?? '10', 10) || 10);
 const MAX_HISTORY = Number.parseInt(process.env.Q1_MONITOR_HISTORY_LIMIT ?? '500', 10) || 500;
@@ -12,11 +12,13 @@ const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
 const FETCH_TIMEOUT_MS = 15000;
 const REQUEST_DELAY_MS = Math.max(200, Number.parseInt(process.env.Q1_MONITOR_REQUEST_DELAY_MS ?? '350', 10) || 350);
 
-const FULL_SCAN_US_AFTER_HOUR = Number.parseInt(process.env.Q1_MONITOR_US_AFTER_HOUR ?? '17', 10) || 17;
-const FULL_SCAN_JP_AFTER_HOUR = Number.parseInt(process.env.Q1_MONITOR_JP_AFTER_HOUR ?? '17', 10) || 17;
 const FULL_SCAN_CONCURRENCY = Math.max(1, Number.parseInt(process.env.Q1_MONITOR_FETCH_CONCURRENCY ?? '1', 10) || 1);
 const MAX_UNIVERSE_SYMBOLS = Number.parseInt(process.env.Q1_MONITOR_MAX_SYMBOLS ?? '0', 10) || 0;
 
+const JP_SCAN_HOUR = Number.parseInt(process.env.Q1_MONITOR_JP_SCAN_HOUR ?? '16', 10) || 16;
+const JP_SCAN_MINUTE = Number.parseInt(process.env.Q1_MONITOR_JP_SCAN_MINUTE ?? '0', 10) || 0;
+const US_SCAN_JST_HOUR = Number.parseInt(process.env.Q1_MONITOR_US_SCAN_JST_HOUR ?? '6', 10) || 6;
+const US_SCAN_JST_MINUTE = Number.parseInt(process.env.Q1_MONITOR_US_SCAN_JST_MINUTE ?? '30', 10) || 30;
 const FULL_SCAN_BATCH_PAUSE_MS = Math.max(0, Number.parseInt(process.env.Q1_MONITOR_BATCH_PAUSE_MS ?? '0', 10) || 0);
 const FULL_SCAN_PROGRESS_EVERY = Math.max(5, Number.parseInt(process.env.Q1_MONITOR_PROGRESS_EVERY ?? '50', 10) || 50);
 
@@ -643,6 +645,21 @@ class Q1Monitor {
         if (!Object.prototype.hasOwnProperty.call(this.state, 'lastPriorityRefreshAt')) {
           this.state.lastPriorityRefreshAt = null;
         }
+        if (!Object.prototype.hasOwnProperty.call(this.state, 'lastJPScanKey')) {
+          this.state.lastJPScanKey = null;
+        }
+        if (!Object.prototype.hasOwnProperty.call(this.state, 'lastUSScanKey')) {
+          this.state.lastUSScanKey = null;
+        }
+        if (!Object.prototype.hasOwnProperty.call(this.state, 'lastJPScanAt')) {
+          this.state.lastJPScanAt = null;
+        }
+        if (!Object.prototype.hasOwnProperty.call(this.state, 'lastUSScanAt')) {
+          this.state.lastUSScanAt = null;
+        }
+        if (!Object.prototype.hasOwnProperty.call(this.state, 'snapshotByMarket')) {
+          this.state.snapshotByMarket = { JP: null, US: null };
+        }
         this.intervalMinutes = this.state.intervalMinutes ?? DEFAULT_INTERVAL_MIN;
         return;
       }
@@ -661,6 +678,11 @@ class Q1Monitor {
           lastFullScanAt: parsed.lastSuccessAt ?? null,
           universeSize: parsed.snapshot?.items?.length ?? CORE_ASSETS.length,
           lastPriorityRefreshAt: null,
+          lastJPScanKey: null,
+          lastUSScanKey: null,
+          lastJPScanAt: null,
+          lastUSScanAt: null,
+          snapshotByMarket: { JP: null, US: null },
         };
         this.intervalMinutes = this.state.intervalMinutes ?? DEFAULT_INTERVAL_MIN;
         return;
@@ -682,6 +704,11 @@ class Q1Monitor {
       lastFullScanAt: null,
       universeSize: CORE_ASSETS.length,
       lastPriorityRefreshAt: null,
+      lastJPScanKey: null,
+      lastUSScanKey: null,
+      lastJPScanAt: null,
+      lastUSScanAt: null,
+      snapshotByMarket: { JP: null, US: null },
     };
     this.intervalMinutes = this.state.intervalMinutes ?? DEFAULT_INTERVAL_MIN;
   }
@@ -709,20 +736,23 @@ class Q1Monitor {
     return this.universePromise;
   }
 
-  shouldRunFullScan(tradeDates, usStatus, jpStatus) {
-    if (!this.state) return true;
-    const key = `${tradeDates.us}|${tradeDates.jp}`;
-    if (this.state.lastFullScanKey === key) return false;
-    if (this.fullScanInProgress) return false;
-    const usNow = DateTime.now().setZone('America/New_York');
+  pendingScanReasons(tradeDates, usStatus, jpStatus) {
+    if (!this.state) return ['JP', 'US'];
+    if (this.fullScanInProgress) return [];
+    const reasons = [];
     const jpNow = DateTime.now().setZone('Asia/Tokyo');
-    if (usStatus.isOpen || jpStatus.isOpen) return false;
-    if (this.state.lastFullScanKey == null) return true;
-    if (usNow.hour < FULL_SCAN_US_AFTER_HOUR) return false;
-    if (jpNow.hour < FULL_SCAN_JP_AFTER_HOUR) return false;
-    return true;
+    const initialJP = this.state.lastJPScanKey == null;
+    const initialUS = this.state.lastUSScanKey == null;
+    const jpDue = !jpStatus.isWeekend && (jpNow.hour > JP_SCAN_HOUR || (jpNow.hour === JP_SCAN_HOUR && jpNow.minute >= JP_SCAN_MINUTE));
+    const usDue = !usStatus.isWeekend && (jpNow.hour > US_SCAN_JST_HOUR || (jpNow.hour === US_SCAN_JST_HOUR && jpNow.minute >= US_SCAN_JST_MINUTE));
+    if (initialJP || (jpDue && this.state.lastJPScanKey !== tradeDates.jp)) {
+      reasons.push('JP');
+    }
+    if (initialUS || (usDue && this.state.lastUSScanKey !== tradeDates.us)) {
+      reasons.push('US');
+    }
+    return reasons;
   }
-
 
   collectPrioritySymbols(limit = PRIORITY_REFRESH_LIMIT) {
     if (!this.state || !this.state.snapshot || !Array.isArray(this.state.snapshot.items)) return [];
@@ -862,39 +892,61 @@ class Q1Monitor {
     this.state.marketStatus = { us: marketInfo.usStatus, jp: marketInfo.jpStatus };
   }
 
+  async runMarketScan(market) {
+    const reason = market === 'US' ? 'US' : 'JP';
+    const usStatus = marketStatus('America/New_York', US_SESSIONS);
+    const jpStatus = marketStatus('Asia/Tokyo', JP_SESSIONS);
+    const tradeDates = { us: sessionTradeDate('US'), jp: sessionTradeDate('JP') };
+    await this.performFullScan(reason, tradeDates, { usStatus, jpStatus });
+    if (this.state) {
+      this.state.lastRun = Date.now();
+      await this.saveState();
+    }
+  }
+
   scheduleNext() {
     const delay = Math.max(1, this.intervalMinutes) * 60 * 1000;
     this.timer = setTimeout(() => this.runLoop(false), delay);
   }
 
-  async performFullScan(tradeDates, marketInfo) {
+  async performFullScan(reason, tradeDates, marketInfo) {
     if (this.fullScanInProgress) return;
     this.fullScanInProgress = true;
     try {
       const universe = await this.ensureUniverse();
-      console.log(`[Q1Monitor] starting full scan for ${universe.length} symbols`);
+      const scanUniverse = reason === 'JP' ? universe.filter((asset) => asset.market === 'JP')
+        : reason === 'US' ? universe.filter((asset) => asset.market === 'US')
+        : universe;
+      console.log(`[Q1Monitor] starting full scan (${reason}) for ${scanUniverse.length} symbols`);
       const progressEvery = Math.max(1, FULL_SCAN_PROGRESS_EVERY);
       const startedAt = Date.now();
-      const snapshot = await computeSnapshot(universe, {
+      const snapshot = await computeSnapshot(scanUniverse, {
         progressEvery,
         onProgress: ({ processed, total, etaMs }) => {
           if (!total) return;
           if (processed < total && processed % progressEvery !== 0) return;
           const percent = ((processed / total) * 100).toFixed(1);
           const eta = etaMs != null ? `${Math.round(etaMs / 60000)}m` : 'n/a';
-          console.log(`[Q1Monitor] full scan progress ${processed}/${total} (${percent}%) ETA ${eta}`);
+          console.log(`[Q1Monitor] full scan (${reason}) progress ${processed}/${total} (${percent}%) ETA ${eta}`);
         },
       });
       this.failCount = 0;
       this.intervalMinutes = DEFAULT_INTERVAL_MIN;
-      await this.updateStateWithSnapshot(snapshot, marketInfo);
+      await this.updateStateWithSnapshot(reason, snapshot, marketInfo, tradeDates);
       if (this.state) {
         this.state.lastSuccessAt = snapshot.generatedAt;
         this.state.lastFullScanAt = snapshot.generatedAt;
-        this.state.lastFullScanKey = `${tradeDates.us}|${tradeDates.jp}`;
-        this.state.universeSize = universe.length;
+        this.state.lastFullScanKey = `${reason}|${tradeDates.us}|${tradeDates.jp}`;
+        this.state.universeSize = scanUniverse.length;
+        if (reason === 'JP') {
+          this.state.lastJPScanKey = tradeDates.jp;
+          this.state.lastJPScanAt = snapshot.generatedAt;
+        } else if (reason === 'US') {
+          this.state.lastUSScanKey = tradeDates.us;
+          this.state.lastUSScanAt = snapshot.generatedAt;
+        }
         const durationMin = ((Date.now() - startedAt) / 60000).toFixed(1);
-        console.log(`[Q1Monitor] full scan completed in ${durationMin}m`);
+        console.log(`[Q1Monitor] full scan (${reason}) completed in ${durationMin}m`);
       }
     } finally {
       this.fullScanInProgress = false;
@@ -932,15 +984,16 @@ class Q1Monitor {
       const tradeDates = { us: sessionTradeDate('US'), jp: sessionTradeDate('JP') };
 
       let performedScan = false;
-      if (this.shouldRunFullScan(tradeDates, usStatus, jpStatus)) {
+      const scanReasons = this.pendingScanReasons(tradeDates, usStatus, jpStatus);
+      for (const reason of scanReasons) {
         try {
-          await this.performFullScan(tradeDates, { usStatus, jpStatus });
+          await this.performFullScan(reason, tradeDates, { usStatus, jpStatus });
           performedScan = true;
         } catch (error) {
           this.failCount += 1;
           if (this.failCount >= 1) this.intervalMinutes = FALLBACK_INTERVAL_MIN;
           if (this.state) this.state.lastError = String(error?.message || error);
-          console.error('[Q1Monitor] full scan failed:', error);
+          console.error(`[Q1Monitor] full scan (${reason}) failed:`, error);
         }
       }
 
@@ -963,7 +1016,7 @@ class Q1Monitor {
     }
   }
 
-  async updateStateWithSnapshot(snapshot, marketInfo) {
+  async updateStateWithSnapshot(reason, snapshot, marketInfo, tradeDates) {
     if (!this.state) return;
     const now = Date.now();
     const symbolsState = this.state.symbols || {};
@@ -992,7 +1045,7 @@ class Q1Monitor {
         lastPrice: item.lastPrice,
         rp: item.rp,
       };
-      const tradeDate = item.market === 'JP' ? sessionTradeDate('JP') : sessionTradeDate('US');
+      const tradeDate = reason === 'JP' ? tradeDates.jp : tradeDates.us;
       const isQ1 = item.quadrant === 'Q1';
       const wasQ1 = prev.lastQuadrant === 'Q1';
       let emitted = null;
@@ -1053,11 +1106,22 @@ class Q1Monitor {
     }
 
     this.state.symbols = symbolsState;
-    this.state.snapshot = {
+    if (!this.state.snapshotByMarket) {
+      this.state.snapshotByMarket = { JP: null, US: null };
+    }
+    this.state.snapshotByMarket[reason] = {
       generatedAt: snapshot.generatedAt,
       items: snapshot.items,
     };
-    this.state.universeSize = snapshot.items.length;
+    const combinedItems = [
+      ...(this.state.snapshotByMarket.JP?.items ?? []),
+      ...(this.state.snapshotByMarket.US?.items ?? []),
+    ];
+    this.state.snapshot = {
+      generatedAt: snapshot.generatedAt,
+      items: combinedItems,
+    };
+    this.state.universeSize = combinedItems.length;
     this.state.marketStatus = {
       us: marketInfo.usStatus,
       jp: marketInfo.jpStatus,
@@ -1105,11 +1169,11 @@ class Q1Monitor {
     }
   }
 
-  currentQ1List() {
+  currentQ1List(market) {
     if (!this.state?.snapshot?.items) return [];
     const list = [];
     this.state.snapshot.items.forEach((item) => {
-      if (item.quadrant === 'Q1') {
+      if (item.quadrant === 'Q1' && (!market || item.market === market)) {
         const meta = this.state.symbols?.[item.symbol] || {};
         list.push({
           symbol: item.symbol,
@@ -1124,13 +1188,14 @@ class Q1Monitor {
     return list;
   }
 
-  currentQ1DropList() {
+  currentQ1DropList(market) {
     if (!this.state?.symbols) return [];
     const now = Date.now();
     const cutoff = now - DROP_RETENTION_DAYS * 24 * 60 * 60 * 1000;
     const list = [];
     Object.values(this.state.symbols).forEach((entry) => {
       if (!entry) return;
+      if (market && entry.market !== market) return;
       const lastDrop = entry.lastDropAt;
       const lastEnter = entry.lastEnterAt;
       if (!lastDrop || lastDrop < cutoff) return;
@@ -1157,12 +1222,18 @@ class Q1Monitor {
       marketStatus: this.state.marketStatus,
       currentQ1: this.currentQ1List(),
       currentQ1Drop: this.currentQ1DropList(),
+      currentQ1JP: this.currentQ1List('JP'),
+      currentQ1US: this.currentQ1List('US'),
+      currentQ1DropJP: this.currentQ1DropList('JP'),
+      currentQ1DropUS: this.currentQ1DropList('US'),
       recentEvents: (this.state.history || []).slice(-20).reverse(),
       snapshotGeneratedAt: this.state.snapshot?.generatedAt || null,
       universeSize: this.state.universeSize || 0,
       emailConfigured: this.emailEnabled,
       lastFullScanAt: this.state.lastFullScanAt || null,
       lastPriorityRefreshAt: this.state.lastPriorityRefreshAt || null,
+      lastJPScanAt: this.state.lastJPScanAt || null,
+      lastUSScanAt: this.state.lastUSScanAt || null,
     };
   }
 
@@ -1173,6 +1244,10 @@ class Q1Monitor {
       generatedAt: this.state.snapshot?.generatedAt || null,
       currentQ1: this.currentQ1List(),
       currentQ1Drop: this.currentQ1DropList(),
+      currentQ1JP: this.currentQ1List('JP'),
+      currentQ1US: this.currentQ1List('US'),
+      currentQ1DropJP: this.currentQ1DropList('JP'),
+      currentQ1DropUS: this.currentQ1DropList('US'),
       history: this.state.history || [],
     };
   }

@@ -1,11 +1,11 @@
 ﻿import { fetchTopix33History, buildTopix33Overrides, type Topix33Overrides } from '../lib/topix33';
 import { fetchUSIndustriesHistory, buildUSIndustryOverrides, type USIndustryOverrides } from '../lib/usIndustries';
-import { fetchQ1Analysis, type Q1Analysis, type Q1Event, type Q1Metrics } from '../lib/q1';
-import { useEffect, useMemo, useState } from 'react';
+import { fetchQ1Analysis, fetchQ1Status, type Q1Analysis, type Q1Event, type Q1Metrics, type Q1Status, type Q1StatusEntry } from '../lib/q1';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { computeSnapshotWithTrails, DEFAULT_PARAMS, type SnapshotItem, type SnapshotTrails, type SnapshotMeta, UNIVERSE, type AssetDef } from '../lib/analysis';
 import { useStore } from '../store';
 import { collectGroupItemIds } from '../lib/watch-helpers';
-import type { WatchItem } from '../types';
+import type { WatchItem, WatchItemType } from '../types';
 
 function colorForQuad(q: SnapshotItem['quadrant']) {
   switch (q) {
@@ -32,46 +32,13 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
   const [trails, setTrails] = useState<SnapshotTrails | null>(null);
   const [meta, setMeta] = useState<SnapshotMeta | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [view, setView] = useState<'GLOBAL' | 'US_INDUSTRY' | 'JP_SECTOR' | 'ALL_WATCH' | 'Q1' | 'Q1_DROP'>('GLOBAL');
+  const [view, setView] = useState<'GLOBAL' | 'US_INDUSTRY' | 'JP_SECTOR' | 'ALL_WATCH' | 'Q1_JP' | 'Q1_US' | 'Q1_DROP_JP' | 'Q1_DROP_US'>('GLOBAL');
   const [topixData, setTopixData] = useState<Topix33Overrides | null>(null);
   const [topixLoadErr, setTopixLoadErr] = useState<string | null>(null);
   const [usIndustryData, setUsIndustryData] = useState<USIndustryOverrides | null>(null);
   const [q1Data, setQ1Data] = useState<Q1Analysis | null>(null);
+  const [q1Status, setQ1Status] = useState<Q1Status | null>(null);
   const [usIndustryLoadErr, setUsIndustryLoadErr] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (view !== 'Q1' && view !== 'Q1_DROP') return;
-    let cancelled = false;
-    setLoading(true);
-    setErr(null);
-    setItems(null);
-    setTrails(null);
-    setMeta(null);
-    fetchQ1Analysis()
-      .then((data) => {
-        if (cancelled) return;
-        setQ1Data(data);
-        const source = view === 'Q1' ? data.currentQ1 : data.currentQ1Drop;
-        const itemsFromApi = q1EntriesToSnapshot(source).filter((item) => (view === 'Q1' ? item.quadrant === 'Q1' : true));
-        setItems(itemsFromApi);
-        if (!itemsFromApi.length) {
-          setErr(view === 'Q1' ? '現在Q1判定の銘柄はありません。' : '最近30日以内のQ1落ち銘柄はありません。');
-        }
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        setItems([]);
-        setTrails(null);
-        setMeta(null);
-        setErr(error instanceof Error ? error.message : String(error));
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [view]);
 
   // Read watchlist from NMY localStorage, fallback to Zustand
   const readNMYWatch = () => {
@@ -84,6 +51,7 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
   };
   const watchItemsMap = useStore((s) => s.watchItems);
   const watchGroupsMap = useStore((s) => s.watchGroups);
+  const syncSystemGroupMembers = useStore((s) => s.syncSystemGroupMembers);
   const [nmyWatch, setNmyWatch] = useState<{ symbol: string; name: string }[]>(() => readNMYWatch());
   const allGroup = useMemo(() => {
     const groups = Object.values(watchGroupsMap);
@@ -101,6 +69,107 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
   }, [allGroup, watchItemsMap]);
   const mergedWatch = storeWatch.length ? storeWatch : nmyWatch;
   const watchKey = useMemo(() => mergedWatch.map((w) => w.symbol).join(','), [mergedWatch]);
+
+  const applyStatusToSystemGroups = useCallback((status: Q1Status | null | undefined) => {
+    if (!status) return;
+    const buildMembers = (entries: Q1StatusEntry[] | undefined) =>
+      (entries ?? []).map((entry) => ({
+        symbol: entry.symbol,
+        name: entry.name,
+        type: (entry.symbol?.startsWith('^') ? 'index' : 'stock') as WatchItemType,
+      }));
+    const allCurrent = status.currentQ1 ?? [];
+    const allDrop = status.currentQ1Drop ?? [];
+    const currentJPStatus = status.currentQ1JP ?? allCurrent.filter((entry) => entry.market === 'JP');
+    const currentUSStatus = status.currentQ1US ?? allCurrent.filter((entry) => entry.market === 'US');
+    const dropJPStatus = status.currentQ1DropJP ?? allDrop.filter((entry) => entry.market === 'JP');
+    const dropUSStatus = status.currentQ1DropUS ?? allDrop.filter((entry) => entry.market === 'US');
+    syncSystemGroupMembers({ key: 'q1_jp', members: buildMembers(currentJPStatus) });
+    syncSystemGroupMembers({ key: 'q1_us', members: buildMembers(currentUSStatus) });
+    syncSystemGroupMembers({ key: 'q1_drop_jp', members: buildMembers(dropJPStatus) });
+    syncSystemGroupMembers({ key: 'q1_drop_us', members: buildMembers(dropUSStatus) });
+  }, [syncSystemGroupMembers]);
+
+  useEffect(() => {
+    const q1Views = new Set(['Q1_JP', 'Q1_US', 'Q1_DROP_JP', 'Q1_DROP_US']);
+    if (!q1Views.has(view)) return;
+    let cancelled = false;
+    setLoading(true);
+    setErr(null);
+    setItems(null);
+    setTrails(null);
+    setMeta(null);
+
+    const load = async () => {
+      try {
+        const [analysisRes, statusRes] = await Promise.all([fetchQ1Analysis(), fetchQ1Status()]);
+        if (cancelled) return;
+        setQ1Data(analysisRes);
+        if (statusRes) {
+          setQ1Status(statusRes);
+          applyStatusToSystemGroups(statusRes);
+        }
+        const allCurrent = statusRes?.currentQ1 ?? [];
+        const allDrop = statusRes?.currentQ1Drop ?? [];
+        let source: Q1StatusEntry[] = [];
+        if (view === 'Q1_JP') {
+          source = statusRes?.currentQ1JP ?? allCurrent.filter((entry) => entry.market === 'JP');
+        } else if (view === 'Q1_US') {
+          source = statusRes?.currentQ1US ?? allCurrent.filter((entry) => entry.market === 'US');
+        } else if (view === 'Q1_DROP_JP') {
+          source = statusRes?.currentQ1DropJP ?? allDrop.filter((entry) => entry.market === 'JP');
+        } else {
+          source = statusRes?.currentQ1DropUS ?? allDrop.filter((entry) => entry.market === 'US');
+        }
+        const itemsFromApi = q1EntriesToSnapshot(source).filter((item) =>
+          view === 'Q1_JP' || view === 'Q1_US' ? item.quadrant === 'Q1' : true
+        );
+        setItems(itemsFromApi);
+        if (!itemsFromApi.length) {
+          const messages: Record<string, string> = {
+            Q1_JP: '日本株のQ1該当銘柄はありません。',
+            Q1_US: '米国株のQ1該当銘柄はありません。',
+            Q1_DROP_JP: '日本株で直近30日以内にQ1から外れた銘柄はありません。',
+            Q1_DROP_US: '米国株で直近30日以内にQ1から外れた銘柄はありません。',
+          };
+          setErr(messages[view]);
+        }
+      } catch (error) {
+        if (cancelled) return;
+        setItems([]);
+        setTrails(null);
+        setMeta(null);
+        setErr(error instanceof Error ? error.message : String(error));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [view, applyStatusToSystemGroups]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const status = await fetchQ1Status();
+        if (cancelled) return;
+        setQ1Status(status);
+        applyStatusToSystemGroups(status);
+      } catch {
+        // swallow network errors; status polling will retry
+      }
+    };
+    load();
+    const id = window.setInterval(load, 60_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [applyStatusToSystemGroups]);
 
   useEffect(() => {
     const onMsg = (ev: MessageEvent) => {
@@ -124,7 +193,7 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
   }, []);
 
   useEffect(() => {
-    if (view === 'Q1' || view === 'Q1_DROP') return;
+    if (view === 'Q1_JP' || view === 'Q1_US' || view === 'Q1_DROP_JP' || view === 'Q1_DROP_US') return;
     let cancelled = false;
     fetchTopix33History()
       .then((history) => buildTopix33Overrides(history))
@@ -191,7 +260,7 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
     let alive = true;
 
     const run = async () => {
-      if (view === 'Q1' || view === 'Q1_DROP') {
+      if (view === 'Q1_JP' || view === 'Q1_US' || view === 'Q1_DROP_JP' || view === 'Q1_DROP_US') {
         return;
       }
       if (view === 'JP_SECTOR' && !topixOverridesMap) {
@@ -327,8 +396,10 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
         <button className={`px-2 py-1 rounded ${view==='US_INDUSTRY'?'bg-indigo-600 text-white':'bg-gray-700 text-gray-200'}`} onClick={()=>setView('US_INDUSTRY')}>US Industries</button>
         <button className={`px-2 py-1 rounded ${view==='JP_SECTOR'?'bg-indigo-600 text-white':'bg-gray-700 text-gray-200'}`} onClick={()=>setView('JP_SECTOR')}>Japan Index</button>
         <button className={`px-2 py-1 rounded ${view==='ALL_WATCH'?'bg-indigo-600 text-white':'bg-gray-700 text-gray-200'}`} onClick={()=>setView('ALL_WATCH')}>ALL</button>
-        <button className={`px-2 py-1 rounded ${view==='Q1'?'bg-indigo-600 text-white':'bg-gray-700 text-gray-200'}`} onClick={()=>setView('Q1')}>Q1</button>
-        <button className={`px-2 py-1 rounded ${view==='Q1_DROP'?'bg-indigo-600 text-white':'bg-gray-700 text-gray-200'}`} onClick={()=>setView('Q1_DROP')}>Q1落ち</button>
+        <button className={`px-2 py-1 rounded ${view==='Q1_JP'?'bg-indigo-600 text-white':'bg-gray-700 text-gray-200'}`} onClick={()=>setView('Q1_JP')}>Q1 JP</button>
+        <button className={`px-2 py-1 rounded ${view==='Q1_US'?'bg-indigo-600 text-white':'bg-gray-700 text-gray-200'}`} onClick={()=>setView('Q1_US')}>Q1 US</button>
+        <button className={`px-2 py-1 rounded ${view==='Q1_DROP_JP'?'bg-indigo-600 text-white':'bg-gray-700 text-gray-200'}`} onClick={()=>setView('Q1_DROP_JP')}>Q1落ち JP</button>
+        <button className={`px-2 py-1 rounded ${view==='Q1_DROP_US'?'bg-indigo-600 text-white':'bg-gray-700 text-gray-200'}`} onClick={()=>setView('Q1_DROP_US')}>Q1落ち US</button>
       </div>
 
       {view === 'JP_SECTOR' && (
@@ -357,15 +428,17 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
           )}
         </div>
       )}
-      {view === 'Q1' && (
-        <div className="text-xs text-gray-400">
-          現在のQ1銘柄: {q1Data?.currentQ1?.length ?? 0} / 履歴 {q1Data?.history?.length ?? 0} 件
-        </div>
+      {view === 'Q1_JP' && (
+        <div className="text-xs text-gray-400">JP Q1: {q1Status?.currentQ1JP?.length ?? 0}</div>
       )}
-      {view === 'Q1_DROP' && (
-        <div className="text-xs text-gray-400">
-          Q1落ち監視中: {q1Data?.currentQ1Drop?.length ?? 0} 件 (直近30日)
-        </div>
+      {view === 'Q1_US' && (
+        <div className="text-xs text-gray-400">US Q1: {q1Status?.currentQ1US?.length ?? 0}</div>
+      )}
+      {view === 'Q1_DROP_JP' && (
+        <div className="text-xs text-gray-400">JP Q1落ち: {q1Status?.currentQ1DropJP?.length ?? 0} 件 (直近30日)</div>
+      )}
+      {view === 'Q1_DROP_US' && (
+        <div className="text-xs text-gray-400">US Q1落ち: {q1Status?.currentQ1DropUS?.length ?? 0} 件 (直近30日)</div>
       )}
 
       {loading && <div className="card">Loading...</div>}
@@ -402,10 +475,10 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
               </ul>
             </div>
           )}
-          {view === 'Q1' && q1Data?.history?.length ? (
+          {(view === 'Q1_JP' || view === 'Q1_US') && q1Data?.history?.length ? (
             <div className="card">
-              <div className="font-semibold mb-2">Q1履歴</div>
-              <Q1HistoryTable events={q1Data.history} />
+              <div className="font-semibold mb-2">Q1履歴 ({view === 'Q1_JP' ? 'JP' : 'US'})</div>
+              <Q1HistoryTable events={q1Data.history} market={view === 'Q1_JP' ? 'JP' : 'US'} />
             </div>
           ) : null}
         </>
@@ -584,7 +657,7 @@ function QList({ items }: { items: SnapshotItem[] }) {
 
 
 
-function q1EntriesToSnapshot(entries: Q1Analysis['currentQ1']): SnapshotItem[] {
+function q1EntriesToSnapshot(entries: Q1StatusEntry[]): SnapshotItem[] {
   const items = entries.map((entry) => {
     const metrics = (entry.metrics ?? {}) as Q1Metrics;
     const {
@@ -644,11 +717,12 @@ function eventLabel(type: Q1Event['type']): string {
   return type;
 }
 
-function Q1HistoryTable({ events }: { events: Q1Event[] }) {
-  if (!events.length) {
-    return <div className="text-xs text-gray-400">履歴はありません。</div>;
+function Q1HistoryTable({ events, market }: { events: Q1Event[]; market: 'JP' | 'US' }) {
+  const filtered = events.filter((evt) => evt.market === market);
+  if (!filtered.length) {
+    return <div className="text-xs text-gray-400">No matching history.</div>;
   }
-  const rows = events.slice(0, 40);
+  const rows = filtered.slice(0, 40);
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[420px] text-xs text-gray-200">
@@ -656,9 +730,9 @@ function Q1HistoryTable({ events }: { events: Q1Event[] }) {
           <tr>
             <th className="py-2 pr-3 text-left">種別</th>
             <th className="py-2 pr-3 text-left">銘柄</th>
-            <th className="py-2 pr-3 text-left">時刻</th>
+            <th className="py-2 pr-3 text-left">日時</th>
             <th className="py-2 pr-3 text-left">Flow / Value</th>
-            <th className="py-2 pr-3 text-left">備考</th>
+            <th className="py-2 pr-3 text-left">指標</th>
           </tr>
         </thead>
         <tbody>
@@ -685,3 +759,4 @@ function Q1HistoryTable({ events }: { events: Q1Event[] }) {
     </div>
   );
 }
+

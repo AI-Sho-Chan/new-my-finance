@@ -1,4 +1,4 @@
-import { create } from 'zustand';
+﻿import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { v4 as uuidv4 } from 'uuid';
 import type {
@@ -60,7 +60,7 @@ type WatchActions = {
   setPendingAssignGroupIds: (groupIds: string[]) => void;
   setSortMode: (mode: WatchSortMode) => void;
   clearSelection: () => void;
-  syncSystemGroupMembers: (payload: { key: 'q1' | 'q1_drop'; members: WatchItemInput[] }) => void;
+  syncSystemGroupMembers: (payload: { key: 'q1_jp' | 'q1_us' | 'q1_drop_jp' | 'q1_drop_us'; members: WatchItemInput[] }) => void;
 };
 
 type PortfolioActions = {
@@ -81,11 +81,13 @@ const STORE_VERSION = 2;
 
 const SYSTEM_GROUP_DEFS: Array<{ key: Required<WatchGroup['key']>; name: string; color: string }> = [
   { key: 'all', name: 'ALL', color: '#2563eb' },
-  { key: 'holding', name: '保有', color: '#f59e0b' },
-  { key: 'candidate', name: '候補', color: '#16a34a' },
-  { key: 'q1', name: 'Q1', color: '#22c55e' },
-  { key: 'q1_drop', name: 'Q1落ち', color: '#f97316' },
-  { key: 'index', name: '指数', color: '#9333ea' },
+  { key: 'holding', name: 'HOLDINGS', color: '#f59e0b' },
+  { key: 'candidate', name: 'CANDIDATES', color: '#16a34a' },
+  { key: 'q1_jp', name: 'Q1 JP', color: '#22c55e' },
+  { key: 'q1_us', name: 'Q1 US', color: '#0ea5e9' },
+  { key: 'q1_drop_jp', name: 'Q1 DROP JP', color: '#f97316' },
+  { key: 'q1_drop_us', name: 'Q1 DROP US', color: '#f43f5e' },
+  { key: 'index', name: 'INDICES', color: '#9333ea' },
 ];
 
 const WATCH_SEED: Array<{ symbol: string; name: string; type?: WatchItemType }> = [
@@ -96,6 +98,17 @@ const WATCH_SEED: Array<{ symbol: string; name: string; type?: WatchItemType }> 
 
 const DEFAULT_SORT: { mode: WatchGroupSortMode; direction: WatchGroupSortDirection } = { mode: 'addedAt', direction: 'desc' };
 
+const SYSTEM_SYNC_KEYS = new Set<Required<WatchGroup['key']>>(['q1_jp','q1_us','q1_drop_jp','q1_drop_us']);
+const SYSTEM_SYNC_COUNTERPART: Record<Required<WatchGroup['key']>, Required<WatchGroup['key']> | null> = {
+  all: null,
+  holding: null,
+  candidate: null,
+  q1_jp: 'q1_drop_jp',
+  q1_drop_jp: 'q1_jp',
+  q1_us: 'q1_drop_us',
+  q1_drop_us: 'q1_us',
+  index: null,
+};
 const DEFAULT_COLORS = ['#2563eb', '#16a34a', '#9333ea', '#f97316', '#8b5cf6', '#facc15', '#0ea5e9', '#f43f5e'];
 
 export const useStore = create<State & Actions>()(
@@ -125,7 +138,7 @@ export const useStore = create<State & Actions>()(
             addItemToGroup(allGroup, id, { atStart: true });
             targetGroupIds.forEach((gid) => {
               const group = groups[gid];
-              if (!group || group.key === 'all') return;
+              if (!group || group.key === 'all' || (group.key && SYSTEM_SYNC_KEYS.has(group.key))) return;
               addItemToGroup(group, id, { atStart: true });
               group.updatedAt = now;
             });
@@ -152,7 +165,7 @@ export const useStore = create<State & Actions>()(
 
           groupIds.forEach((gid) => {
             const group = groups[gid];
-            if (!group || group.key === 'all') return;
+            if (!group || group.key === 'all' || (group.key && SYSTEM_SYNC_KEYS.has(group.key))) return;
             itemIds.forEach((id) => {
               if (!items[id]) return;
               addItemToGroup(group, id, { atStart: false });
@@ -353,8 +366,8 @@ export const useStore = create<State & Actions>()(
       },
 
       syncSystemGroupMembers: (payload) => {
-        const key = payload?.key;
-        if (key !== 'q1' && key !== 'q1_drop') return;
+        const key = payload?.key as (Required<WatchGroup['key']> | undefined);
+        if (!key || !SYSTEM_SYNC_KEYS.has(key)) return;
         const rawMembers = Array.isArray(payload?.members) ? payload.members : [];
         set((state) => {
           const normalized: WatchItemInput[] = rawMembers.reduce<WatchItemInput[]>((acc, member) => {
@@ -370,8 +383,8 @@ export const useStore = create<State & Actions>()(
           const groups = cloneGroups(state.watchGroups);
           const allGroup = ensureSystemGroup(groups, 'all');
           const targetGroup = ensureSystemGroup(groups, key);
-          const otherKey = key === 'q1' ? 'q1_drop' : 'q1';
-          const otherGroup = groups[getGroupId(otherKey)];
+          const counterpartKey = SYSTEM_SYNC_COUNTERPART[key];
+          const counterpartGroup = counterpartKey ? ensureSystemGroup(groups, counterpartKey) : null;
           const now = Date.now();
           const memberIds: string[] = [];
           normalized.forEach((entry) => {
@@ -381,13 +394,13 @@ export const useStore = create<State & Actions>()(
           const uniqueIds = Array.from(new Set(memberIds));
           targetGroup.itemIds = uniqueIds;
           targetGroup.updatedAt = now;
-          if (otherGroup) {
+          if (counterpartGroup) {
             const removal = new Set(uniqueIds);
-            const filtered = otherGroup.itemIds.filter((id) => !removal.has(id));
-            if (filtered.length !== otherGroup.itemIds.length) {
-              otherGroup.itemIds = filtered;
-              otherGroup.updatedAt = now;
-              groups[otherGroup.id] = otherGroup;
+            const filtered = counterpartGroup.itemIds.filter((id) => !removal.has(id));
+            if (filtered.length !== counterpartGroup.itemIds.length) {
+              counterpartGroup.itemIds = filtered;
+              counterpartGroup.updatedAt = now;
+              groups[counterpartGroup.id] = counterpartGroup;
             }
           }
           const filteredAllIds = allGroup.itemIds.filter((id) => {
@@ -398,8 +411,8 @@ export const useStore = create<State & Actions>()(
             allGroup.itemIds = filteredAllIds;
             allGroup.updatedAt = now;
           }
-          groups[allGroup.id] = allGroup;
           groups[targetGroup.id] = targetGroup;
+          groups[allGroup.id] = allGroup;
           return { watchItems: items, watchGroups: groups };
         });
       },
@@ -539,10 +552,10 @@ function createInitialState(): State {
     watchGroups: watch.groups,
     watchUI: watch.ui,
     portfolio: [
-      { id: uuidv4(), type: 'CASH', label: '生活防衛費 (JPY)', order: 0, details: { currency: 'JPY', amount: 500000 } },
-      { id: uuidv4(), type: 'CASH', label: 'USD現金', order: 1, details: { currency: 'USD', amount: 3000, rateJPY: 160 } },
+      { id: uuidv4(), type: 'CASH', label: 'Emergency Fund (JPY)', order: 0, details: { currency: 'JPY', amount: 500000 } },
+      { id: uuidv4(), type: 'CASH', label: 'USD Cash', order: 1, details: { currency: 'USD', amount: 3000, rateJPY: 160 } },
       { id: uuidv4(), type: 'STOCK', label: 'Apple', order: 2, details: { symbol: 'AAPL', avgPrice: 150, qty: 20 } },
-      { id: uuidv4(), type: 'STOCK', label: 'トヨタ自動車', order: 3, details: { symbol: '7203.T', avgPrice: 2000, qty: 50 } },
+      { id: uuidv4(), type: 'STOCK', label: 'Toyota Motor', order: 3, details: { symbol: '7203.T', avgPrice: 2000, qty: 50 } },
     ],
     portfolioHistory: [],
     chartTimeframe: 'D',
@@ -557,7 +570,7 @@ function seedWatchState(): WatchSnapshot {
   const allGroup = ensureSystemGroup(groups, 'all');
   const items: Record<string, WatchItem> = {};
   WATCH_SEED.forEach((seed, idx) => {
-    const created = createWatchItem(seed.symbol, seed.name, seed.type || 'stock', now - idx * 1000);
+    const created = createWatchItem(seed.symbol, seed.name, seed.type || 'stock', now - idx * 1000, undefined, 'user');
     items[created.id] = created;
     addItemToGroup(allGroup, created.id, { atStart: false });
   });
@@ -620,7 +633,7 @@ function migrateLegacyWatchlist(list: any[]): WatchSnapshot {
     const symbol = normalizeSymbol(entry?.symbol || '');
     if (!symbol) return;
     const name = String(entry?.name || symbol);
-    const item = createWatchItem(symbol, name, 'stock', now - idx * 1000);
+    const item = createWatchItem(symbol, name, 'stock', now - idx * 1000, undefined, 'user');
     items[item.id] = item;
     addItemToGroup(allGroup, item.id, { atStart: false });
   });
@@ -801,7 +814,7 @@ function normalizeGroups(groups: any): Record<string, WatchGroup> {
     const sort = (raw as any)?.sort || {};
     out[id] = {
       id,
-      key: key === 'all' || key === 'holding' || key === 'candidate' || key === 'index' || key === 'q1' || key === 'q1_drop' ? key : undefined,
+      key: key === 'all' || key === 'holding' || key === 'candidate' || key === 'index' || key === 'q1_jp' || key === 'q1_us' || key === 'q1_drop_jp' || key === 'q1_drop_us' ? key : undefined,
       name: String((raw as any)?.name || 'Unnamed'),
       color: String((raw as any)?.color || pickColor(Object.keys(out).length)),
       order: typeof (raw as any)?.order === 'number' ? (raw as any).order : Object.keys(out).length,
@@ -939,7 +952,7 @@ function syncHoldingsWithPortfolio(state: { watchItems: Record<string, WatchItem
   symbols.forEach((info, symbol) => {
     let itemId = existingBySymbol.get(symbol);
     if (!itemId) {
-      const item = createWatchItem(symbol, info.label, info.type, now);
+      const item = createWatchItem(symbol, info.label, info.type, now, undefined, 'user');
       items[item.id] = item;
       itemId = item.id;
       existingBySymbol.set(symbol, itemId);

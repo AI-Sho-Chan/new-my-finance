@@ -91,6 +91,39 @@ app.get('/api/q1/status', (req, res) => {
 app.get('/api/q1/analysis', (req, res) => {
   if (!q1Monitor) {
     return res.json({ enabled: false, reason: 'disabled' });
+
+app.post('/api/q1/run-scan', (req, res) => {
+  if (!q1Monitor) {
+    return res.status(503).json({ ok: false, error: 'disabled' });
+  }
+  try {
+    const raw = (req.body?.market ?? req.query?.market ?? 'JP');
+    const market = String(raw).toUpperCase();
+    if (!['JP', 'US', 'ALL'].includes(market)) {
+      return res.status(400).json({ ok: false, error: 'invalid_market' });
+    }
+    if (q1Monitor.fullScanInProgress) {
+      return res.status(409).json({ ok: false, error: 'scan_in_progress' });
+    }
+    const run = async () => {
+      try {
+        if (market === 'ALL') {
+          await q1Monitor.runMarketScan('JP');
+          await q1Monitor.runMarketScan('US');
+        } else {
+          await q1Monitor.runMarketScan(market);
+        }
+      } catch (error) {
+        console.error('[Q1Monitor] manual scan failed:', error);
+      }
+    };
+    run();
+    return res.status(202).json({ ok: true, started: market });
+  } catch (error) {
+    return res.status(500).json({ ok: false, error: String(error?.message || error) });
+  }
+});
+
   }
   try {
     res.json(q1Monitor.getAnalysis());

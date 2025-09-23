@@ -1,4 +1,4 @@
-export type TickerSymbol = string;
+﻿export type TickerSymbol = string;
 
 export type Timeframe = 'D' | 'W' | 'M';
 
@@ -83,7 +83,7 @@ export type WatchSortMode = 'none' | 'changeAsc' | 'changeDesc' | 'gainLossDesc'
 
 export interface WatchGroup {
   id: string;
-  key?: 'all' | 'holding' | 'candidate' | 'index' | 'q1' | 'q1_drop';
+  key?: 'all' | 'holding' | 'candidate' | 'index' | 'q1_jp' | 'q1_us' | 'q1_drop_jp' | 'q1_drop_us';
   name: string;
   color: string;
   order: number;
