@@ -612,6 +612,7 @@ function migrateState(state: any, version: number): State {
   }
 
   ensureSystemGroupsPresence(next.watchGroups);
+  mergeLegacyQ1Groups(next.watchGroups);
   next.watchGroups = reindexGroupOrders(next.watchGroups);
   next.watchUI = normalizeUI(next.watchUI, next.watchGroups);
 
@@ -700,6 +701,21 @@ function ensureSystemGroupsPresence(groups: Record<string, WatchGroup>) {
   });
 }
 
+function mergeLegacyQ1Groups(groups: Record<string, WatchGroup>) {
+  const now = Date.now();
+  const merge = (legacyKey: string, targetKey: 'q1_jp' | 'q1_drop_jp') => {
+    const legacyId = `group-${legacyKey}`;
+    const legacy = groups[legacyId];
+    if (!legacy) return;
+    const target = ensureSystemGroup(groups, targetKey);
+    const merged = new Set([...target.itemIds, ...legacy.itemIds]);
+    target.itemIds = Array.from(merged);
+    target.updatedAt = now;
+    delete groups[legacyId];
+  };
+  merge('q1', 'q1_jp');
+  merge('q1_drop', 'q1_drop_jp');
+}
 function ensureSystemGroup(groups: Record<string, WatchGroup>, key: Required<WatchGroup['key']>): WatchGroup {
   const id = getGroupId(key);
   const existing = groups[id];
@@ -840,7 +856,9 @@ function normalizeUI(ui: any, groups: Record<string, WatchGroup>): WatchUIState 
     activeGroupId: active,
     selectionMode: Boolean(ui?.selectionMode),
     selectedIds: Array.isArray(ui?.selectedIds) ? Array.from(new Set(ui.selectedIds.map(String))) : [],
-    pendingAssignGroupIds: Array.isArray(ui?.pendingAssignGroupIds) ? Array.from(new Set(ui.pendingAssignGroupIds.map(String))) : [],
+    pendingAssignGroupIds: Array.isArray(ui?.pendingAssignGroupIds)
+      ? Array.from(new Set(ui.pendingAssignGroupIds.map(String).filter((id) => Boolean(groups[id]))))
+      : [],
     sortMode,
   };
 }
