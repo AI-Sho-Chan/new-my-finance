@@ -77,7 +77,7 @@ type PortfolioActions = {
 
 type Actions = WatchActions & PortfolioActions;
 
-const STORE_VERSION = 2;
+const STORE_VERSION = 3;
 
 const SYSTEM_GROUP_DEFS: Array<{ key: Required<WatchGroup['key']>; name: string; color: string }> = [
   { key: 'all', name: 'ALL', color: '#2563eb' },
