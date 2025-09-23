@@ -715,6 +715,8 @@ function mergeLegacyQ1Groups(groups: Record<string, WatchGroup>) {
   };
   merge('q1', 'q1_jp');
   merge('q1_drop', 'q1_drop_jp');
+  delete groups[getGroupId('q1')];
+  delete groups[getGroupId('q1_drop')];
 }
 function ensureSystemGroup(groups: Record<string, WatchGroup>, key: Required<WatchGroup['key']>): WatchGroup {
   const id = getGroupId(key);
