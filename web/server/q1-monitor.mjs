@@ -1,4 +1,4 @@
-ï»¿import fs from 'node:fs';
+?import fs from 'node:fs';
 import path from 'node:path';
 import { DateTime } from 'luxon';
 import nodemailer from 'nodemailer';
@@ -6,6 +6,10 @@ import nodemailer from 'nodemailer';
 const STATE_VERSION = 3;
 const DEFAULT_INTERVAL_MIN = Math.max(1, Number.parseInt(process.env.Q1_MONITOR_INTERVAL_MIN ?? '5', 10) || 5);
 const FALLBACK_INTERVAL_MIN = Math.max(DEFAULT_INTERVAL_MIN, Number.parseInt(process.env.Q1_MONITOR_FALLBACK_MIN ?? '10', 10) || 10);
+const DEFAULT_F_PCTL_MIN = Math.max(0, Math.min(100, Number.parseFloat(process.env.Q1_F_PCTL_MIN ?? '95')));
+const DEFAULT_V_PCTL_MIN = Math.max(0, Math.min(100, Number.parseFloat(process.env.Q1_V_PCTL_MIN ?? '70')));
+const DEFAULT_F_PCTL_LOW = Math.max(0, Math.min(100, Number.parseFloat(process.env.Q1_F_PCTL_LOW ?? '20')));
+const DEFAULT_V_PCTL_LOW = Math.max(0, Math.min(100, Number.parseFloat(process.env.Q1_V_PCTL_LOW ?? '40')));
 const MAX_HISTORY = Number.parseInt(process.env.Q1_MONITOR_HISTORY_LIMIT ?? '500', 10) || 500;
 const DROP_RETENTION_DAYS = Number.parseInt(process.env.Q1_MONITOR_DROP_RETENTION_DAYS ?? '30', 10) || 30;
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
@@ -26,6 +30,45 @@ const PRIORITY_REFRESH_LIMIT = Math.max(1, Number.parseInt(process.env.Q1_MONITO
 const PRIORITY_REFRESH_CONCURRENCY = Math.max(1, Number.parseInt(process.env.Q1_MONITOR_PRIORITY_CONCURRENCY ?? '3', 10) || 3);
 const PRIORITY_REFRESH_DELAY_MS = Math.max(0, Number.parseInt(process.env.Q1_MONITOR_PRIORITY_DELAY_MS ?? '750', 10) || 750);
 const PRIORITY_REFRESH_INTERVAL_MIN = Math.max(1, Number.parseInt(process.env.Q1_MONITOR_PRIORITY_INTERVAL_MIN ?? '15', 10) || 15);
+
+const symbolSetCache = new Map();
+
+function resolveUniverseFile(value, fallback) {
+  if (value === undefined || value === null) return fallback;
+  const trimmed = String(value).trim();
+  if (!trimmed || trimmed.toLowerCase() === 'none' || trimmed === '0') return null;
+  return trimmed;
+}
+
+async function loadSymbolSet(filePath) {
+  if (!filePath) return null;
+  if (symbolSetCache.has(filePath)) return symbolSetCache.get(filePath);
+  try {
+    const raw = await fs.promises.readFile(filePath, 'utf8');
+    const values = raw.split(/\r?\n/).map((line) => line.trim()).filter((line) => line && !line.startsWith('#'));
+    const set = new Set(values.map((line) => line.toUpperCase()));
+    symbolSetCache.set(filePath, set);
+    return set;
+  } catch (error) {
+    console.warn(`[Q1Monitor] failed to load symbol list ${filePath}:`, error?.message || error);
+    symbolSetCache.set(filePath, null);
+    return null;
+  }
+}
+
+function isPrimeMarketEntry(entry) {
+  if (!entry) return false;
+  const exchange = (entry.exchange ?? '').toString();
+  if (exchange.includes('ƒvƒ‰ƒCƒ€')) return true;
+  const lowerExchange = exchange.toLowerCase();
+  if (lowerExchange.includes('prime')) return true;
+  const keywords = Array.isArray(entry.keywords) ? entry.keywords : [];
+  return keywords.some((kw) => {
+    if (typeof kw !== 'string') return false;
+    if (kw.includes('ƒvƒ‰ƒCƒ€')) return true;
+    return kw.toLowerCase().includes('prime');
+  });
+}
 
 const CORE_ASSETS = [
   { id: 'USD', name: 'US Dollar (UUP)', cls: 'FX', symbol: 'UUP', currency: 'USD', priceToUSD: null, market: 'US' },
@@ -71,9 +114,9 @@ const UNIVERSE_JP_SECTORS = [
   { id: '1619.T', name: 'JP  (1619.T)', cls: 'EQ', symbol: '1619.T', currency: 'JPY', priceToUSD: 'JPY', market: 'JP' },
   { id: '1620.T', name: 'JP  (1620.T)', cls: 'EQ', symbol: '1620.T', currency: 'JPY', priceToUSD: 'JPY', market: 'JP' },
   { id: '1621.T', name: 'JP i (1621.T)', cls: 'EQ', symbol: '1621.T', currency: 'JPY', priceToUSD: 'JPY', market: 'JP' },
-  { id: '1622.T', name: 'JP ÊM (1622.T)', cls: 'EQ', symbol: '1622.T', currency: 'JPY', priceToUSD: 'JPY', market: 'JP' },
+  { id: '1622.T', name: 'JP ?M (1622.T)', cls: 'EQ', symbol: '1622.T', currency: 'JPY', priceToUSD: 'JPY', market: 'JP' },
   { id: '1623.T', name: 'JP ^AE (1623.T)', cls: 'EQ', symbol: '1623.T', currency: 'JPY', priceToUSD: 'JPY', market: 'JP' },
-  { id: '1624.T', name: 'JP dÍEKX (1624.T)', cls: 'EQ', symbol: '1624.T', currency: 'JPY', priceToUSD: 'JPY', market: 'JP' },
+  { id: '1624.T', name: 'JP d?EKX (1624.T)', cls: 'EQ', symbol: '1624.T', currency: 'JPY', priceToUSD: 'JPY', market: 'JP' },
   { id: '1625.T', name: 'JP pvE (1625.T)', cls: 'EQ', symbol: '1625.T', currency: 'JPY', priceToUSD: 'JPY', market: 'JP' },
   { id: '1626.T', name: 'JP sY (1626.T)', cls: 'REIT', symbol: '1626.T', currency: 'JPY', priceToUSD: 'JPY', market: 'JP' },
 ];
@@ -241,26 +284,37 @@ function previousBusinessDate(zone) {
   return dt;
 }
 
-async function loadSymbolUniverse(symbolsPath) {
+async function loadSymbolUniverse(symbolsPath, options = {}) {
   const raw = await fs.promises.readFile(symbolsPath, 'utf8');
   const json = JSON.parse(raw);
   const entries = Array.isArray(json?.entries) ? json.entries : [];
-  return entries
-    .filter((entry) => entry && entry.assetType === 'stock' && (entry.region === 'US' || entry.region === 'JP'))
-    .map((entry) => {
-      const symbol = String(entry.symbol || '').trim().toUpperCase();
-      const region = entry.region;
-      const currency = region === 'JP' ? 'JPY' : 'USD';
-      return {
-        id: symbol,
-        name: entry.name || symbol,
-        cls: 'EQ',
-        symbol,
-        currency,
-        priceToUSD: currency === 'JPY' ? 'JPY' : null,
-        market: region,
-      };
+  const jpWhitelist = options.jpWhitelist instanceof Set ? options.jpWhitelist : options.jpWhitelist ? new Set(options.jpWhitelist) : null;
+  const usWhitelist = options.usWhitelist instanceof Set ? options.usWhitelist : options.usWhitelist ? new Set(options.usWhitelist) : null;
+  const assets = [];
+  for (const entry of entries) {
+    if (!entry || entry.assetType !== 'stock') continue;
+    const region = entry.region;
+    if (region !== 'US' && region !== 'JP') continue;
+    const symbol = String(entry.symbol || '').trim().toUpperCase();
+    if (!symbol) continue;
+    if (region === 'JP') {
+      if (options.jpPrimeOnly && !isPrimeMarketEntry(entry)) continue;
+      if (jpWhitelist && jpWhitelist.size && !jpWhitelist.has(symbol)) continue;
+    } else if (region === 'US') {
+      if (usWhitelist && usWhitelist.size && !usWhitelist.has(symbol)) continue;
+    }
+    const currency = region === 'JP' ? 'JPY' : 'USD';
+    assets.push({
+      id: symbol,
+      name: entry.name || symbol,
+      cls: 'EQ',
+      symbol,
+      currency,
+      priceToUSD: currency === 'JPY' ? 'JPY' : null,
+      market: region,
     });
+  }
+  return assets;
 }
 
 function dedupeAssets(list) {
@@ -272,8 +326,27 @@ function dedupeAssets(list) {
   return Array.from(map.values());
 }
 
-async function buildUniverse(symbolsPath) {
-  const [stockAssets] = await Promise.all([loadSymbolUniverse(symbolsPath)]);
+async function buildUniverse(symbolsPath, options = {}) {
+  let jpWhitelist = null;
+  let usWhitelist = null;
+  if (options.listsDir) {
+    if (options.jpWhitelistFile) {
+      const jpPath = path.resolve(options.listsDir, options.jpWhitelistFile);
+      jpWhitelist = await loadSymbolSet(jpPath);
+    }
+    if (options.usWhitelistFile) {
+      const usPath = path.resolve(options.listsDir, options.usWhitelistFile);
+      usWhitelist = await loadSymbolSet(usPath);
+    }
+  }
+  const stockAssets = await loadSymbolUniverse(symbolsPath, {
+    jpPrimeOnly: options.jpPrimeOnly,
+    jpWhitelist,
+    usWhitelist,
+  });
+  const jpCount = stockAssets.filter((asset) => asset.market === 'JP').length;
+  const usCount = stockAssets.filter((asset) => asset.market === 'US').length;
+  console.log(`[Q1Monitor] symbol universe ready (JP ${jpCount}, US ${usCount}, total ${stockAssets.length})`);
   const merged = dedupeAssets([...CORE_ASSETS, ...UNIVERSE_US_SECTORS, ...UNIVERSE_JP_SECTORS, ...stockAssets]);
   if (MAX_UNIVERSE_SYMBOLS > 0 && merged.length > MAX_UNIVERSE_SYMBOLS) {
     return merged.slice(0, MAX_UNIVERSE_SYMBOLS);
@@ -347,6 +420,11 @@ async function computeSnapshot(universe, opts = {}) {
     winsor_sigma: 3.0,
     ewma_half_life_rp: 10,
   };
+
+  const fPctMin = Math.min(100, Math.max(0, Number.isFinite(opts.fPctMin) ? opts.fPctMin : DEFAULT_F_PCTL_MIN));
+  const vPctMin = Math.min(100, Math.max(0, Number.isFinite(opts.vPctMin) ? opts.vPctMin : DEFAULT_V_PCTL_MIN));
+  const fPctLow = Math.min(fPctMin, Math.max(0, Number.isFinite(opts.fPctLow) ? opts.fPctLow : DEFAULT_F_PCTL_LOW));
+  const vPctLow = Math.min(vPctMin, Math.max(0, Number.isFinite(opts.vPctLow) ? opts.vPctLow : DEFAULT_V_PCTL_LOW));
 
   const progressEvery = Math.max(1, opts.progressEvery ?? FULL_SCAN_PROGRESS_EVERY);
   const total = universe.length;
@@ -550,10 +628,10 @@ async function computeSnapshot(universe, opts = {}) {
     const vPctl = Number.isFinite(v) ? percentileRank(vVals, v) : null;
     let quadrant = 'NA';
     if (fPctl != null && vPctl != null) {
-      if (fPctl >= 80 && vPctl >= 60) quadrant = 'Q1';
-      else if (fPctl >= 80 && vPctl < 40) quadrant = 'Q2';
-      else if (fPctl < 20 && vPctl >= 60) quadrant = 'Q3';
-      else if (fPctl < 20 && vPctl < 40) quadrant = 'Q4';
+      if (fPctl >= fPctMin && vPctl >= vPctMin) quadrant = 'Q1';
+      else if (fPctl >= fPctMin && vPctl < vPctMin) quadrant = 'Q2';
+      else if (fPctl < fPctLow && vPctl >= vPctMin) quadrant = 'Q3';
+      else if (fPctl < fPctLow && vPctl < vPctLow) quadrant = 'Q4';
       else quadrant = 'NA';
     }
     return {
@@ -607,6 +685,21 @@ class Q1Monitor {
     this.emailEnabled = false;
     this.transporter = null;
     this.symbolsDatasetPath = path.resolve(this.dataDir, '..', '..', 'web', 'public', 'data', 'symbols.json');
+    this.symbolListDir = path.resolve(this.dataDir, 'symbols');
+    const jpUniverseFile = resolveUniverseFile(process.env.Q1_JP_UNIVERSE_FILE, 'jp_stock_all.txt');
+    const usUniverseFile = resolveUniverseFile(process.env.Q1_US_UNIVERSE_FILE, 'us_large_all.txt');
+    this.universeOptions = {
+      listsDir: this.symbolListDir,
+      jpPrimeOnly: true,
+      jpWhitelistFile: jpUniverseFile,
+      usWhitelistFile: usUniverseFile,
+    };
+    this.snapshotOptions = {
+      fPctMin: DEFAULT_F_PCTL_MIN,
+      vPctMin: DEFAULT_V_PCTL_MIN,
+      fPctLow: DEFAULT_F_PCTL_LOW,
+      vPctLow: DEFAULT_V_PCTL_LOW,
+    };
     this.universeCache = null;
     this.universePromise = null;
     this.fullScanInProgress = false;
@@ -722,7 +815,7 @@ class Q1Monitor {
   async ensureUniverse() {
     if (this.universeCache) return this.universeCache;
     if (!this.universePromise) {
-      this.universePromise = buildUniverse(this.symbolsDatasetPath)
+      this.universePromise = buildUniverse(this.symbolsDatasetPath, this.universeOptions)
         .then((assets) => {
           this.universeCache = assets;
           if (this.state) this.state.universeSize = assets.length;
@@ -929,6 +1022,7 @@ class Q1Monitor {
           const eta = etaMs != null ? `${Math.round(etaMs / 60000)}m` : 'n/a';
           console.log(`[Q1Monitor] full scan (${reason}) progress ${processed}/${total} (${percent}%) ETA ${eta}`);
         },
+        ...this.snapshotOptions,
       });
       this.failCount = 0;
       this.intervalMinutes = DEFAULT_INTERVAL_MIN;
@@ -1254,4 +1348,5 @@ class Q1Monitor {
 }
 
 export { Q1Monitor };
+
 

@@ -1,18 +1,33 @@
 import type { Candle, MarketQuote, Timeframe, TickerSymbol } from '../types';
 
-const API_BASE = '';
+const DEFAULT_BACKEND_URL =
+  typeof window !== 'undefined' && window?.location?.origin
+    ? window.location.origin
+    : 'http://127.0.0.1:8000';
+const rawBackendUrl = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_BACKEND_URL) || DEFAULT_BACKEND_URL;
+const API_BASE = String(rawBackendUrl).replace(/\/+$/, '');
+
+const INTERVAL_MAP: Record<Timeframe, '1d' | '1wk' | '1mo'> = { D: '1d', W: '1wk', M: '1mo' };
+const RANGE_MAP: Record<Timeframe, string> = { D: '1y', W: '5y', M: '15y' };
 
 // Real data fetchers (with graceful fallback to sim)
 export async function fetchMarketQuotes(symbols: TickerSymbol[]): Promise<Record<string, MarketQuote>> {
   try {
-    const u = new URL(API_BASE + '/api/quote', window.location.origin);
-    u.searchParams.set('symbols', symbols.join(','));
-    const res = await fetch(u.toString());
+    const url = new URL('/api/yf/quote', API_BASE);
+    url.searchParams.set('symbols', symbols.join(','));
+    const res = await fetch(url.toString(), { headers: { Accept: 'application/json' } });
     if (!res.ok) throw new Error('quote http ' + res.status);
-    const json = await res.json();
-    return json;
+    const json: any = await res.json();
+    const out: Record<string, MarketQuote> = {};
+    for (const item of Array.isArray(json?.quoteResponse?.result) ? json.quoteResponse.result : []) {
+      const normalized = normalizeQuote(item);
+      if (normalized) {
+        out[normalized.symbol] = normalized;
+      }
+    }
+    if (!Object.keys(out).length) throw new Error('empty quote response');
+    return out;
   } catch (e) {
-    // 実データが取得できない場合は乱数での擬似データは返さず、呼び出し側でハンドリングさせる
     console.error('Failed to fetch quotes:', e);
     throw e;
   }
@@ -20,12 +35,17 @@ export async function fetchMarketQuotes(symbols: TickerSymbol[]): Promise<Record
 
 export async function fetchHistoricalCandles(symbol: TickerSymbol, timeframe: Timeframe): Promise<Candle[]> {
   try {
-    const u = new URL(API_BASE + '/api/chart', window.location.origin);
-    u.searchParams.set('symbol', symbol);
-    u.searchParams.set('tf', timeframe);
-    const res = await fetch(u.toString());
+    const url = new URL('/api/yf/history', API_BASE);
+    url.searchParams.set('symbol', symbol);
+    url.searchParams.set('interval', INTERVAL_MAP[timeframe]);
+    url.searchParams.set('range', RANGE_MAP[timeframe]);
+    const res = await fetch(url.toString(), { headers: { Accept: 'application/json' } });
     if (!res.ok) throw new Error('chart http ' + res.status);
-    return await res.json();
+    const json: any = await res.json();
+    const entry = Array.isArray(json?.chart?.result) ? json.chart.result[0] : null;
+    const candles = normalizeCandles(entry);
+    if (!candles.length) throw new Error('no candles');
+    return candles;
   } catch (e) {
     console.warn('chart fallback (sim)', e);
     return simulateCandles(symbol, timeframe);
@@ -34,15 +54,82 @@ export async function fetchHistoricalCandles(symbol: TickerSymbol, timeframe: Ti
 
 export async function fetchFundamentals(symbol: TickerSymbol): Promise<{ yoyRevenuePct: number | null, yoyOperatingIncomePct: number | null }> {
   try {
-    const u = new URL(API_BASE + '/api/fundamentals', window.location.origin);
-    u.searchParams.set('symbol', symbol);
-    const res = await fetch(u.toString());
+    const url = new URL('/api/fundamentals', window.location.origin);
+    url.searchParams.set('symbol', symbol);
+    const res = await fetch(url.toString());
     if (!res.ok) throw new Error('fundamentals http ' + res.status);
     return await res.json();
   } catch (e) {
     console.warn('fundamentals fallback (sim)', e);
     return { yoyRevenuePct: null, yoyOperatingIncomePct: null };
   }
+}
+
+function normalizeQuote(raw: any): MarketQuote | null {
+  const symbol = typeof raw?.symbol === 'string' ? raw.symbol : null;
+  if (!symbol) return null;
+  const price = toNumber(raw?.regularMarketPrice);
+  const previousClose = toNumber(raw?.regularMarketPreviousClose ?? raw?.previousClose);
+  const change = price != null && previousClose != null ? price - previousClose : null;
+  const changePct = change != null && previousClose ? (change / previousClose) * 100 : null;
+  const dividendYield = raw?.trailingAnnualDividendYield ?? raw?.dividendYield;
+  return {
+    symbol,
+    name: typeof raw?.shortName === 'string' ? raw.shortName : (typeof raw?.longName === 'string' ? raw.longName : symbol),
+    price: price ?? null,
+    prevClose: previousClose ?? null,
+    change: change != null ? roundValue(change, 2) : null,
+    changePct: changePct != null ? roundValue(changePct, 2) : null,
+    currency: typeof raw?.currency === 'string' && raw.currency ? raw.currency : (symbol.endsWith('.T') ? 'JPY' : 'USD'),
+    per: toNumber(raw?.trailingPE ?? raw?.forwardPE),
+    pbr: toNumber(raw?.priceToBook),
+    dividendYieldPct: dividendYield != null ? roundValue((Number(dividendYield) || 0) * 100, 2) : null,
+    marketCap: toNumber(raw?.marketCap),
+    updatedAt: Date.now(),
+  } as MarketQuote;
+}
+
+function normalizeCandles(entry: any): Candle[] {
+  if (!entry) return [];
+  const timestamps: number[] = Array.isArray(entry.timestamp) ? entry.timestamp.map((t: any) => Number(t)) : [];
+  const quote = Array.isArray(entry?.indicators?.quote) ? entry.indicators.quote[0] ?? {} : {};
+  const opens: any[] = Array.isArray(quote?.open) ? quote.open : [];
+  const highs: any[] = Array.isArray(quote?.high) ? quote.high : [];
+  const lows: any[] = Array.isArray(quote?.low) ? quote.low : [];
+  const closes: any[] = Array.isArray(quote?.close) ? quote.close : [];
+  const volumes: any[] = Array.isArray(quote?.volume) ? quote.volume : [];
+  const candles: Candle[] = [];
+  for (let i = 0; i < timestamps.length; i++) {
+    const close = toNumber(closes[i]);
+    if (close == null || !Number.isFinite(close) || close <= 0) continue;
+    const open = toNumber(opens[i]) ?? close;
+    const high = toNumber(highs[i]) ?? Math.max(open, close);
+    const low = toNumber(lows[i]) ?? Math.min(open, close);
+    const volume = toNumber(volumes[i]) ?? 0;
+    candles.push({
+      time: timestamps[i],
+      open,
+      high,
+      low,
+      close,
+      value: Number.isFinite(volume) ? volume : 0,
+    });
+  }
+  return candles;
+}
+
+function toNumber(value: unknown): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function roundValue(value: number, digits = 2): number {
+  const factor = Math.pow(10, digits);
+  return Math.round(value * factor) / factor;
 }
 
 export function movingAverage(src: Candle[], length: number): { time: number; value: number }[] {

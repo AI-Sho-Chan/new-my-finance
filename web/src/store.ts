@@ -60,7 +60,8 @@ type WatchActions = {
   setPendingAssignGroupIds: (groupIds: string[]) => void;
   setSortMode: (mode: WatchSortMode) => void;
   clearSelection: () => void;
-  syncSystemGroupMembers: (payload: { key: 'q1_jp' | 'q1_us' | 'q1_drop_jp' | 'q1_drop_us'; members: WatchItemInput[] }) => void;
+  syncSystemGroupMembers: (payload: { key: 'q1_jp' | 'q1_us'; members: WatchItemInput[] }) => void;
+  pruneDeprecatedGroups: () => void;
 };
 
 type PortfolioActions = {
@@ -77,7 +78,7 @@ type PortfolioActions = {
 
 type Actions = WatchActions & PortfolioActions;
 
-const STORE_VERSION = 3;
+const STORE_VERSION = 4;
 
 const SYSTEM_GROUP_DEFS: Array<{ key: Required<WatchGroup['key']>; name: string; color: string }> = [
   { key: 'all', name: 'ALL', color: '#2563eb' },
@@ -85,8 +86,6 @@ const SYSTEM_GROUP_DEFS: Array<{ key: Required<WatchGroup['key']>; name: string;
   { key: 'candidate', name: 'CANDIDATES', color: '#16a34a' },
   { key: 'q1_jp', name: 'Q1 JP', color: '#22c55e' },
   { key: 'q1_us', name: 'Q1 US', color: '#0ea5e9' },
-  { key: 'q1_drop_jp', name: 'Q1 DROP JP', color: '#f97316' },
-  { key: 'q1_drop_us', name: 'Q1 DROP US', color: '#f43f5e' },
   { key: 'index', name: 'INDICES', color: '#9333ea' },
 ];
 
@@ -98,15 +97,13 @@ const WATCH_SEED: Array<{ symbol: string; name: string; type?: WatchItemType }> 
 
 const DEFAULT_SORT: { mode: WatchGroupSortMode; direction: WatchGroupSortDirection } = { mode: 'addedAt', direction: 'desc' };
 
-const SYSTEM_SYNC_KEYS = new Set<Required<WatchGroup['key']>>(['q1_jp','q1_us','q1_drop_jp','q1_drop_us']);
+const SYSTEM_SYNC_KEYS = new Set<Required<WatchGroup['key']>>(['q1_jp','q1_us']);
 const SYSTEM_SYNC_COUNTERPART: Record<Required<WatchGroup['key']>, Required<WatchGroup['key']> | null> = {
   all: null,
   holding: null,
   candidate: null,
-  q1_jp: 'q1_drop_jp',
-  q1_drop_jp: 'q1_jp',
-  q1_us: 'q1_drop_us',
-  q1_drop_us: 'q1_us',
+  q1_jp: null,
+  q1_us: null,
   index: null,
 };
 const DEFAULT_COLORS = ['#2563eb', '#16a34a', '#9333ea', '#f97316', '#8b5cf6', '#facc15', '#0ea5e9', '#f43f5e'];
@@ -381,10 +378,9 @@ export const useStore = create<State & Actions>()(
           }, []);
           const items = { ...state.watchItems };
           const groups = cloneGroups(state.watchGroups);
+          pruneDeprecatedQ1DropGroups(groups);
           const allGroup = ensureSystemGroup(groups, 'all');
           const targetGroup = ensureSystemGroup(groups, key);
-          const counterpartKey = SYSTEM_SYNC_COUNTERPART[key];
-          const counterpartGroup = counterpartKey ? ensureSystemGroup(groups, counterpartKey) : null;
           const now = Date.now();
           const memberIds: string[] = [];
           normalized.forEach((entry) => {
@@ -394,15 +390,6 @@ export const useStore = create<State & Actions>()(
           const uniqueIds = Array.from(new Set(memberIds));
           targetGroup.itemIds = uniqueIds;
           targetGroup.updatedAt = now;
-          if (counterpartGroup) {
-            const removal = new Set(uniqueIds);
-            const filtered = counterpartGroup.itemIds.filter((id) => !removal.has(id));
-            if (filtered.length !== counterpartGroup.itemIds.length) {
-              counterpartGroup.itemIds = filtered;
-              counterpartGroup.updatedAt = now;
-              groups[counterpartGroup.id] = counterpartGroup;
-            }
-          }
           const filteredAllIds = allGroup.itemIds.filter((id) => {
             const item = items[id];
             return !item || item.source !== 'system';
@@ -413,9 +400,23 @@ export const useStore = create<State & Actions>()(
           }
           groups[targetGroup.id] = targetGroup;
           groups[allGroup.id] = allGroup;
+          pruneStaleSystemItems(groups, items);
           return { watchItems: items, watchGroups: groups };
         });
       },
+
+      pruneDeprecatedGroups: () => set((state) => {
+        const groups = cloneGroups(state.watchGroups);
+        const items = { ...state.watchItems };
+        pruneDeprecatedQ1DropGroups(groups);
+        pruneStaleSystemItems(groups, items);
+        const reindexed = reindexGroupOrders(groups);
+        return {
+          watchGroups: reindexed,
+          watchItems: items,
+          watchUI: normalizeUI(state.watchUI, reindexed),
+        };
+      }),
 
       addAsset: (asset) => set((state) => {
         const next = [...state.portfolio, { ...asset, id: uuidv4(), order: state.portfolio.length } as AssetItem];
@@ -612,8 +613,12 @@ function migrateState(state: any, version: number): State {
   }
 
   ensureSystemGroupsPresence(next.watchGroups);
+  pruneDeprecatedQ1DropGroups(next.watchGroups);
   mergeLegacyQ1Groups(next.watchGroups);
+  pruneDeprecatedQ1DropGroups(next.watchGroups);
+  pruneStaleSystemItems(next.watchGroups, next.watchItems);
   next.watchGroups = reindexGroupOrders(next.watchGroups);
+  pruneStaleSystemItems(next.watchGroups, next.watchItems);
   next.watchUI = normalizeUI(next.watchUI, next.watchGroups);
 
   delete next.watchlist;
@@ -670,6 +675,36 @@ function createSystemGroups(ts: number): Record<string, WatchGroup> {
   return groups;
 }
 
+function pruneDeprecatedQ1DropGroups(groups: Record<string, WatchGroup>) {
+  Object.keys(groups).forEach((id) => {
+    const group = groups[id];
+    if (!group) return;
+    const key = group.key;
+    if (key === 'q1_drop_jp' || key === 'q1_drop_us' || id.includes('q1_drop')) {
+      delete groups[id];
+    }
+  });
+}
+
+function pruneStaleSystemItems(groups: Record<string, WatchGroup>, items: Record<string, WatchItem>) {
+  const validSystemIds = new Set<string>();
+  ['q1_jp', 'q1_us'].forEach((key) => {
+    const group = groups[getGroupId(key as Required<WatchGroup['key']>)] ?? null;
+    if (!group) return;
+    group.itemIds.forEach((id) => validSystemIds.add(id));
+  });
+  Object.keys(items).forEach((id) => {
+    const item = items[id];
+    if (item && item.source === 'system' && !validSystemIds.has(id)) {
+      delete items[id];
+    }
+  });
+  Object.values(groups).forEach((group) => {
+    if (!group) return;
+    group.itemIds = group.itemIds.filter((id) => Boolean(items[id]));
+  });
+}
+
 function ensureSystemGroupsPresence(groups: Record<string, WatchGroup>) {
   const ts = Date.now();
   SYSTEM_GROUP_DEFS.forEach((def) => {
@@ -699,11 +734,12 @@ function ensureSystemGroupsPresence(groups: Record<string, WatchGroup>) {
       };
     }
   });
+  pruneDeprecatedQ1DropGroups(groups);
 }
 
 function mergeLegacyQ1Groups(groups: Record<string, WatchGroup>) {
   const now = Date.now();
-  const merge = (legacyKey: string, targetKey: 'q1_jp' | 'q1_drop_jp') => {
+  const merge = (legacyKey: string, targetKey: 'q1_jp') => {
     const legacyId = `group-${legacyKey}`;
     const legacy = groups[legacyId];
     if (!legacy) return;
@@ -714,9 +750,10 @@ function mergeLegacyQ1Groups(groups: Record<string, WatchGroup>) {
     delete groups[legacyId];
   };
   merge('q1', 'q1_jp');
-  merge('q1_drop', 'q1_drop_jp');
-  delete groups[getGroupId('q1')];
-  delete groups[getGroupId('q1_drop')];
+  delete groups['group-q1'];
+  delete groups['group-q1_drop'];
+  delete groups['group-q1_drop_jp'];
+  delete groups['group-q1_drop_us'];
 }
 function ensureSystemGroup(groups: Record<string, WatchGroup>, key: Required<WatchGroup['key']>): WatchGroup {
   const id = getGroupId(key);
@@ -832,7 +869,7 @@ function normalizeGroups(groups: any): Record<string, WatchGroup> {
     const sort = (raw as any)?.sort || {};
     out[id] = {
       id,
-      key: key === 'all' || key === 'holding' || key === 'candidate' || key === 'index' || key === 'q1_jp' || key === 'q1_us' || key === 'q1_drop_jp' || key === 'q1_drop_us' ? key : undefined,
+      key: key === 'all' || key === 'holding' || key === 'candidate' || key === 'index' || key === 'q1_jp' || key === 'q1_us' ? key : undefined,
       name: String((raw as any)?.name || 'Unnamed'),
       color: String((raw as any)?.color || pickColor(Object.keys(out).length)),
       order: typeof (raw as any)?.order === 'number' ? (raw as any).order : Object.keys(out).length,

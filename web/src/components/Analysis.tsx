@@ -1,4 +1,4 @@
-﻿import { fetchTopix33History, buildTopix33Overrides, type Topix33Overrides } from '../lib/topix33';
+import { fetchTopix33History, buildTopix33Overrides, type Topix33Overrides } from '../lib/topix33';
 import { fetchUSIndustriesHistory, buildUSIndustryOverrides, type USIndustryOverrides } from '../lib/usIndustries';
 import { fetchQ1Analysis, fetchQ1Status, type Q1Analysis, type Q1Event, type Q1Metrics, type Q1Status, type Q1StatusEntry } from '../lib/q1';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -32,7 +32,7 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
   const [trails, setTrails] = useState<SnapshotTrails | null>(null);
   const [meta, setMeta] = useState<SnapshotMeta | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [view, setView] = useState<'GLOBAL' | 'US_INDUSTRY' | 'JP_SECTOR' | 'ALL_WATCH' | 'Q1_JP' | 'Q1_US' | 'Q1_DROP_JP' | 'Q1_DROP_US'>('GLOBAL');
+  const [view, setView] = useState<'GLOBAL' | 'US_INDUSTRY' | 'JP_SECTOR' | 'ALL_WATCH' | 'Q1_JP' | 'Q1_US'>('GLOBAL');
   const [topixData, setTopixData] = useState<Topix33Overrides | null>(null);
   const [topixLoadErr, setTopixLoadErr] = useState<string | null>(null);
   const [usIndustryData, setUsIndustryData] = useState<USIndustryOverrides | null>(null);
@@ -79,19 +79,14 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
         type: (entry.symbol?.startsWith('^') ? 'index' : 'stock') as WatchItemType,
       }));
     const allCurrent = status.currentQ1 ?? [];
-    const allDrop = status.currentQ1Drop ?? [];
     const currentJPStatus = status.currentQ1JP ?? allCurrent.filter((entry) => entry.market === 'JP');
     const currentUSStatus = status.currentQ1US ?? allCurrent.filter((entry) => entry.market === 'US');
-    const dropJPStatus = status.currentQ1DropJP ?? allDrop.filter((entry) => entry.market === 'JP');
-    const dropUSStatus = status.currentQ1DropUS ?? allDrop.filter((entry) => entry.market === 'US');
     syncSystemGroupMembers({ key: 'q1_jp', members: buildMembers(currentJPStatus) });
     syncSystemGroupMembers({ key: 'q1_us', members: buildMembers(currentUSStatus) });
-    syncSystemGroupMembers({ key: 'q1_drop_jp', members: buildMembers(dropJPStatus) });
-    syncSystemGroupMembers({ key: 'q1_drop_us', members: buildMembers(dropUSStatus) });
   }, [syncSystemGroupMembers]);
 
   useEffect(() => {
-    const q1Views = new Set(['Q1_JP', 'Q1_US', 'Q1_DROP_JP', 'Q1_DROP_US']);
+    const q1Views = new Set(['Q1_JP', 'Q1_US']);
     if (!q1Views.has(view)) return;
     let cancelled = false;
     setLoading(true);
@@ -110,29 +105,16 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
           applyStatusToSystemGroups(statusRes);
         }
         const allCurrent = statusRes?.currentQ1 ?? [];
-        const allDrop = statusRes?.currentQ1Drop ?? [];
         let source: Q1StatusEntry[] = [];
         if (view === 'Q1_JP') {
           source = statusRes?.currentQ1JP ?? allCurrent.filter((entry) => entry.market === 'JP');
-        } else if (view === 'Q1_US') {
-          source = statusRes?.currentQ1US ?? allCurrent.filter((entry) => entry.market === 'US');
-        } else if (view === 'Q1_DROP_JP') {
-          source = statusRes?.currentQ1DropJP ?? allDrop.filter((entry) => entry.market === 'JP');
         } else {
-          source = statusRes?.currentQ1DropUS ?? allDrop.filter((entry) => entry.market === 'US');
+          source = statusRes?.currentQ1US ?? allCurrent.filter((entry) => entry.market === 'US');
         }
-        const itemsFromApi = q1EntriesToSnapshot(source).filter((item) =>
-          view === 'Q1_JP' || view === 'Q1_US' ? item.quadrant === 'Q1' : true
-        );
+        const itemsFromApi = q1EntriesToSnapshot(source).filter((item) => item.quadrant === 'Q1');
         setItems(itemsFromApi);
         if (!itemsFromApi.length) {
-          const messages: Record<string, string> = {
-            Q1_JP: '日本株のQ1該当銘柄はありません。',
-            Q1_US: '米国株のQ1該当銘柄はありません。',
-            Q1_DROP_JP: '日本株で直近30日以内にQ1から外れた銘柄はありません。',
-            Q1_DROP_US: '米国株で直近30日以内にQ1から外れた銘柄はありません。',
-          };
-          setErr(messages[view]);
+          setErr(view === 'Q1_JP' ? '日本株のQ1該当銘柄はありません。' : '米国株のQ1該当銘柄はありません。');
         }
       } catch (error) {
         if (cancelled) return;
@@ -193,7 +175,7 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
   }, []);
 
   useEffect(() => {
-    if (view === 'Q1_JP' || view === 'Q1_US' || view === 'Q1_DROP_JP' || view === 'Q1_DROP_US') return;
+    if (view === 'Q1_JP' || view === 'Q1_US') return;
     let cancelled = false;
     fetchTopix33History()
       .then((history) => buildTopix33Overrides(history))
@@ -260,7 +242,7 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
     let alive = true;
 
     const run = async () => {
-      if (view === 'Q1_JP' || view === 'Q1_US' || view === 'Q1_DROP_JP' || view === 'Q1_DROP_US') {
+      if (view === 'Q1_JP' || view === 'Q1_US') {
         return;
       }
       if (view === 'JP_SECTOR' && !topixOverridesMap) {
@@ -398,8 +380,6 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
         <button className={`px-2 py-1 rounded ${view==='ALL_WATCH'?'bg-indigo-600 text-white':'bg-gray-700 text-gray-200'}`} onClick={()=>setView('ALL_WATCH')}>ALL</button>
         <button className={`px-2 py-1 rounded ${view==='Q1_JP'?'bg-indigo-600 text-white':'bg-gray-700 text-gray-200'}`} onClick={()=>setView('Q1_JP')}>Q1 JP</button>
         <button className={`px-2 py-1 rounded ${view==='Q1_US'?'bg-indigo-600 text-white':'bg-gray-700 text-gray-200'}`} onClick={()=>setView('Q1_US')}>Q1 US</button>
-        <button className={`px-2 py-1 rounded ${view==='Q1_DROP_JP'?'bg-indigo-600 text-white':'bg-gray-700 text-gray-200'}`} onClick={()=>setView('Q1_DROP_JP')}>Q1落ち JP</button>
-        <button className={`px-2 py-1 rounded ${view==='Q1_DROP_US'?'bg-indigo-600 text-white':'bg-gray-700 text-gray-200'}`} onClick={()=>setView('Q1_DROP_US')}>Q1落ち US</button>
       </div>
 
       {view === 'JP_SECTOR' && (
@@ -434,13 +414,6 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
       {view === 'Q1_US' && (
         <div className="text-xs text-gray-400">US Q1: {q1Status?.currentQ1US?.length ?? 0}</div>
       )}
-      {view === 'Q1_DROP_JP' && (
-        <div className="text-xs text-gray-400">JP Q1落ち: {q1Status?.currentQ1DropJP?.length ?? 0} 件 (直近30日)</div>
-      )}
-      {view === 'Q1_DROP_US' && (
-        <div className="text-xs text-gray-400">US Q1落ち: {q1Status?.currentQ1DropUS?.length ?? 0} 件 (直近30日)</div>
-      )}
-
       {loading && <div className="card">Loading...</div>}
       {err && <div className="card text-red-400">{err}</div>}
       {items && (

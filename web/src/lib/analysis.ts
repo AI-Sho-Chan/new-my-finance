@@ -1,6 +1,11 @@
 import type { Candle } from '../types';
 import { fetchHistoricalCandles } from './data';
 
+const F_PCTL_MIN = 95;
+const F_PCTL_LOW = 20;
+const V_PCTL_MIN = 70;
+const V_PCTL_LOW = 40;
+
 export type AssetDef = { id: string; name: string; cls: string; symbol: string; currency?: 'USD' | 'JPY' | 'EUR'; priceToUSD?: 'JPY'; };
 export type SnapshotItem = {
   id: string; name: string; cls: string; currency: string;
@@ -277,10 +282,10 @@ export async function computeSnapshot(params = DEFAULT_PARAMS, universe?: AssetD
     const vPctl = Number.isFinite(v as number) ? percentileRank(vVals, v as number) : null;
     let quad: SnapshotItem['quadrant'] = 'NA';
     if (fPctl!=null && vPctl!=null) {
-      if (fPctl>=80 && vPctl>=60) quad='Q1';
-      else if (fPctl>=80 && vPctl<40) quad='Q2';
-      else if (fPctl<20 && vPctl>=60) quad='Q3';
-      else if (fPctl<20 && vPctl<40) quad='Q4';
+      if (fPctl>=F_PCTL_MIN && vPctl>=V_PCTL_MIN) quad='Q1';
+      else if (fPctl>=F_PCTL_MIN && vPctl<V_PCTL_MIN) quad='Q2';
+      else if (fPctl<F_PCTL_LOW && vPctl>=V_PCTL_MIN) quad='Q3';
+      else if (fPctl<F_PCTL_LOW && vPctl<V_PCTL_LOW) quad='Q4';
       else quad='NA';
     }
     return {
@@ -457,7 +462,7 @@ export async function computeSnapshotWithTrails(params = DEFAULT_PARAMS, uni: As
     const vPctl = (v!=null) ? percentileRank(vVals, v) : null;
     let quad: SnapshotItem['quadrant'] = 'NA';
     if (fPctl!=null && vPctl!=null) {
-      if (fPctl>=80 && vPctl>=60) quad='Q1'; else if (fPctl>=80 && vPctl<40) quad='Q2'; else if (fPctl<20 && vPctl>=60) quad='Q3'; else if (fPctl<20 && vPctl<40) quad='Q4'; else quad='NA';
+      if (fPctl>=F_PCTL_MIN && vPctl>=V_PCTL_MIN) quad='Q1'; else if (fPctl>=F_PCTL_MIN && vPctl<V_PCTL_MIN) quad='Q2'; else if (fPctl<F_PCTL_LOW && vPctl>=V_PCTL_MIN) quad='Q3'; else if (fPctl<F_PCTL_LOW && vPctl<V_PCTL_LOW) quad='Q4'; else quad='NA';
     }
     return { id: a.id, name: a.name, cls: a.cls, currency: a.currency || 'USD', last_price: lastPrice, rp: rpNow, F: f, V: v, A: aScore, f_pctl: fPctl, v_pctl: vPctl, a_rank: null, quadrant: quad };
   });

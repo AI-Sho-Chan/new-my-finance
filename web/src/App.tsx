@@ -60,7 +60,12 @@ export default function App() {
   const isBare = isEmbed && tab === 'analysis';
 
   const syncSystemGroupMembers = useStore((s) => s.syncSystemGroupMembers);
+  const pruneDeprecatedGroups = useStore((s) => s.pruneDeprecatedGroups);
   const saveSnap = useStore((s) => s.savePortfolioSnapshot);
+
+  useEffect(() => {
+    pruneDeprecatedGroups();
+  }, [pruneDeprecatedGroups]);
 
   useEffect(() => {
     try {
@@ -98,15 +103,10 @@ export default function App() {
           type: (entry.symbol.startsWith('^') ? 'index' : 'stock') as WatchItemType,
         }));
       const allCurrent = status?.currentQ1 || [];
-      const allDrop = status?.currentQ1Drop || [];
       const currentJP = status?.currentQ1JP ?? allCurrent.filter((entry) => entry.market === 'JP');
       const currentUS = status?.currentQ1US ?? allCurrent.filter((entry) => entry.market === 'US');
-      const dropJP = status?.currentQ1DropJP ?? allDrop.filter((entry) => entry.market === 'JP');
-      const dropUS = status?.currentQ1DropUS ?? allDrop.filter((entry) => entry.market === 'US');
       syncSystemGroupMembers({ key: 'q1_jp', members: buildMembers(currentJP) });
       syncSystemGroupMembers({ key: 'q1_us', members: buildMembers(currentUS) });
-      syncSystemGroupMembers({ key: 'q1_drop_jp', members: buildMembers(dropJP) });
-      syncSystemGroupMembers({ key: 'q1_drop_us', members: buildMembers(dropUS) });
     };
 
     const evaluateBanner = (status: Q1Status) => {

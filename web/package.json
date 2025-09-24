@@ -5,12 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:all": "concurrently \"npm run serve\" \"npm run dev\"",
+    "dev:all": "concurrently \"npm run serve:dev\" \"npm run dev\"",
     "build": "vite build && node ../tools/copy-nmy.mjs",
     "build:pages": "vite build && node ../tools/copy-nmy.mjs",
     "vercel-build": "vite build && node ../tools/copy-nmy.mjs",
     "preview": "vite preview",
-    "serve": "node server/index.mjs"
+    "serve": "node server/index.mjs",
+    "serve:dev": "node server/dev-server.mjs"
   },
   "dependencies": {
     "lightweight-charts": "^4.2.1",
