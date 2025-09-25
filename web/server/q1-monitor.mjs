@@ -1,4 +1,4 @@
-import fs from 'node:fs';
+ï»¿import fs from 'node:fs';
 import path from 'node:path';
 import { DateTime } from 'luxon';
 import nodemailer from 'nodemailer';
@@ -19,10 +19,10 @@ const REQUEST_DELAY_MS = Math.max(200, Number.parseInt(process.env.Q1_MONITOR_RE
 const FULL_SCAN_CONCURRENCY = Math.max(1, Number.parseInt(process.env.Q1_MONITOR_FETCH_CONCURRENCY ?? '1', 10) || 1);
 const MAX_UNIVERSE_SYMBOLS = Number.parseInt(process.env.Q1_MONITOR_MAX_SYMBOLS ?? '0', 10) || 0;
 
-const JP_SCAN_HOUR = Number.parseInt(process.env.Q1_MONITOR_JP_SCAN_HOUR ?? '16', 10) || 16;
+const JP_SCAN_HOUR = Number.parseInt(process.env.Q1_MONITOR_JP_SCAN_HOUR ?? '6', 10) || 6;
 const JP_SCAN_MINUTE = Number.parseInt(process.env.Q1_MONITOR_JP_SCAN_MINUTE ?? '0', 10) || 0;
 const US_SCAN_JST_HOUR = Number.parseInt(process.env.Q1_MONITOR_US_SCAN_JST_HOUR ?? '6', 10) || 6;
-const US_SCAN_JST_MINUTE = Number.parseInt(process.env.Q1_MONITOR_US_SCAN_JST_MINUTE ?? '30', 10) || 30;
+const US_SCAN_JST_MINUTE = Number.parseInt(process.env.Q1_MONITOR_US_SCAN_JST_MINUTE ?? '0', 10) || 0;
 const FULL_SCAN_BATCH_PAUSE_MS = Math.max(0, Number.parseInt(process.env.Q1_MONITOR_BATCH_PAUSE_MS ?? '0', 10) || 0);
 const FULL_SCAN_PROGRESS_EVERY = Math.max(5, Number.parseInt(process.env.Q1_MONITOR_PROGRESS_EVERY ?? '50', 10) || 50);
 
@@ -59,13 +59,13 @@ async function loadSymbolSet(filePath) {
 function isPrimeMarketEntry(entry) {
   if (!entry) return false;
   const exchange = (entry.exchange ?? '').toString();
-  if (exchange.includes('ƒvƒ‰ƒCƒ€')) return true;
+  if (exchange.includes('ï¿½vï¿½ï¿½ï¿½Cï¿½ï¿½')) return true;
   const lowerExchange = exchange.toLowerCase();
   if (lowerExchange.includes('prime')) return true;
   const keywords = Array.isArray(entry.keywords) ? entry.keywords : [];
   return keywords.some((kw) => {
     if (typeof kw !== 'string') return false;
-    if (kw.includes('ƒvƒ‰ƒCƒ€')) return true;
+    if (kw.includes('ï¿½vï¿½ï¿½ï¿½Cï¿½ï¿½')) return true;
     return kw.toLowerCase().includes('prime');
   });
 }
