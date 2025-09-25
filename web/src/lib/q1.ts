@@ -132,3 +132,43 @@ export async function runQ1Scan(market: 'JP' | 'US' | 'ALL' = 'JP'): Promise<voi
     throw new Error(`HTTP ${res.status} ${res.statusText}: ${text.slice(0, 120)}`);
   }
 }
+
+export interface Q1TrackerEntry {
+  symbol: string;
+  name: string;
+  market: 'JP' | 'US';
+  detectedAt: number;
+  tradeDate: string;
+  benchmark: string;
+  purchasePrice: number | null;
+  benchmarkPrice: number | null;
+  history: any[];
+  metricsAtDetection?: Q1Metrics | null;
+  latestBenchmarkPrice?: number | null;
+  updatedAt?: number | null;
+  returnPct?: number | null;
+  benchmarkReturnPct?: number | null;
+  alphaPct?: number | null;
+  daysHeld?: number | null;
+  latest?: {
+    price: number | null;
+    change: number | null;
+    changePct: number | null;
+    fPct: number | null;
+    vPct: number | null;
+    quadrant: string | null;
+  } | null;
+}
+
+export interface Q1TrackersResponse {
+  version: number;
+  entries: Q1TrackerEntry[];
+}
+
+export async function fetchQ1Trackers(): Promise<Q1TrackersResponse> {
+  const json = await fetchJson<Q1TrackersResponse>('/api/q1/trackers');
+  return {
+    version: typeof json?.version === 'number' ? json.version : Number(json?.version ?? 1) || 1,
+    entries: Array.isArray(json?.entries) ? json.entries : [],
+  };
+}

@@ -38,3 +38,8 @@ MyFinance (React + Vite)
 
 環境変数は `web/server/index.mjs` を起動するプロセスに渡してください。メール送信を無効化したい場合はユーザー/パス未設定のままでも動作します (バナー通知とタグ同期のみ)。
 
+
+### Q1 �g���b�J�[
+
+- `npm run tracker` �ōŐV��Q1�g���b�J�[�����X�V�ł��܂��i�o�b�N�G���h��`data/q1-monitor/state.json`�����Ɍv�Z�j�B
+
