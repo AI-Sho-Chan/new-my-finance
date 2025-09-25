@@ -1,3 +1,5 @@
+import { normalizeQuadrantThresholds, type QuadrantThresholds } from './analysis';
+
 export type Q1Metrics = {
   F: number | null;
   V: number | null;
@@ -28,6 +30,15 @@ export type Q1Event = {
   metrics: Q1Metrics | null;
 };
 
+export type Q1QuadrantThresholds = QuadrantThresholds;
+
+function sanitizeThresholds(input: unknown): Q1QuadrantThresholds {
+  if (input && typeof input === 'object') {
+    return normalizeQuadrantThresholds(input as Partial<QuadrantThresholds>);
+  }
+  return normalizeQuadrantThresholds();
+}
+
 export type Q1Status = {
   enabled: boolean;
   lastRun?: number;
@@ -51,6 +62,7 @@ export type Q1Status = {
   lastPriorityRefreshAt?: number | null;
   lastJPScanAt?: number | null;
   lastUSScanAt?: number | null;
+  thresholds?: Q1QuadrantThresholds;
 };
 
 export type Q1Analysis = {
@@ -63,6 +75,7 @@ export type Q1Analysis = {
   currentQ1DropJP?: Q1StatusEntry[];
   currentQ1DropUS?: Q1StatusEntry[];
   history: Q1Event[];
+  thresholds?: Q1QuadrantThresholds;
 };
 
 async function fetchJson<T>(path: string): Promise<T> {
@@ -100,6 +113,7 @@ export async function fetchQ1Status(): Promise<Q1Status> {
     lastPriorityRefreshAt: json?.lastPriorityRefreshAt ?? undefined,
     lastJPScanAt: json?.lastJPScanAt ?? undefined,
     lastUSScanAt: json?.lastUSScanAt ?? undefined,
+    thresholds: sanitizeThresholds(json?.thresholds),
   };
 }
 
@@ -115,6 +129,7 @@ export async function fetchQ1Analysis(): Promise<Q1Analysis> {
     currentQ1DropJP: Array.isArray(json?.currentQ1DropJP) ? json.currentQ1DropJP : undefined,
     currentQ1DropUS: Array.isArray(json?.currentQ1DropUS) ? json.currentQ1DropUS : undefined,
     history: Array.isArray(json?.history) ? json.history : [],
+    thresholds: sanitizeThresholds(json?.thresholds),
   };
 }
 

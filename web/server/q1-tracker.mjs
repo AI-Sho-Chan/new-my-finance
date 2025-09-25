@@ -11,6 +11,7 @@ const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 const TRACKER_VERSION = 1;
 const TRACKER_FILE = path.resolve(PROJECT_ROOT, 'data/q1-monitor/trackers.json');
 const STATE_FILE = path.resolve(PROJECT_ROOT, 'data/q1-monitor/state.json');
+const TRACKER_CONFIG_FILE = path.resolve(PROJECT_ROOT, 'data/q1-monitor/tracker-config.json');
 const BENCHMARKS = { JP: '1306.T', US: '^GSPC' };
 
 function readJSON(file, fallback) {
@@ -25,6 +26,14 @@ function writeJSON(file, data) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
 }
+function loadTrackerConfig() {
+  try {
+    return JSON.parse(fs.readFileSync(TRACKER_CONFIG_FILE, 'utf8')) || {};
+  } catch (error) {
+    return {};
+  }
+}
+
 
 function resolveMarket(symbol, fallback) {
   if (symbol?.endsWith('.T')) return 'JP';
@@ -124,7 +133,20 @@ async function main() {
     trackerData.entries = [];
   }
 
-  const entries = trackerData.entries;
+  const trackerConfig = loadTrackerConfig();
+  const minTimestampByMarket = trackerConfig?.minTs ?? {};
+
+  let entries = trackerData.entries;
+  const filteredEntries = entries.filter((entry) => {
+    const minTs = Number(minTimestampByMarket?.[entry.market]) || 0;
+    const detectedAt = entry.detectedAt ?? (entry.tradeDate ? DateTime.fromISO(entry.tradeDate).toMillis() : 0);
+    return !minTs || (detectedAt || 0) >= minTs;
+  });
+  if (filteredEntries.length !== entries.length) {
+    trackerData.entries = filteredEntries;
+  }
+  entries = trackerData.entries;
+
   const seenSymbols = new Set(entries.map((entry) => entry.symbol));
   const newEntries = [];
 
@@ -133,6 +155,8 @@ async function main() {
     const symbol = evt.symbol;
     if (!symbol || seenSymbols.has(symbol)) return;
     const market = resolveMarket(symbol, evt.market);
+    const minTs = Number(minTimestampByMarket?.[market]) || 0;
+    if (minTs && Number(evt.ts || 0) < minTs) return;
     const benchmark = BENCHMARKS[market === 'JP' ? 'JP' : 'US'];
     const detectedAt = evt.ts || Date.now();
     const tradeDate = evt.tradeDate || DateTime.fromMillis(detectedAt).toISODate();

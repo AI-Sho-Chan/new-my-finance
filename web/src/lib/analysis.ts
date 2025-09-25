@@ -1,10 +1,33 @@
 import type { Candle } from '../types';
 import { fetchHistoricalCandles } from './data';
 
-const F_PCTL_MIN = 95;
-const F_PCTL_LOW = 20;
-const V_PCTL_MIN = 70;
-const V_PCTL_LOW = 40;
+export type QuadrantThresholds = { fPctMin: number; vPctMin: number; fPctLow: number; vPctLow: number };
+
+export const DEFAULT_THRESHOLDS: QuadrantThresholds = {
+  fPctMin: 95,
+  vPctMin: 70,
+  fPctLow: 20,
+  vPctLow: 40,
+};
+
+export function normalizeQuadrantThresholds(input?: Partial<QuadrantThresholds>): QuadrantThresholds {
+  const base = { ...DEFAULT_THRESHOLDS };
+  if (!input) return base;
+  const clampValue = (value: any, fallback: number) => {
+    const num = typeof value === 'number' ? value : Number(value);
+    if (!Number.isFinite(num)) return fallback;
+    return Math.min(100, Math.max(0, num));
+  };
+  const output: QuadrantThresholds = {
+    fPctMin: clampValue(input.fPctMin, base.fPctMin),
+    vPctMin: clampValue(input.vPctMin, base.vPctMin),
+    fPctLow: clampValue(input.fPctLow, base.fPctLow),
+    vPctLow: clampValue(input.vPctLow, base.vPctLow),
+  };
+  output.fPctLow = Math.min(output.fPctLow, output.fPctMin);
+  output.vPctLow = Math.min(output.vPctLow, output.vPctMin);
+  return output;
+}
 
 export type AssetDef = { id: string; name: string; cls: string; symbol: string; currency?: 'USD' | 'JPY' | 'EUR'; priceToUSD?: 'JPY'; };
 export type SnapshotItem = {
@@ -282,10 +305,10 @@ export async function computeSnapshot(params = DEFAULT_PARAMS, universe?: AssetD
     const vPctl = Number.isFinite(v as number) ? percentileRank(vVals, v as number) : null;
     let quad: SnapshotItem['quadrant'] = 'NA';
     if (fPctl!=null && vPctl!=null) {
-      if (fPctl>=F_PCTL_MIN && vPctl>=V_PCTL_MIN) quad='Q1';
-      else if (fPctl>=F_PCTL_MIN && vPctl<V_PCTL_MIN) quad='Q2';
-      else if (fPctl<F_PCTL_LOW && vPctl>=V_PCTL_MIN) quad='Q3';
-      else if (fPctl<F_PCTL_LOW && vPctl<V_PCTL_LOW) quad='Q4';
+      if (fPctl>=thresholds.fPctMin && vPctl>=thresholds.vPctMin) quad='Q1';
+      else if (fPctl>=thresholds.fPctMin && vPctl<thresholds.vPctMin) quad='Q2';
+      else if (fPctl<thresholds.fPctLow && vPctl>=thresholds.vPctMin) quad='Q3';
+      else if (fPctl<thresholds.fPctLow && vPctl<thresholds.vPctLow) quad='Q4';
       else quad='NA';
     }
     return {
@@ -314,12 +337,18 @@ export async function computeSnapshot(params = DEFAULT_PARAMS, universe?: AssetD
 
 type SnapshotOverrides = Record<string, { daily: Candle[]; weekly: Candle[] }>;
 
-export async function computeSnapshotWithTrails(params = DEFAULT_PARAMS, uni: AssetDef[], monthsBack = 6, opts: { overrides?: SnapshotOverrides } = {}): Promise<{ items: SnapshotItem[]; trails: SnapshotTrails; meta: SnapshotMeta; params: typeof DEFAULT_PARAMS }>
+export async function computeSnapshotWithTrails(
+  params = DEFAULT_PARAMS,
+  uni: AssetDef[],
+  monthsBack = 6,
+  opts: { overrides?: SnapshotOverrides; thresholds?: Partial<QuadrantThresholds> } = {},
+): Promise<{ items: SnapshotItem[]; trails: SnapshotTrails; meta: SnapshotMeta; params: typeof DEFAULT_PARAMS }>
 {
   type Series = { time: number, price: number | null }[];
   const daily: Record<string, Series> = {};
   const weekly: Record<string, Series> = {};
   const overrideMap = opts.overrides || {} as SnapshotOverrides;
+  const thresholds = normalizeQuadrantThresholds(opts.thresholds);
 
   const fxJPY = await fetchHistoricalCandles('USDJPY=X', 'D').catch(()=>[]) as Candle[];
   const fxJPY_W = await fetchHistoricalCandles('USDJPY=X', 'W').catch(()=>[]) as Candle[];
@@ -462,7 +491,7 @@ export async function computeSnapshotWithTrails(params = DEFAULT_PARAMS, uni: As
     const vPctl = (v!=null) ? percentileRank(vVals, v) : null;
     let quad: SnapshotItem['quadrant'] = 'NA';
     if (fPctl!=null && vPctl!=null) {
-      if (fPctl>=F_PCTL_MIN && vPctl>=V_PCTL_MIN) quad='Q1'; else if (fPctl>=F_PCTL_MIN && vPctl<V_PCTL_MIN) quad='Q2'; else if (fPctl<F_PCTL_LOW && vPctl>=V_PCTL_MIN) quad='Q3'; else if (fPctl<F_PCTL_LOW && vPctl<V_PCTL_LOW) quad='Q4'; else quad='NA';
+      if (fPctl>=thresholds.fPctMin && vPctl>=thresholds.vPctMin) quad='Q1'; else if (fPctl>=thresholds.fPctMin && vPctl<thresholds.vPctMin) quad='Q2'; else if (fPctl<thresholds.fPctLow && vPctl>=thresholds.vPctMin) quad='Q3'; else if (fPctl<thresholds.fPctLow && vPctl<thresholds.vPctLow) quad='Q4'; else quad='NA';
     }
     return { id: a.id, name: a.name, cls: a.cls, currency: a.currency || 'USD', last_price: lastPrice, rp: rpNow, F: f, V: v, A: aScore, f_pctl: fPctl, v_pctl: vPctl, a_rank: null, quadrant: quad };
   });

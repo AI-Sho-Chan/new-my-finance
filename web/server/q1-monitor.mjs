@@ -1328,6 +1328,12 @@ class Q1Monitor {
       lastPriorityRefreshAt: this.state.lastPriorityRefreshAt || null,
       lastJPScanAt: this.state.lastJPScanAt || null,
       lastUSScanAt: this.state.lastUSScanAt || null,
+      thresholds: {
+        fPctMin: this.snapshotOptions?.fPctMin ?? DEFAULT_F_PCTL_MIN,
+        vPctMin: this.snapshotOptions?.vPctMin ?? DEFAULT_V_PCTL_MIN,
+        fPctLow: this.snapshotOptions?.fPctLow ?? DEFAULT_F_PCTL_LOW,
+        vPctLow: this.snapshotOptions?.vPctLow ?? DEFAULT_V_PCTL_LOW,
+      },
     };
   }
 
@@ -1343,6 +1349,12 @@ class Q1Monitor {
       currentQ1DropJP: this.currentQ1DropList('JP'),
       currentQ1DropUS: this.currentQ1DropList('US'),
       history: this.state.history || [],
+      thresholds: {
+        fPctMin: this.snapshotOptions?.fPctMin ?? DEFAULT_F_PCTL_MIN,
+        vPctMin: this.snapshotOptions?.vPctMin ?? DEFAULT_V_PCTL_MIN,
+        fPctLow: this.snapshotOptions?.fPctLow ?? DEFAULT_F_PCTL_LOW,
+        vPctLow: this.snapshotOptions?.vPctLow ?? DEFAULT_V_PCTL_LOW,
+      },
     };
   }
 }
