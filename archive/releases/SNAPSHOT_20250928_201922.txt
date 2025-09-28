@@ -1,0 +1,4 @@
+commit=b3de0a0645dca7ea77fd54724047a19128b971a2 
+branch=restore/prod-stable 
+tag=v20250928-usdjpy-trend-watchdog
+
