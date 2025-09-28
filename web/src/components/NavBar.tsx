@@ -5,6 +5,7 @@ export default function NavBar({ activeTab, setActiveTab }: { activeTab: TabKey;
   const items: { id: TabKey; label: string; icon: JSX.Element }[] = [
     { id: 'dashboard', label: 'ダッシュボード', icon: <HomeIcon /> },
     { id: 'portfolio', label: '資産', icon: <PieChartIcon /> },
+    { id: 'usdjpy', label: 'ドル円', icon: <PieChartIcon /> },
     { id: 'analysis', label: '分析', icon: <PieChartIcon /> },
     { id: 'settings', label: '設定', icon: <SettingsIcon /> },
   ];

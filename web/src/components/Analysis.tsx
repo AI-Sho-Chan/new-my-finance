@@ -1,6 +1,6 @@
-import { fetchTopix33History, buildTopix33Overrides, type Topix33Overrides } from '../lib/topix33';
+﻿import { fetchTopix33History, buildTopix33Overrides, type Topix33Overrides } from '../lib/topix33';
 import { fetchUSIndustriesHistory, buildUSIndustryOverrides, type USIndustryOverrides } from '../lib/usIndustries';
-import { fetchQ1Analysis, fetchQ1Status, type Q1Analysis, type Q1Event, type Q1Metrics, type Q1Status, type Q1StatusEntry } from '../lib/q1';
+import { fetchQ1Analysis, fetchQ1Status, type Q1Analysis, type Q1Event, type Q1Metrics, type Q1ScanSummaryEntry, type Q1Status, type Q1StatusEntry } from '../lib/q1';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { computeSnapshotWithTrails, DEFAULT_PARAMS, type SnapshotItem, type SnapshotTrails, type SnapshotMeta, UNIVERSE, type AssetDef, normalizeQuadrantThresholds, type QuadrantThresholds } from '../lib/analysis';
 import { useStore } from '../store';
@@ -26,6 +26,15 @@ function heatColor(pctl: number | null) {
   return `rgb(${r},${g},${b})`;
 }
 
+const SCAN_LABELS: Record<string, string> = {
+  JP: '日本株',
+  US: '米国大型株',
+  GLOBAL: 'Global Core',
+  US_SECTORS: 'US Industries',
+  JP_SECTORS: 'Japan Index',
+  ALL: '全銘柄',
+};
+
 export default function Analysis({ bare = false }: { bare?: boolean }) {
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<SnapshotItem[] | null>(null);
@@ -41,6 +50,22 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
   const [usIndustryLoadErr, setUsIndustryLoadErr] = useState<string | null>(null);
   const quadrantThresholds = useMemo(() => normalizeQuadrantThresholds((q1Status?.thresholds ?? q1Data?.thresholds) as Partial<QuadrantThresholds> | undefined), [q1Status?.thresholds, q1Data?.thresholds]);
   const quadrantThresholdKey = useMemo(() => JSON.stringify(quadrantThresholds), [quadrantThresholds]);
+  const scanSummary = q1Status?.scanSummary ?? undefined;
+  const scanSummaryRows = useMemo(() => {
+    if (!scanSummary) return [] as { key: string; label: string; entry: Q1ScanSummaryEntry }[];
+    const order = ['JP', 'US', 'GLOBAL', 'US_SECTORS', 'JP_SECTORS', 'ALL'];
+    return order
+      .map((key) => {
+        const entry = scanSummary[key];
+        if (!entry) return null;
+        return { key, label: SCAN_LABELS[key] ?? key, entry };
+      })
+      .filter((row): row is { key: string; label: string; entry: Q1ScanSummaryEntry } => row != null);
+  }, [scanSummary]);
+  const formatScanTime = useCallback((value: number | null | undefined) => {
+    if (typeof value !== 'number' || Number.isNaN(value)) return '--';
+    return new Date(value).toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+  }, []);
 
   // Read watchlist from NMY localStorage, fallback to Zustand
   const readNMYWatch = () => {
@@ -383,6 +408,24 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
         <button className={`px-2 py-1 rounded ${view==='Q1_JP'?'bg-indigo-600 text-white':'bg-gray-700 text-gray-200'}`} onClick={()=>setView('Q1_JP')}>Q1 JP</button>
         <button className={`px-2 py-1 rounded ${view==='Q1_US'?'bg-indigo-600 text-white':'bg-gray-700 text-gray-200'}`} onClick={()=>setView('Q1_US')}>Q1 US</button>
       </div>
+
+      {scanSummaryRows.length > 0 && (
+        <div className="grid w-full gap-3 rounded-lg border border-gray-800 bg-gray-900/60 p-3 md:grid-cols-2 xl:grid-cols-3">
+          {scanSummaryRows.map(({ key, label, entry }) => (
+            <div
+              key={key}
+              className="rounded border border-gray-800/60 bg-gray-900/80 p-3 text-xs text-gray-300"
+            >
+              <div className="flex items-center justify-between text-sm text-gray-100">
+                <span className="font-semibold">{label}</span>
+                <span className="text-xs text-gray-400">{entry.tradeDate ?? '--'}</span>
+              </div>
+              <div className="mt-1 text-[11px] text-gray-400">最終実行: <span className="text-gray-100">{formatScanTime(entry.lastScanAt)}</span></div>
+              <div className="mt-1 text-[11px] text-gray-400">Q1検出: <span className="text-gray-100">{entry.q1Count}</span> / {entry.total}</div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {view === 'JP_SECTOR' && (
         <div className="text-xs text-gray-400">
@@ -738,4 +781,6 @@ function Q1HistoryTable({ events, market }: { events: Q1Event[]; market: 'JP' | 
     </div>
   );
 }
+
+
 

@@ -30,6 +30,34 @@ export type Q1Event = {
   metrics: Q1Metrics | null;
 };
 
+
+export type Q1ScanSummaryEntry = {
+  reason: string;
+  generatedAt: number | null;
+  lastScanAt: number | null;
+  tradeDate: string | null;
+  total: number;
+  q1Count: number;
+};
+
+function parseScanSummary(raw: unknown): Record<string, Q1ScanSummaryEntry> | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const summary: Record<string, Q1ScanSummaryEntry> = {};
+  Object.entries(raw as Record<string, any>).forEach(([key, value]) => {
+    if (!value || typeof value !== 'object') return;
+    const entry = value as Record<string, any>;
+    summary[key] = {
+      reason: typeof entry.reason === 'string' ? entry.reason : key,
+      generatedAt: entry.generatedAt == null ? null : Number(entry.generatedAt) || null,
+      lastScanAt: entry.lastScanAt == null ? null : Number(entry.lastScanAt) || null,
+      tradeDate: entry.tradeDate == null ? null : String(entry.tradeDate),
+      total: Number(entry.total ?? 0) || 0,
+      q1Count: Number(entry.q1Count ?? 0) || 0,
+    };
+  });
+  return Object.keys(summary).length ? summary : undefined;
+}
+
 export type Q1QuadrantThresholds = QuadrantThresholds;
 
 function sanitizeThresholds(input: unknown): Q1QuadrantThresholds {
@@ -62,6 +90,11 @@ export type Q1Status = {
   lastPriorityRefreshAt?: number | null;
   lastJPScanAt?: number | null;
   lastUSScanAt?: number | null;
+  lastGlobalScanAt?: number | null;
+  lastUSSectorScanAt?: number | null;
+  lastJPSectorScanAt?: number | null;
+  lastAllScanAt?: number | null;
+  scanSummary?: Record<string, Q1ScanSummaryEntry>;
   thresholds?: Q1QuadrantThresholds;
 };
 
@@ -75,6 +108,7 @@ export type Q1Analysis = {
   currentQ1DropJP?: Q1StatusEntry[];
   currentQ1DropUS?: Q1StatusEntry[];
   history: Q1Event[];
+  scanSummary?: Record<string, Q1ScanSummaryEntry>;
   thresholds?: Q1QuadrantThresholds;
 };
 
@@ -113,6 +147,11 @@ export async function fetchQ1Status(): Promise<Q1Status> {
     lastPriorityRefreshAt: json?.lastPriorityRefreshAt ?? undefined,
     lastJPScanAt: json?.lastJPScanAt ?? undefined,
     lastUSScanAt: json?.lastUSScanAt ?? undefined,
+    lastGlobalScanAt: json?.lastGlobalScanAt ?? undefined,
+    lastUSSectorScanAt: json?.lastUSSectorScanAt ?? undefined,
+    lastJPSectorScanAt: json?.lastJPSectorScanAt ?? undefined,
+    lastAllScanAt: json?.lastAllScanAt ?? undefined,
+    scanSummary: parseScanSummary(json?.scanSummary),
     thresholds: sanitizeThresholds(json?.thresholds),
   };
 }
@@ -129,6 +168,7 @@ export async function fetchQ1Analysis(): Promise<Q1Analysis> {
     currentQ1DropJP: Array.isArray(json?.currentQ1DropJP) ? json.currentQ1DropJP : undefined,
     currentQ1DropUS: Array.isArray(json?.currentQ1DropUS) ? json.currentQ1DropUS : undefined,
     history: Array.isArray(json?.history) ? json.history : [],
+    scanSummary: parseScanSummary(json?.scanSummary),
     thresholds: sanitizeThresholds(json?.thresholds),
   };
 }
