@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>バックテスト・ヒートマップ</title>
+  <style>
+    body{ background:#0f172a; color:#e5e7eb; font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial; }
+    .wrap{ max-width: 1100px; margin: 16px auto; padding: 0 12px; }
+    .card{ background:#111827; border:1px solid #374151; border-radius:8px; padding:12px; margin-bottom:16px; }
+    .title{ font-weight:700; margin-bottom:8px; }
+    table{ border-collapse: collapse; }
+    th,td{ padding:6px 8px; border:1px solid #374151; text-align:right; white-space:nowrap; }
+    th{ background:#0b1220; color:#cbd5e1; }
+    .grid{ overflow:auto; }
+    .small{ color:#9ca3af; font-size:12px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="title">ヒートマップ（avgAlpha）</div>
+      <div id="meta" class="small"></div>
+      <div id="grids"></div>
+    </div>
+    <div class="card small">CSV指定: ?csv=/data/q1-monitor/hist_us_large10_q1_f90_v65_summary.csv</div>
+  </div>
+  <script>
+    function q(k, d=document){ return d.querySelector(k); }
+    function qp(key){ const u=new URL(location.href); return u.searchParams.get(key); }
+    function parseCSV(txt){ const lines=txt.trim().split(/\r?\n/); const head=lines[0].split(','); const rows=[]; for(let i=1;i<lines.length;i++){ const cells=lines[i].split(','); const o={}; head.forEach((h,j)=> o[h]=cells[j]); rows.push(o);} return { head, rows }; }
+    function color(val){ if(!(val> -1e9)) return '#222'; const v=+val; const max=0.08, min=-0.08; const t=Math.max(0, Math.min(1, (v - min)/(max-min))); const r=Math.round(255*(1-t)); const g=Math.round(255*t); return `rgb(${r},${g},100)`; }
+    async function load(){ const csv=qp('csv'); if(!csv){ q('#meta').textContent='csvクエリが未指定です'; return; } const r=await fetch(csv,{cache:'no-store'}); if(!r.ok){ q('#meta').textContent='CSV読み込み失敗'; return; } const txt=await r.text(); const {rows}=parseCSV(txt); const byMkt={}; rows.forEach(r=>{ const m=r.market; if(!byMkt[m]) byMkt[m]=[]; byMkt[m].push(r);}); const cont=q('#grids'); cont.innerHTML=''; Object.entries(byMkt).forEach(([mkt, arr])=>{ const hs=[...new Set(arr.map(r=>+r.horizon))].sort((a,b)=>a-b); const stops=[...new Set(arr.map(r=> (r.stop===''||r.stop==='None'||r.stop==='null')?'None':r.stop ))].sort((a,b)=> (a==='None'? -1 : b==='None'? 1 : (+a - +b))); const map={}; arr.forEach(r=>{ const s=(r.stop===''||r.stop==='None'||r.stop==='null')?'None':r.stop; const h=+r.horizon; const a=parseFloat(r.avgAlpha); map[`${h}|${s}`]=a; }); const div=document.createElement('div'); div.className='grid'; let html=`<div class="small" style="margin:6px 0">市場:${mkt}</div><table><thead><tr><th>H\Stop</th>`; stops.forEach(s=> html+=`<th>${s}</th>`); html+='</tr></thead><tbody>'; hs.forEach(h=>{ html+=`<tr><th>${h}</th>`; stops.forEach(s=>{ const a=map[`${h}|${s}`]; const col=color(a); const txt = Number.isFinite(a)? (a*100).toFixed(2)+'%' : '-'; html+=`<td style="background:${col}">${txt}</td>`; }); html+='</tr>'; }); html+='</tbody></table>'; div.innerHTML=html; cont.appendChild(div); }); q('#meta').textContent = `読み込み: ${csv}`; }
+    load();
+  </script>
+</body>
+</html>
+

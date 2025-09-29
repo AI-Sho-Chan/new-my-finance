@@ -1,4 +1,4 @@
-﻿import { HomeIcon, PieChartIcon, SettingsIcon } from './icons';
+import { HomeIcon, PieChartIcon, SettingsIcon } from './icons';
 import type { TabKey } from '../lib/navigation';
 
 export default function NavBar({ activeTab, setActiveTab }: { activeTab: TabKey; setActiveTab: (t: TabKey) => void }) {
@@ -6,6 +6,7 @@ export default function NavBar({ activeTab, setActiveTab }: { activeTab: TabKey;
     { id: 'dashboard', label: 'ダッシュボード', icon: <HomeIcon /> },
     { id: 'portfolio', label: '資産', icon: <PieChartIcon /> },
     { id: 'usdjpy', label: 'ドル円', icon: <PieChartIcon /> },
+    { id: 'topix', label: 'TOPIX', icon: <PieChartIcon /> },
     { id: 'analysis', label: '分析', icon: <PieChartIcon /> },
     { id: 'settings', label: '設定', icon: <SettingsIcon /> },
   ];
@@ -27,4 +28,3 @@ export default function NavBar({ activeTab, setActiveTab }: { activeTab: TabKey;
     </nav>
   );
 }
-

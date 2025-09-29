@@ -1,0 +1,16 @@
+
+
+
+<main class="flex-lg-1 h-screen">
+    
+    <section class="idx-section">
+        <div class="container-fluid idx-container-thin">
+            <p>
+                The page you are looking for is deleted or unavailable temporarily.<br>
+                Please check the URL you typed is correct.
+            </p>
+            <a class="idx-u-page-link" href="/en/nkave">Back to Nikkei Indexes</a>
+        </div>
+    </section>
+    
+</main>

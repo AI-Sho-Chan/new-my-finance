@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Q1モニタ</title>
+  <style>
+    body{ background:#0f172a; color:#e5e7eb; font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial; }
+    .wrap{ max-width: 1000px; margin: 16px auto; padding: 0 12px; }
+    .card{ background:#111827; border:1px solid #374151; border-radius:8px; padding:12px; margin-bottom:16px; }
+    .title{ font-weight:700; margin-bottom:8px; }
+    .small{ color:#9ca3af; font-size:12px; }
+    table{ width:100%; border-collapse: collapse; }
+    th,td{ padding:6px 8px; border-top:1px solid #374151; white-space:nowrap; text-align:left; }
+    th{ color:#cbd5e1; font-weight:600; background:#0b1220; }
+    a{ color:#60a5fa; text-decoration:none; }
+    a:hover{ text-decoration:underline; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="title">Q1モニタ（サマリー）</div>
+      <div id="summary" class="small">loading...</div>
+    </div>
+    <div class="card">
+      <div class="title">直近イベント</div>
+      <div id="events"></div>
+    </div>
+    <div class="card">
+      <div class="title">本日の発注候補CSV</div>
+      <div id="orders" class="small"></div>
+    </div>
+  </div>
+  <script>
+    async function fetchJson(u){ const r=await fetch(u,{cache:'no-store'}); if(!r.ok) throw new Error(r.status); return r.json(); }
+    function esc(s){ return String(s==null?'':s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+    function todayISO(){ const d=new Date(); const y=d.getFullYear(); const m=('0'+(d.getMonth()+1)).slice(-2); const dd=('0'+d.getDate()).slice(-2); return `${y}-${m}-${dd}`; }
+    function renderSummary(st){ const el=document.getElementById('summary'); if(!st?.enabled){ el.textContent='monitor disabled'; return; }
+      const jp=st.currentQ1JP?.length||0, us=st.currentQ1US?.length||0; const gen=st.snapshotGeneratedAt? new Date(st.snapshotGeneratedAt).toISOString(): 'n/a';
+      el.innerHTML = `Q1 JP: <b>${jp}</b> / Q1 US: <b>${us}</b> ・ 生成: ${esc(gen)}`;
+    }
+    function renderEvents(st){ const el=document.getElementById('events'); const ev=st.recentEvents||[]; if(!ev.length){ el.textContent='なし'; return; }
+      let html='<table><thead><tr><th>時刻</th><th>市場</th><th>銘柄</th><th>種別</th><th>取引日</th></tr></thead><tbody>';
+      for(const e of ev){ const ts = e.ts? new Date(e.ts).toISOString().slice(0,19).replace('T',' '):''; html+=`<tr><td>${esc(ts)}</td><td>${esc(e.market)}</td><td>${esc(e.symbol)}</td><td>${e.type==='ENTER'?'ENTER':'DROP'}</td><td>${esc(e.tradeDate||'')}</td></tr>`; }
+      html+='</tbody></table>'; el.innerHTML=html;
+    }
+    function renderOrders(){ const base='/data/q1-monitor/orders/'; const d=todayISO(); const jp=`${base}${d}_orders_JP.csv`; const us=`${base}${d}_orders_US.csv`; const cont=document.getElementById('orders');
+      cont.innerHTML = `<a href="${jp}">JP: ${d}_orders_JP.csv</a> ・ <a href="${us}">US: ${d}_orders_US.csv</a>`;
+    }
+    (async function(){ try{ const st=await fetchJson('/api/q1/status'); renderSummary(st); renderEvents(st); renderOrders(); }catch(e){ console.error(e); } })();
+  </script>
+  </body>
+  </html>
+

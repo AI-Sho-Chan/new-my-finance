@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Q1 設定</title>
+  <style>
+    body{ background:#0f172a; color:#e5e7eb; font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial; }
+    .wrap{ max-width: 900px; margin: 16px auto; padding: 0 12px; }
+    .card{ background:#111827; border:1px solid #374151; border-radius:8px; padding:12px; margin-bottom:16px; }
+    .title{ font-weight:700; margin-bottom:8px; }
+    label{ display:block; margin:6px 0 2px; color:#cbd5e1; }
+    input,select{ background:#0b1220; color:#e5e7eb; border:1px solid #374151; border-radius:6px; padding:6px 8px; }
+    .row{ display:flex; gap:12px; flex-wrap:wrap; }
+    .row > div{ flex:1 1 180px; }
+    button{ background:#2563eb; color:#fff; border:none; border-radius:6px; padding:8px 12px; cursor:pointer; }
+    button:disabled{ opacity:0.6; cursor:not-allowed; }
+    .small{ color:#9ca3af; font-size:12px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="title">フルスキャン（即時）</div>
+      <div class="row">
+        <button id="btnJP">JP（東証プライムのみ）実行</button>
+        <button id="btnUS">US（全株式）実行</button>
+      </div>
+      <div id="scanMsg" class="small" style="margin-top:8px"></div>
+    </div>
+
+    <div class="card">
+      <div class="title">しきい値・スケジュール設定</div>
+      <form id="cfgForm">
+        <div class="row">
+          <div><label>共通 fMin</label><input type="number" id="fMin" min="0" max="100" step="1" value="95"></div>
+          <div><label>共通 vMin</label><input type="number" id="vMin" min="0" max="100" step="1" value="70"></div>
+          <div><label>JP fMin</label><input type="number" id="fMinJP" min="0" max="100" step="1"></div>
+          <div><label>JP vMin</label><input type="number" id="vMinJP" min="0" max="100" step="1"></div>
+          <div><label>US fMin</label><input type="number" id="fMinUS" min="0" max="100" step="1"></div>
+          <div><label>US vMin</label><input type="number" id="vMinUS" min="0" max="100" step="1"></div>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <div><label>JP 取引終了＋遅延（分）</label><input type="number" id="jpLagMin" min="0" max="180" step="1" value="30"></div>
+          <div><label>US 取引終了＋遅延（分）</label><input type="number" id="usLagMin" min="0" max="180" step="1" value="30"></div>
+          <div><label>JP プライム限定</label>
+            <select id="jpPrimeOnly"><option value="1">有効</option><option value="0">無効</option></select>
+          </div>
+        </div>
+        <div style="margin-top:12px">
+          <button type="submit">設定を保存して反映</button>
+          <span id="cfgMsg" class="small" style="margin-left:8px"></span>
+        </div>
+      </form>
+    </div>
+  </div>
+  <script>
+    async function post(u, body){ const r=await fetch(u,{method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body||{})}); if(!r.ok){ throw new Error(await r.text()) } return r.json(); }
+    async function get(u){ const r=await fetch(u,{cache:'no-store'}); if(!r.ok) throw new Error(r.status); return r.json(); }
+    async function loadCfg(){ try{ const j=await get('/api/q1/config'); const c=j?.config||{}; const t=c.thresholds||{}; const l=c.lags||{}; if(t.common){ if(t.common.fMin!=null) fMin.value=t.common.fMin; if(t.common.vMin!=null) vMin.value=t.common.vMin; }
+      if(t.jp){ if(t.jp.fMin!=null) fMinJP.value=t.jp.fMin; if(t.jp.vMin!=null) vMinJP.value=t.jp.vMin; }
+      if(t.us){ if(t.us.fMin!=null) fMinUS.value=t.us.fMin; if(t.us.vMin!=null) vMinUS.value=t.us.vMin; }
+      if(Number.isFinite(l.jp)) jpLagMin.value=l.jp; if(Number.isFinite(l.us)) usLagMin.value=l.us; if(c.jpPrimeOnly!=null) jpPrimeOnly.value=c.jpPrimeOnly? '1':'0'; }catch(e){}
+    }
+    document.getElementById('btnJP').onclick=async ()=>{ const el=document.getElementById('scanMsg'); el.textContent='JPスキャン実行中...'; try{ await post('/api/q1/run-scan?market=JP'); el.textContent='JPスキャンを開始しました'; }catch(e){ el.textContent='JPスキャン開始失敗: '+e.message; } };
+    document.getElementById('btnUS').onclick=async ()=>{ const el=document.getElementById('scanMsg'); el.textContent='USスキャン実行中...'; try{ await post('/api/q1/run-scan?market=US'); el.textContent='USスキャンを開始しました'; }catch(e){ el.textContent='USスキャン開始失敗: '+e.message; } };
+    document.getElementById('cfgForm').onsubmit=async (ev)=>{ ev.preventDefault(); const body={ fMin:+fMin.value, vMin:+vMin.value, fMinJP:+(fMinJP.value||NaN), vMinJP:+(vMinJP.value||NaN), fMinUS:+(fMinUS.value||NaN), vMinUS:+(vMinUS.value||NaN), jpLagMin:+jpLagMin.value, usLagMin:+usLagMin.value, jpPrimeOnly: (jpPrimeOnly.value==='1') };
+      const msg=document.getElementById('cfgMsg'); try{ await post('/api/q1/config', body); msg.textContent='保存し反映しました'; }catch(e){ msg.textContent='保存失敗: '+e.message; }
+    };
+    loadCfg();
+  </script>
+</body>
+</html>
+

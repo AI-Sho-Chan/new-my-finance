@@ -1,0 +1,38 @@
+{
+  "weights": {
+    "intercept": 1500,
+    "tankan_di": 12.5,
+    "long_term_rate": -30.0,
+    "cpi": -18.0,
+    "usd_jpy": 4.2
+  },
+  "trend": {
+    "windowMonths": 3,
+    "threshold": 25.0
+  },
+  "sources": {
+    "topix": {
+      "type": "stooq",
+      "symbol": "^tpx",
+      "interval": "d"
+    },
+    "tankan_di": {
+      "type": "boj_tankan",
+      "series": "large_manufacturing_actual"
+    },
+    "long_term_rate": {
+      "type": "fred",
+      "seriesId": "IRLTLT01JPM156N"
+    },
+    "cpi": {
+      "type": "fred",
+      "seriesId": "JPNCPIALLMINMEI"
+    },
+    "usd_jpy": {
+      "type": "yahoo",
+      "symbol": "USDJPY=X",
+      "range": "5y",
+      "interval": "1d"
+    }
+  }
+}

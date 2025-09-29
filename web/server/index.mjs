@@ -1,4 +1,4 @@
-import express from 'express';
+﻿import express from 'express';
 
 import compression from 'compression';
 
@@ -13,6 +13,9 @@ import dotenv from 'dotenv';
 import { spawn } from 'node:child_process';
 
 import { Q1Monitor } from './q1-monitor.mjs';
+
+import { createTopixModule } from './topix.mjs';
+
 
 import { fileURLToPath } from 'node:url';
 
@@ -35,6 +38,26 @@ const US_INDUSTRY_TTL_MS = 24 * 60 * 60 * 1000;
 const US_INDUSTRY_PERIOD = '5y';
 
 const US_INDUSTRY_SCRIPT = path.resolve(PROJECT_ROOT, 'tools/us_industries/update_dataset.py');
+
+const TOPIX_MODEL_CONFIG_PATH = path.resolve(PROJECT_ROOT, 'config/topix-model.json');
+
+const TOPIX_DATA_DIR = path.resolve(PROJECT_ROOT, 'data/topix');
+
+const TOPIX_HISTORY_PATH = path.resolve(TOPIX_DATA_DIR, 'history.json');
+
+const TOPIX_LATEST_PATH = path.resolve(TOPIX_DATA_DIR, 'latest.json');
+
+const TOPIX_LOG_PATH = path.resolve(PROJECT_ROOT, 'logs/topix-watch.log');
+
+const TOPIX_HISTORY_CACHE_KEY = 'macro:topix:history';
+
+const TOPIX_LATEST_CACHE_KEY = 'macro:topix:latest';
+
+const TOPIX_REFRESH_TTL_MS = 24 * 60 * 60 * 1000;
+
+const TOPIX_ADMIN_TOKEN = process.env.TOPIX_ADMIN_TOKEN || process.env.API_ADMIN_TOKEN || null;
+
+const TOPIX_ADMIN_IPS = String(process.env.TOPIX_ADMIN_IPS || process.env.API_ADMIN_IPS || '').split(',').map((ip) => ip.trim()).filter(Boolean);
 
 const US_INDUSTRY_PYTHON_CANDIDATES = [
 
@@ -963,7 +986,9 @@ const GAITAME_POLICY_TTL = 30 * 60_000;
 
 function toHalfWidth(text) {
   if (typeof text !== 'string') return text;
-  return text.replace(/[！-～]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0));
+  return text
+    .replace(/[\uFF01-\uFF5E]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0))
+    .replace(/\u3000/g, ' ');
 }
 
 function extractGaitameSection(xml, tag) {
@@ -1002,7 +1027,7 @@ function normalizeGaitameRateText(text) {
 
 function parseGaitameRateValue(text) {
   if (typeof text !== 'string') return null;
-  const cleaned = text.replace(/％|%/g, '').replace(/\s+/g, '').replace(/,/g, '');
+  const cleaned = text.replace(/％/g, '').replace(/\s+/g, '').replace(/,/g, '');
   if (!cleaned) return null;
   const parts = cleaned.replace(/[\uFF5E\u301C]/g, '~').split('~').map((part) => Number(part)).filter((num) => Number.isFinite(num));
   if (parts.length === 0) {
@@ -1014,8 +1039,12 @@ function parseGaitameRateValue(text) {
 
 function parseGaitameDateString(str) {
   if (typeof str !== 'string' || !str.trim()) return null;
-  const normalized = str.replace(/[年月日]/g, '/').replace(/\s+/g, '');
-  const parts = normalized.split(/[\/\.]/).filter(Boolean);
+  const normalized = toHalfWidth(str)
+    .replace(/[?N????]/g, '/')
+    .replace(/[^0-9/]/g, '/')
+    .replace(/\/+/g, '/')
+    .replace(/^\/|\/$/g, '');
+  const parts = normalized.split('/').filter(Boolean);
   if (parts.length < 3) return null;
   const [yStr, mStr, dStr] = parts;
   const year = Number.parseInt(yStr, 10);
@@ -1054,7 +1083,7 @@ async function fetchGaitamePolicyRates() {
   const jpSection = extractGaitameSection(xml, 'JP');
   const usSection = extractGaitameSection(xml, 'US');
 
-  const jp = parseGaitamePolicy(jpSection, '無担保') || parseGaitamePolicy(jpSection, '');
+  const jp = parseGaitamePolicy(jpSection, '政策金利') || parseGaitamePolicy(jpSection, '');
   const us = parseGaitamePolicy(usSection, 'Federal') || parseGaitamePolicy(usSection, '');
 
   const payload = {
@@ -1150,6 +1179,53 @@ async function fetchFredCSV(seriesId) {
     out.push({ date, value: Number.isFinite(v) ? v : null });
   }
   return out;
+}
+
+const topixModule = createTopixModule({
+  fetchJson,
+  buildEstatUrl,
+  ESTAT_APP_ID,
+  fetchFredCSV,
+  setCache,
+  getCache,
+  configPath: TOPIX_MODEL_CONFIG_PATH,
+  dataDir: TOPIX_DATA_DIR,
+  historyPath: TOPIX_HISTORY_PATH,
+  latestPath: TOPIX_LATEST_PATH,
+  logPath: TOPIX_LOG_PATH,
+  historyCacheKey: TOPIX_HISTORY_CACHE_KEY,
+  latestCacheKey: TOPIX_LATEST_CACHE_KEY,
+  refreshTtl: TOPIX_REFRESH_TTL_MS,
+});
+const {
+  refreshTopixData,
+  getTopixHistory,
+  getTopixLatest,
+  getTopixLogs,
+  scheduleTopixRefresh,
+} = topixModule;
+
+function extractClientIp(req) {
+  const forwarded = String(req.headers?.['x-forwarded-for'] || '').split(',')[0].trim();
+  const remote = req.socket?.remoteAddress || req.connection?.remoteAddress || '';
+  const raw = forwarded || remote || '';
+  return raw.replace('::ffff:', '').trim();
+}
+
+function isAllowedTopixAdmin(req) {
+  if (TOPIX_ADMIN_IPS.length > 0) {
+    const clientIp = extractClientIp(req);
+    if (clientIp && !TOPIX_ADMIN_IPS.includes(clientIp)) {
+      return false;
+    }
+  }
+  if (TOPIX_ADMIN_TOKEN) {
+    const token = String(req.headers?.['x-api-key'] || req.headers?.['x-admin-token'] || req.query?.token || req.body?.token || '').trim();
+    if (token !== TOPIX_ADMIN_TOKEN) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function latestNonNull(series) {
@@ -1551,6 +1627,54 @@ app.get('/api/debug/gaitame', async (_req, res) => {
   }
 });
 
+app.get('/api/topix/history', async (req, res) => {
+  try {
+    const payload = await getTopixHistory();
+    let history = Array.isArray(payload?.history) ? payload.history : [];
+    const start = String(req.query.start || '').trim();
+    const end = String(req.query.end || '').trim();
+    if (start) history = history.filter((row) => row?.date >= start);
+    if (end) history = history.filter((row) => row?.date <= end);
+    res.json({ history, meta: payload?.meta || null });
+  } catch (error) {
+    console.error('topix history error:', error?.message || error);
+    res.status(500).json({ error: 'Failed to fetch TOPIX history', detail: String(error?.message || error) });
+  }
+});
+
+app.get('/api/topix/latest', async (_req, res) => {
+  try {
+    const payload = await getTopixLatest();
+    res.json(payload || { data: null });
+  } catch (error) {
+    console.error('topix latest error:', error?.message || error);
+    res.status(500).json({ error: 'Failed to fetch TOPIX latest', detail: String(error?.message || error) });
+  }
+});
+
+app.get('/api/topix/logs', async (req, res) => {
+  try {
+    const tail = Number.parseInt(req.query.tail ?? '200', 10) || 200;
+    const lines = await getTopixLogs(tail);
+    res.json({ lines });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to read TOPIX logs', detail: String(error?.message || error) });
+  }
+});
+
+app.post('/api/topix/recalc', async (req, res) => {
+  if (!isAllowedTopixAdmin(req)) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  try {
+    const payload = await refreshTopixData('manual');
+    const latest = await getTopixLatest();
+    res.json({ ok: true, historyRows: payload?.history?.length ?? 0, latest });
+  } catch (error) {
+    console.error('topix recalc error:', error?.message || error);
+    res.status(500).json({ error: 'TOPIX recalculation failed', detail: String(error?.message || error) });
+  }
+});
 app.get('/api/usdjpy/history', async (_req, res) => {
   try {
     const payload = await getUsdJpyHistory();
@@ -2373,8 +2497,33 @@ app.listen(PORT, () => {
   setInterval(refresh, 6 * 60 * 60_000);
 
   readUsIndustryDatasetFromDisk().catch(() => {});
+  scheduleTopixRefresh();
 
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
