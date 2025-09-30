@@ -30,6 +30,45 @@ export type Q1Event = {
   metrics: Q1Metrics | null;
 };
 
+export type Q1WatchlistEntry = {
+  id: string;
+  symbol: string;
+  name: string;
+  market: 'JP' | 'US';
+  currency: string | null;
+  cls?: string | null;
+  firstEnterTradeDate: string | null;
+  purchaseDate: string | null;
+  purchasePrice: number | null;
+  currentPrice: number | null;
+  lastPrice?: number | null;
+  gainPct: number | null;
+  daysElapsed: number | null;
+  lastEventType: string;
+  lastEventAt: number | null;
+  lastEventTradeDate: string | null;
+  eventLabel: string;
+  isBenchmark: boolean;
+  purchasePriceSource?: string | null;
+  lastKnownPriceAt?: number | null;
+  metrics?: {
+    F: number | null;
+    V: number | null;
+    A: number | null;
+    flowPercentile: number | null;
+    valuePercentile: number | null;
+    lastPrice?: number | null;
+    rp?: number | null;
+  } | null;
+  quadrant?: string | null;
+  flowPercentile?: number | null;
+  valuePercentile?: number | null;
+  F?: number | null;
+  V?: number | null;
+  A?: number | null;
+  rp?: number | null;
+  lastMetricsAt?: number | null;
+};
 
 export type Q1ScanSummaryEntry = {
   reason: string;
@@ -65,6 +104,72 @@ function sanitizeThresholds(input: unknown): Q1QuadrantThresholds {
     return normalizeQuadrantThresholds(input as Partial<QuadrantThresholds>);
   }
   return normalizeQuadrantThresholds();
+}
+
+function parseWatchlist(raw: unknown): Q1WatchlistEntry[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((value, index) => {
+    const entry = (value || {}) as Record<string, any>;
+    const symbol = typeof entry.symbol === 'string' && entry.symbol ? entry.symbol : `UNKNOWN_${index}`;
+    const marketRaw = typeof entry.market === 'string' ? entry.market.toUpperCase() : '';
+    const market: 'JP' | 'US' = marketRaw === 'US' ? 'US' : 'JP';
+    const id = typeof entry.id === 'string' && entry.id
+      ? entry.id
+      : `${symbol}-${entry.firstEnterTradeDate ?? entry.purchaseDate ?? index}`;
+    const num = (input: any) => {
+      const n = Number(input);
+      return Number.isFinite(n) ? n : null;
+    };
+    const str = (input: any) => {
+      if (input == null) return null;
+      const s = String(input);
+      return s.length ? s : null;
+    };
+    const bool = (input: any) => Boolean(input);
+    const metricsRaw = entry.metrics;
+    const metrics = metricsRaw && typeof metricsRaw === 'object' ? {
+      F: num(metricsRaw.F),
+      V: num(metricsRaw.V),
+      A: num(metricsRaw.A),
+      flowPercentile: num(metricsRaw.flowPercentile),
+      valuePercentile: num(metricsRaw.valuePercentile),
+      lastPrice: num(metricsRaw.lastPrice),
+      rp: num(metricsRaw.rp),
+    } : null;
+    const flowPct = metrics?.flowPercentile ?? num(entry.flowPercentile);
+    const valuePct = metrics?.valuePercentile ?? num(entry.valuePercentile);
+    return {
+      id,
+      symbol,
+      name: typeof entry.name === 'string' && entry.name ? entry.name : symbol,
+      market,
+      currency: str(entry.currency),
+      cls: str(entry.cls),
+      firstEnterTradeDate: str(entry.firstEnterTradeDate),
+      purchaseDate: str(entry.purchaseDate),
+      purchasePrice: num(entry.purchasePrice),
+      currentPrice: num(entry.currentPrice),
+      lastPrice: num(entry.lastPrice) ?? metrics?.lastPrice ?? null,
+      gainPct: num(entry.gainPct),
+      daysElapsed: num(entry.daysElapsed),
+      lastEventType: typeof entry.lastEventType === 'string' ? entry.lastEventType : (bool(entry.isBenchmark) ? 'BENCHMARK' : 'ENTER'),
+      lastEventAt: num(entry.lastEventAt),
+      lastEventTradeDate: str(entry.lastEventTradeDate),
+      eventLabel: typeof entry.eventLabel === 'string' ? entry.eventLabel : (bool(entry.isBenchmark) ? 'Benchmark' : 'Entered Q1'),
+      isBenchmark: bool(entry.isBenchmark),
+      purchasePriceSource: str(entry.purchasePriceSource),
+      lastKnownPriceAt: num(entry.lastKnownPriceAt),
+      metrics,
+      quadrant: typeof entry.quadrant === 'string' ? entry.quadrant : null,
+      flowPercentile: flowPct,
+      valuePercentile: valuePct,
+      F: metrics?.F ?? num(entry.F),
+      V: metrics?.V ?? num(entry.V),
+      A: metrics?.A ?? num(entry.A),
+      rp: metrics?.rp ?? num(entry.rp),
+      lastMetricsAt: num(entry.lastMetricsAt),
+    };
+  });
 }
 
 export type Q1Status = {
@@ -108,6 +213,7 @@ export type Q1Analysis = {
   currentQ1DropJP?: Q1StatusEntry[];
   currentQ1DropUS?: Q1StatusEntry[];
   history: Q1Event[];
+  watchlist: Q1WatchlistEntry[];
   scanSummary?: Record<string, Q1ScanSummaryEntry>;
   thresholds?: Q1QuadrantThresholds;
 };
@@ -168,6 +274,7 @@ export async function fetchQ1Analysis(): Promise<Q1Analysis> {
     currentQ1DropJP: Array.isArray(json?.currentQ1DropJP) ? json.currentQ1DropJP : undefined,
     currentQ1DropUS: Array.isArray(json?.currentQ1DropUS) ? json.currentQ1DropUS : undefined,
     history: Array.isArray(json?.history) ? json.history : [],
+    watchlist: parseWatchlist((json as any)?.watchlist),
     scanSummary: parseScanSummary(json?.scanSummary),
     thresholds: sanitizeThresholds(json?.thresholds),
   };
@@ -227,3 +334,4 @@ export async function fetchQ1Trackers(): Promise<Q1TrackersResponse> {
     entries: Array.isArray(json?.entries) ? json.entries : [],
   };
 }
+

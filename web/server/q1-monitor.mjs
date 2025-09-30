@@ -3,7 +3,7 @@ import path from 'node:path';
 import { DateTime } from 'luxon';
 import nodemailer from 'nodemailer';
 
-const STATE_VERSION = 3;
+const STATE_VERSION = 4;
 const DEFAULT_INTERVAL_MIN = Math.max(1, Number.parseInt(process.env.Q1_MONITOR_INTERVAL_MIN ?? '5', 10) || 5);
 const FALLBACK_INTERVAL_MIN = Math.max(DEFAULT_INTERVAL_MIN, Number.parseInt(process.env.Q1_MONITOR_FALLBACK_MIN ?? '10', 10) || 10);
 const DEFAULT_F_PCTL_MIN = Math.max(0, Math.min(100, Number.parseFloat(process.env.Q1_F_PCTL_MIN ?? '95')));
@@ -18,7 +18,15 @@ const REQUEST_DELAY_MS = Math.max(200, Number.parseInt(process.env.Q1_MONITOR_RE
 
 const FULL_SCAN_CONCURRENCY = Math.max(1, Number.parseInt(process.env.Q1_MONITOR_FETCH_CONCURRENCY ?? '1', 10) || 1);
 const MAX_UNIVERSE_SYMBOLS = Number.parseInt(process.env.Q1_MONITOR_MAX_SYMBOLS ?? '0', 10) || 0;
-
+const WATCHLIST_DUPLICATE_MONTHS = 6;
+const WATCHLIST_PRICE_STALE_MS = 3 * 60 * 60 * 1000;
+const PURCHASE_PRICE_RETRY_MS = 6 * 60 * 60 * 1000;
+const BENCHMARK_PURCHASE_DATE = '2025-09-30';
+const BENCHMARK_DEFS = [
+  { id: 'BENCHMARK_JP_TOPIX', symbol: '1306.T', name: 'TOPIX ETF (1306.T)', market: 'JP', currency: 'JPY', cls: 'INDEX' },
+  { id: 'BENCHMARK_US_SP500', symbol: '^GSPC', name: 'S&P 500 (^GSPC)', market: 'US', currency: 'USD', cls: 'INDEX' },
+  { id: 'BENCHMARK_US_NASDAQ', symbol: '^IXIC', name: 'NASDAQ Composite (^IXIC)', market: 'US', currency: 'USD', cls: 'INDEX' },
+];
 const JP_SCAN_HOUR = Number.parseInt(process.env.Q1_MONITOR_JP_SCAN_HOUR ?? '6', 10) || 6;
 const JP_SCAN_MINUTE = Number.parseInt(process.env.Q1_MONITOR_JP_SCAN_MINUTE ?? '0', 10) || 0;
 const US_SCAN_JST_HOUR = Number.parseInt(process.env.Q1_MONITOR_US_SCAN_JST_HOUR ?? '6', 10) || 6;
@@ -290,6 +298,55 @@ function previousBusinessDate(zone) {
   return dt;
 }
 
+function nextBusinessDateFrom(dateStr, zone) {
+  if (!dateStr) return null;
+  let dt = DateTime.fromISO(String(dateStr), { zone });
+  if (!dt.isValid) {
+    dt = DateTime.fromISO(String(dateStr));
+  }
+  if (!dt.isValid) return null;
+  dt = dt.plus({ days: 1 });
+  let guard = 0;
+  while ((dt.weekday === 6 || dt.weekday === 7) && guard < 10) {
+    dt = dt.plus({ days: 1 });
+    guard += 1;
+  }
+  return dt;
+}
+
+function isoDateSafe(dt) {
+  if (!dt || typeof dt.toISODate !== 'function') return null;
+  try {
+    return dt.toISODate();
+  } catch {
+    return null;
+  }
+}
+
+function monthsBetween(start, end) {
+  if (!start || !end) return null;
+  const a = DateTime.fromISO(String(start));
+  const b = DateTime.fromISO(String(end));
+  if (!a.isValid || !b.isValid) return null;
+  const diff = b.diff(a, 'months').months;
+  return Number.isFinite(diff) ? diff : null;
+}
+
+function daysSince(dateStr) {
+  if (!dateStr) return null;
+  const dt = DateTime.fromISO(String(dateStr));
+  if (!dt.isValid) return null;
+  const diff = DateTime.now().diff(dt, 'days').days;
+  if (!Number.isFinite(diff)) return null;
+  return Math.max(0, Math.floor(diff));
+}
+
+function isoDateFromUnix(time, zone) {
+  if (!Number.isFinite(time)) return null;
+  const dt = DateTime.fromSeconds(time, { zone: zone || 'UTC' });
+  if (!dt.isValid) return null;
+  return dt.toISODate();
+}
 async function loadSymbolUniverse(symbolsPath, options = {}) {
   const raw = await fs.promises.readFile(symbolsPath, 'utf8');
   const json = JSON.parse(raw);
@@ -739,8 +796,9 @@ class Q1Monitor {
     try {
       const raw = await fs.promises.readFile(this.statePath, 'utf8');
       const parsed = JSON.parse(raw);
-      if (parsed.stateVersion === STATE_VERSION) {
+      if (parsed.stateVersion === STATE_VERSION || parsed.stateVersion === 3) {
         this.state = parsed;
+        this.state.stateVersion = STATE_VERSION;
         const ensure = (key, fallback) => {
           if (!Object.prototype.hasOwnProperty.call(this.state, key)) {
             this.state[key] = fallback;
@@ -759,6 +817,8 @@ class Q1Monitor {
         ensure('lastUSSectorScanAt', null);
         ensure('lastJPSectorScanAt', null);
         ensure('lastAllScanAt', null);
+        ensure('watchlist', []);
+        if (!Array.isArray(this.state.watchlist)) this.state.watchlist = [];
         if (!Object.prototype.hasOwnProperty.call(this.state, 'snapshotByMarket') || !this.state.snapshotByMarket) {
           this.state.snapshotByMarket = { JP: null, US: null };
         }
@@ -766,6 +826,9 @@ class Q1Monitor {
           this.state.snapshotByCategory = {};
         }
         this.intervalMinutes = this.state.intervalMinutes ?? DEFAULT_INTERVAL_MIN;
+        await this.ensureBenchmarkEntries();
+        await this.refreshPurchasePrices();
+        await this.refreshBenchmarkPrices();
         return;
       }
       if (parsed.stateVersion === 1) {
@@ -795,10 +858,14 @@ class Q1Monitor {
           lastUSSectorScanAt: null,
           lastJPSectorScanAt: null,
           lastAllScanAt: null,
+          watchlist: Array.isArray(parsed.watchlist) ? parsed.watchlist : [],
           snapshotByMarket: { JP: null, US: null },
           snapshotByCategory: {},
         };
         this.intervalMinutes = this.state.intervalMinutes ?? DEFAULT_INTERVAL_MIN;
+        await this.ensureBenchmarkEntries();
+        await this.refreshPurchasePrices();
+        await this.refreshBenchmarkPrices();
         return;
       }
     } catch (error) {
@@ -830,10 +897,14 @@ class Q1Monitor {
       lastUSSectorScanAt: null,
       lastJPSectorScanAt: null,
       lastAllScanAt: null,
+      watchlist: [],
       snapshotByMarket: { JP: null, US: null },
       snapshotByCategory: {},
     };
     this.intervalMinutes = this.state.intervalMinutes ?? DEFAULT_INTERVAL_MIN;
+    await this.ensureBenchmarkEntries();
+    await this.refreshPurchasePrices();
+    await this.refreshBenchmarkPrices();
   }
 
   async saveState() {
@@ -1221,6 +1292,8 @@ class Q1Monitor {
         symbol: item.symbol,
         name: item.name,
         market: item.market,
+        currency: item.currency || (item.market === 'JP' ? 'JPY' : 'USD'),
+        cls: item.cls || 'EQ',
         lastQuadrant: 'INIT',
         lastEnterAt: null,
         lastDropAt: null,
@@ -1230,6 +1303,9 @@ class Q1Monitor {
         lastDropEmailAt: null,
         lastMetrics: null,
         lastDropMetrics: null,
+        lastKnownPrice: null,
+        lastKnownPriceAt: null,
+        lastMetricsAt: null,
       };
       const metrics = {
         F: item.F,
@@ -1240,6 +1316,13 @@ class Q1Monitor {
         lastPrice: item.lastPrice,
         rp: item.rp,
       };
+      prev.cls = item.cls || prev.cls || 'EQ';
+      prev.currency = item.currency || prev.currency || (item.market === 'JP' ? 'JPY' : 'USD');
+      if (Number.isFinite(item.lastPrice)) {
+        prev.lastKnownPrice = Number(item.lastPrice);
+        prev.lastKnownPriceAt = snapshot.generatedAt || now;
+      }
+      prev.lastMetricsAt = snapshot.generatedAt || now;
       const useUSTradeDate = reason === 'US' || reason === 'US_SECTORS' || reason === 'GLOBAL';
       const tradeDate = useUSTradeDate ? tradeDates.us : tradeDates.jp;
       const isQ1 = item.quadrant === 'Q1';
@@ -1283,6 +1366,11 @@ class Q1Monitor {
       prev.lastMetrics = metrics;
       prev.name = item.name;
       prev.market = item.market;
+      prev.currency = item.currency || prev.currency || (item.market === 'JP' ? 'JPY' : 'USD');
+      if (Number.isFinite(item.lastPrice)) {
+        prev.lastKnownPrice = item.lastPrice;
+        prev.lastKnownPriceAt = snapshot.generatedAt;
+      }
       symbolsState[item.symbol] = prev;
       if (emitted) {
         events.push(emitted);
@@ -1302,6 +1390,14 @@ class Q1Monitor {
     }
 
     this.state.symbols = symbolsState;
+    this.ensureWatchlistArray();
+    await this.ensureBenchmarkEntries();
+    if (events.length) {
+      await this.applyWatchlistEvents(events);
+    }
+    this.updateWatchlistPricesFromSnapshot(snapshot);
+    await this.refreshPurchasePrices();
+    await this.refreshBenchmarkPrices();
     if (!this.state.snapshotByMarket) {
       this.state.snapshotByMarket = { JP: null, US: null };
     }
@@ -1341,6 +1437,433 @@ class Q1Monitor {
     };
     this.state.lastPriorityRefreshAt = snapshot.generatedAt;
     this.state.lastError = null;
+  }
+
+  normalizeWatchlistSymbol(symbol) {
+    return String(symbol || '').trim().toUpperCase();
+  }
+
+  ensureWatchlistArray() {
+    if (!this.state) return;
+    if (!Array.isArray(this.state.watchlist)) {
+      this.state.watchlist = [];
+    }
+  }
+
+  findWatchlistEntries(symbol) {
+    if (!this.state || !Array.isArray(this.state.watchlist)) return [];
+    const target = this.normalizeWatchlistSymbol(symbol);
+    return this.state.watchlist.filter((entry) => !entry?.benchmarkId && this.normalizeWatchlistSymbol(entry?.symbol) === target);
+  }
+
+  async ensureBenchmarkEntries() {
+    if (!this.state) return;
+    this.ensureWatchlistArray();
+    const list = this.state.watchlist;
+    const now = Date.now();
+    let mutated = false;
+    for (const def of BENCHMARK_DEFS) {
+      let entry = list.find((item) => item?.benchmarkId === def.id);
+      const baseDate = DateTime.fromISO(BENCHMARK_PURCHASE_DATE, { zone: def.market === 'JP' ? 'Asia/Tokyo' : 'America/New_York' });
+      const baseTs = baseDate.isValid ? baseDate.toMillis() : null;
+      if (!entry) {
+        entry = {
+          id: `BENCHMARK:${def.id}`,
+          benchmarkId: def.id,
+          symbol: def.symbol,
+          name: def.name,
+          market: def.market,
+          currency: def.currency || (def.market === 'JP' ? 'JPY' : 'USD'),
+          cls: def.cls || 'INDEX',
+          firstEnterAt: baseTs,
+          firstEnterTradeDate: BENCHMARK_PURCHASE_DATE,
+          purchaseDate: BENCHMARK_PURCHASE_DATE,
+          purchasePrice: null,
+          purchasePriceSource: null,
+          purchasePriceResolvedAt: null,
+          purchasePriceCheckedAt: null,
+          lastEventType: 'BENCHMARK',
+          lastEventAt: now,
+          lastEventTradeDate: BENCHMARK_PURCHASE_DATE,
+          lastKnownPrice: null,
+          lastKnownPriceAt: null,
+          metricsAtEnter: null,
+          reopenedCount: 0,
+          createdAt: now,
+          updatedAt: now,
+        };
+        list.push(entry);
+        mutated = true;
+      } else {
+        let updated = false;
+        if (entry.symbol !== def.symbol) { entry.symbol = def.symbol; updated = true; }
+        if (entry.name !== def.name) { entry.name = def.name; updated = true; }
+        if (entry.market !== def.market) { entry.market = def.market; updated = true; }
+        if (!entry.cls) { entry.cls = def.cls || 'INDEX'; updated = true; }
+        if (!entry.currency) { entry.currency = def.currency || (def.market === 'JP' ? 'JPY' : 'USD'); updated = true; }
+        if (!entry.firstEnterTradeDate) { entry.firstEnterTradeDate = BENCHMARK_PURCHASE_DATE; updated = true; }
+        if (!entry.purchaseDate) { entry.purchaseDate = BENCHMARK_PURCHASE_DATE; updated = true; }
+        if (entry.firstEnterAt == null && baseTs != null) { entry.firstEnterAt = baseTs; updated = true; }
+        if (updated) {
+          entry.updatedAt = now;
+        }
+      }
+    }
+    if (mutated) {
+      await this.refreshPurchasePrices();
+      await this.refreshBenchmarkPrices(true);
+    }
+  }
+
+  async resolvePurchasePrice(symbol, market, purchaseDate) {
+    if (!symbol || !purchaseDate) {
+      return { price: null, source: null, resolvedAt: Date.now() };
+    }
+    try {
+      const candles = await fetchYahooChart(symbol, '1d', '5y').catch(() => []);
+      if (!Array.isArray(candles) || candles.length === 0) {
+        return { price: null, source: null, resolvedAt: Date.now() };
+      }
+      const zone = market === 'JP' ? 'Asia/Tokyo' : 'America/New_York';
+      const target = String(purchaseDate);
+      let chosen = null;
+      for (const candle of candles) {
+        const iso = isoDateFromUnix(candle.time, zone) || isoDateFromUnix(candle.time, 'UTC');
+        if (!iso) continue;
+        if (iso === target) {
+          chosen = candle;
+          break;
+        }
+        if (!chosen && iso > target) {
+          chosen = candle;
+        }
+      }
+      if (!chosen) {
+        chosen = candles[candles.length - 1];
+      }
+      const open = Number.isFinite(chosen?.open) ? Number(chosen.open) : null;
+      const close = Number.isFinite(chosen?.close) ? Number(chosen.close) : null;
+      const price = open != null ? open : close;
+      return { price, source: 'yahoo', resolvedAt: Date.now() };
+    } catch (error) {
+      console.warn('[Q1Monitor] purchase price lookup failed:', symbol, error?.message || error);
+      return { price: null, source: null, resolvedAt: Date.now() };
+    }
+  }
+
+  async ensurePurchasePrice(entry, force = false) {
+    if (!entry || !entry.purchaseDate) return;
+    const now = Date.now();
+    const purchaseDt = DateTime.fromISO(String(entry.purchaseDate));
+    if (!purchaseDt.isValid) return;
+    if (purchaseDt > DateTime.now()) return;
+    if (!force) {
+      if (Number.isFinite(entry.purchasePrice)) return;
+      if (entry.purchasePriceCheckedAt && (now - entry.purchasePriceCheckedAt) < PURCHASE_PRICE_RETRY_MS) return;
+    }
+    const result = await this.resolvePurchasePrice(entry.symbol, entry.market, entry.purchaseDate);
+    entry.purchasePriceCheckedAt = result.resolvedAt;
+    entry.purchasePriceResolvedAt = result.resolvedAt;
+    if (Number.isFinite(result.price)) {
+      entry.purchasePrice = result.price;
+      entry.purchasePriceSource = result.source ?? entry.purchasePriceSource ?? null;
+      entry.updatedAt = now;
+    }
+  }
+
+  async handleWatchlistEnter(evt) {
+    if (!this.state) return null;
+    this.ensureWatchlistArray();
+    const list = this.state.watchlist;
+    const now = Date.now();
+    const symbolUpper = this.normalizeWatchlistSymbol(evt.symbol);
+    const entries = this.findWatchlistEntries(evt.symbol);
+    const tradeDate = evt.tradeDate || null;
+    let tradeDateIso = null;
+    if (tradeDate) {
+      const dt = DateTime.fromISO(String(tradeDate));
+      if (dt.isValid) {
+        tradeDateIso = dt.toISODate();
+      }
+    }
+    if (!tradeDateIso) {
+      tradeDateIso = evt.market === 'US' ? sessionTradeDate('US') : sessionTradeDate('JP');
+    }
+    const purchaseDt = nextBusinessDateFrom(tradeDateIso, evt.market === 'JP' ? 'Asia/Tokyo' : 'America/New_York');
+    const purchaseDate = isoDateSafe(purchaseDt) || tradeDateIso;
+    const eventDt = DateTime.fromISO(String(tradeDateIso));
+    const cutoff = eventDt.isValid ? eventDt.minus({ months: WATCHLIST_DUPLICATE_MONTHS }) : null;
+    let targetEntry = null;
+    if (cutoff) {
+      for (const entry of entries) {
+        const refStr = entry.firstEnterTradeDate || entry.purchaseDate || null;
+        const refDt = refStr ? DateTime.fromISO(String(refStr)) : null;
+        if (refDt?.isValid && refDt >= cutoff) {
+          if (!targetEntry) {
+            targetEntry = entry;
+          } else {
+            const currentKey = targetEntry.firstEnterTradeDate || targetEntry.purchaseDate || '';
+            const candidateKey = refStr || '';
+            if (candidateKey > currentKey) {
+              targetEntry = entry;
+            }
+          }
+        }
+      }
+    }
+    if (!targetEntry) {
+      const suffix = purchaseDate || tradeDateIso || String(now);
+      let idBase = `${symbolUpper}-${suffix}`;
+      let id = idBase;
+      let idx = 1;
+      while (list.some((item) => item?.id === id)) {
+        idx += 1;
+        id = `${idBase}-${idx}`;
+      }
+      targetEntry = {
+        id,
+        symbol: evt.symbol,
+        name: evt.name,
+        market: evt.market,
+        currency: this.state.symbols?.[evt.symbol]?.currency || (evt.market === 'JP' ? 'JPY' : 'USD'),
+        firstEnterAt: evt.ts || now,
+        firstEnterTradeDate: tradeDateIso,
+        purchaseDate,
+        purchasePrice: null,
+        purchasePriceSource: null,
+        purchasePriceResolvedAt: null,
+        purchasePriceCheckedAt: null,
+        lastEventType: 'ENTER',
+        lastEventAt: evt.ts || now,
+        lastEventTradeDate: tradeDateIso,
+        lastKnownPrice: this.state.symbols?.[evt.symbol]?.lastKnownPrice ?? evt.metrics?.lastPrice ?? null,
+        lastKnownPriceAt: this.state.symbols?.[evt.symbol]?.lastKnownPriceAt ?? null,
+        metricsAtEnter: evt.metrics ?? null,
+        reopenedCount: entries.length,
+        benchmarkId: null,
+        createdAt: now,
+        updatedAt: now,
+      };
+      list.push(targetEntry);
+    } else {
+      targetEntry.lastEventType = 'ENTER';
+      targetEntry.lastEventAt = evt.ts || now;
+      targetEntry.lastEventTradeDate = tradeDateIso;
+      targetEntry.name = evt.name || targetEntry.name;
+      targetEntry.market = evt.market || targetEntry.market;
+      targetEntry.currency = this.state.symbols?.[evt.symbol]?.currency || targetEntry.currency || (evt.market === 'JP' ? 'JPY' : 'USD');
+      if (!targetEntry.firstEnterAt) targetEntry.firstEnterAt = evt.ts || now;
+      if (!targetEntry.firstEnterTradeDate) targetEntry.firstEnterTradeDate = tradeDateIso;
+      if (!targetEntry.purchaseDate) targetEntry.purchaseDate = purchaseDate;
+      if (evt.metrics?.lastPrice != null && Number.isFinite(evt.metrics.lastPrice)) {
+        targetEntry.lastKnownPrice = evt.metrics.lastPrice;
+        targetEntry.lastKnownPriceAt = evt.ts || now;
+      }
+      targetEntry.metricsAtEnter = evt.metrics ?? targetEntry.metricsAtEnter ?? null;
+      targetEntry.updatedAt = now;
+    }
+    return targetEntry;
+  }
+
+  async handleWatchlistDrop(evt) {
+    if (!this.state) return;
+    this.ensureWatchlistArray();
+    const entries = this.findWatchlistEntries(evt.symbol);
+    if (!entries.length) return;
+    const sorted = [...entries].sort((a, b) => {
+      const aKey = a.firstEnterTradeDate || a.purchaseDate || '';
+      const bKey = b.firstEnterTradeDate || b.purchaseDate || '';
+      if (aKey === bKey) return 0;
+      return aKey > bKey ? 1 : -1;
+    });
+    const target = sorted[sorted.length - 1];
+    const now = Date.now();
+    target.lastEventType = 'DROP';
+    target.lastEventAt = evt.ts || now;
+    target.lastEventTradeDate = evt.tradeDate || target.lastEventTradeDate || null;
+    target.name = evt.name || target.name;
+    target.market = evt.market || target.market;
+    target.updatedAt = now;
+  }
+
+  async applyWatchlistEvents(events) {
+    if (!this.state || !events || !events.length) return;
+    for (const evt of events) {
+      try {
+        if (evt.type === 'ENTER') {
+          const entry = await this.handleWatchlistEnter(evt);
+          if (entry) await this.ensurePurchasePrice(entry);
+        } else if (evt.type === 'DROP') {
+          this.handleWatchlistDrop(evt);
+        }
+      } catch (error) {
+        console.warn('[Q1Monitor] watchlist update failed:', evt?.symbol, error?.message || error);
+      }
+    }
+  }
+
+  updateWatchlistPricesFromSnapshot(snapshot) {
+    if (!this.state || !snapshot || !Array.isArray(snapshot.items)) return;
+    this.ensureWatchlistArray();
+    const list = this.state.watchlist;
+    if (!list.length) return;
+    const map = new Map();
+    snapshot.items.forEach((item) => {
+      if (Number.isFinite(item?.lastPrice)) {
+        map.set(this.normalizeWatchlistSymbol(item.symbol), {
+          price: Number(item.lastPrice),
+          currency: item.currency || null,
+        });
+      }
+    });
+    const updatedAt = snapshot.generatedAt || Date.now();
+    list.forEach((entry) => {
+      if (!entry || entry.benchmarkId) return;
+      const info = map.get(this.normalizeWatchlistSymbol(entry.symbol));
+      if (!info) return;
+      entry.lastKnownPrice = info.price;
+      entry.lastKnownPriceAt = updatedAt;
+      if (!entry.currency && info.currency) entry.currency = info.currency;
+      entry.updatedAt = updatedAt;
+    });
+  }
+
+  async refreshPurchasePrices(force = false) {
+    if (!this.state) return;
+    this.ensureWatchlistArray();
+    for (const entry of this.state.watchlist) {
+      if (!entry || entry.benchmarkId) continue;
+      await this.ensurePurchasePrice(entry, force);
+    }
+  }
+
+  async refreshBenchmarkPrices(force = false) {
+    if (!this.state) return;
+    this.ensureWatchlistArray();
+    const now = Date.now();
+    for (const entry of this.state.watchlist) {
+      if (!entry?.benchmarkId) continue;
+      if (!force && entry.lastKnownPriceAt && (now - entry.lastKnownPriceAt) < WATCHLIST_PRICE_STALE_MS) continue;
+      try {
+        const candles = await fetchYahooChart(entry.symbol, '1d', '1mo').catch(() => []);
+        if (!Array.isArray(candles) || !candles.length) continue;
+        const latest = candles[candles.length - 1];
+        const close = Number.isFinite(latest?.close) ? Number(latest.close) : null;
+        if (close != null) {
+          entry.lastKnownPrice = close;
+          entry.lastKnownPriceAt = now;
+          entry.updatedAt = now;
+        }
+        if (!Number.isFinite(entry.purchasePrice)) {
+          await this.ensurePurchasePrice(entry, true);
+        }
+      } catch (error) {
+        console.warn('[Q1Monitor] benchmark price refresh failed:', entry.symbol, error?.message || error);
+      }
+    }
+  }
+
+  buildWatchlistSummary() {
+    if (!this.state) return [];
+    this.ensureWatchlistArray();
+    const list = Array.isArray(this.state.watchlist) ? this.state.watchlist : [];
+    if (!list.length) return [];
+
+    const toNumber = (value) => {
+      const num = Number(value);
+      return Number.isFinite(num) ? num : null;
+    };
+    const thresholds = {
+      fPctMin: this.snapshotOptions?.fPctMin ?? DEFAULT_F_PCTL_MIN,
+      vPctMin: this.snapshotOptions?.vPctMin ?? DEFAULT_V_PCTL_MIN,
+      fPctLow: this.snapshotOptions?.fPctLow ?? DEFAULT_F_PCTL_LOW,
+      vPctLow: this.snapshotOptions?.vPctLow ?? DEFAULT_V_PCTL_LOW,
+    };
+    const classifyQuadrant = (flowPct, valuePct, fallback) => {
+      if (Number.isFinite(flowPct) && Number.isFinite(valuePct)) {
+        if (flowPct >= thresholds.fPctMin && valuePct >= thresholds.vPctMin) return 'Q1';
+        if (flowPct >= thresholds.fPctMin && valuePct < thresholds.vPctMin) return 'Q2';
+        if (flowPct < thresholds.fPctLow && valuePct >= thresholds.vPctMin) return 'Q3';
+        if (flowPct < thresholds.fPctLow && valuePct < thresholds.vPctLow) return 'Q4';
+        return 'NA';
+      }
+      const norm = typeof fallback === 'string' ? fallback.toUpperCase() : null;
+      if (norm && ['Q1','Q2','Q3','Q4'].includes(norm)) return norm;
+      return 'NA';
+    };
+
+    const summary = list.map((entry) => {
+      const normalizedSymbol = this.normalizeWatchlistSymbol(entry.symbol);
+      const symbolState = this.state.symbols?.[entry.symbol] || this.state.symbols?.[normalizedSymbol] || null;
+      const latestMetricsRaw = symbolState?.lastMetrics || entry.lastMetrics || entry.metricsAtEnter || null;
+      const metrics = latestMetricsRaw ? {
+        F: toNumber(latestMetricsRaw.F),
+        V: toNumber(latestMetricsRaw.V),
+        A: toNumber(latestMetricsRaw.A),
+        flowPercentile: toNumber(latestMetricsRaw.flowPercentile),
+        valuePercentile: toNumber(latestMetricsRaw.valuePercentile),
+        lastPrice: toNumber(latestMetricsRaw.lastPrice),
+        rp: toNumber(latestMetricsRaw.rp),
+      } : null;
+      const flowPct = metrics?.flowPercentile ?? null;
+      const valuePct = metrics?.valuePercentile ?? null;
+      const derivedQuadrant = classifyQuadrant(flowPct, valuePct, symbolState?.lastQuadrant ?? entry.lastQuadrant ?? (entry.lastEventType === 'ENTER' ? 'Q1' : null));
+      const cls = symbolState?.cls || entry.cls || (entry.benchmarkId ? 'INDEX' : 'EQ');
+      const eventType = entry.lastEventType || (entry.benchmarkId ? 'BENCHMARK' : 'ENTER');
+      let eventLabel = 'Event';
+      if (eventType === 'ENTER') eventLabel = 'Entered Q1';
+      else if (eventType === 'DROP') eventLabel = 'Dropped from Q1';
+      else eventLabel = 'Benchmark';
+      const firstDate = entry.firstEnterTradeDate || entry.purchaseDate || null;
+      const daysElapsed = daysSince(firstDate);
+      const purchasePrice = Number.isFinite(entry.purchasePrice) && entry.purchasePrice > 0 ? Number(entry.purchasePrice) : null;
+      const currentPrice = Number.isFinite(entry.lastKnownPrice) ? Number(entry.lastKnownPrice) : null;
+      let gainPct = null;
+      if (purchasePrice != null && purchasePrice > 0 && currentPrice != null) {
+        gainPct = ((currentPrice - purchasePrice) / purchasePrice) * 100;
+      }
+      const lastPrice = metrics?.lastPrice ?? currentPrice ?? purchasePrice ?? null;
+      return {
+        id: entry.id,
+        symbol: entry.symbol,
+        name: entry.name,
+        market: entry.market,
+        currency: entry.currency || null,
+        cls,
+        firstEnterTradeDate: entry.firstEnterTradeDate || null,
+        purchaseDate: entry.purchaseDate || null,
+        purchasePrice,
+        currentPrice,
+        lastPrice,
+        gainPct: Number.isFinite(gainPct) ? gainPct : null,
+        daysElapsed,
+        lastEventType: eventType,
+        lastEventAt: entry.lastEventAt || null,
+        lastEventTradeDate: entry.lastEventTradeDate || null,
+        eventLabel,
+        isBenchmark: Boolean(entry.benchmarkId),
+        purchasePriceSource: entry.purchasePriceSource || null,
+        lastKnownPriceAt: entry.lastKnownPriceAt || null,
+        metrics,
+        quadrant: derivedQuadrant,
+        flowPercentile: flowPct,
+        valuePercentile: valuePct,
+        F: metrics?.F ?? null,
+        V: metrics?.V ?? null,
+        A: metrics?.A ?? null,
+        rp: metrics?.rp ?? null,
+        lastMetricsAt: symbolState?.lastMetricsAt ?? null,
+      };
+    });
+
+    return summary.sort((a, b) => {
+      if (a.isBenchmark && !b.isBenchmark) return -1;
+      if (!a.isBenchmark && b.isBenchmark) return 1;
+      const aKey = a.firstEnterTradeDate || a.purchaseDate || '';
+      const bKey = b.firstEnterTradeDate || b.purchaseDate || '';
+      if (aKey === bKey) return a.symbol.localeCompare(b.symbol);
+      return aKey > bKey ? -1 : 1;
+    });
   }
 
   async dispatchEmails(events) {
@@ -1520,6 +2043,7 @@ class Q1Monitor {
       currentQ1DropJP: this.currentQ1DropList('JP'),
       currentQ1DropUS: this.currentQ1DropList('US'),
       history: this.state.history || [],
+      watchlist: this.buildWatchlistSummary(),
       scanSummary: this.buildScanSummary(),
       thresholds: {
         fPctMin: this.snapshotOptions?.fPctMin ?? DEFAULT_F_PCTL_MIN,
@@ -1532,6 +2056,19 @@ class Q1Monitor {
 }
 
 export { Q1Monitor };
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

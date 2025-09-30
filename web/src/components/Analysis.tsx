@@ -1,7 +1,8 @@
 ﻿import { fetchTopix33History, buildTopix33Overrides, type Topix33Overrides } from '../lib/topix33';
 import { fetchUSIndustriesHistory, buildUSIndustryOverrides, type USIndustryOverrides } from '../lib/usIndustries';
-import { fetchQ1Analysis, fetchQ1Status, type Q1Analysis, type Q1Event, type Q1Metrics, type Q1ScanSummaryEntry, type Q1Status, type Q1StatusEntry } from '../lib/q1';
+import { fetchQ1Analysis, fetchQ1Status, type Q1Analysis, type Q1Metrics, type Q1ScanSummaryEntry, type Q1Status, type Q1StatusEntry, type Q1WatchlistEntry } from '../lib/q1';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { MouseEvent } from 'react';
 import { computeSnapshotWithTrails, DEFAULT_PARAMS, type SnapshotItem, type SnapshotTrails, type SnapshotMeta, UNIVERSE, type AssetDef, normalizeQuadrantThresholds, type QuadrantThresholds } from '../lib/analysis';
 import { useStore } from '../store';
 import { collectGroupItemIds } from '../lib/watch-helpers';
@@ -42,6 +43,7 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
   const [meta, setMeta] = useState<SnapshotMeta | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [view, setView] = useState<'GLOBAL' | 'US_INDUSTRY' | 'JP_SECTOR' | 'ALL_WATCH' | 'Q1_JP' | 'Q1_US'>('GLOBAL');
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [topixData, setTopixData] = useState<Topix33Overrides | null>(null);
   const [topixLoadErr, setTopixLoadErr] = useState<string | null>(null);
   const [usIndustryData, setUsIndustryData] = useState<USIndustryOverrides | null>(null);
@@ -113,6 +115,17 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
   }, [syncSystemGroupMembers]);
 
   useEffect(() => {
+    setSelectedId(null);
+  }, [view]);
+
+  useEffect(() => {
+    if (!selectedId) return;
+    if (!items?.some((item) => item.id === selectedId)) {
+      setSelectedId(null);
+    }
+  }, [items, selectedId]);
+
+  useEffect(() => {
     const q1Views = new Set(['Q1_JP', 'Q1_US']);
     if (!q1Views.has(view)) return;
     let cancelled = false;
@@ -131,17 +144,17 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
           setQ1Status(statusRes);
           applyStatusToSystemGroups(statusRes);
         }
-        const allCurrent = statusRes?.currentQ1 ?? [];
-        let source: Q1StatusEntry[] = [];
-        if (view === 'Q1_JP') {
-          source = statusRes?.currentQ1JP ?? allCurrent.filter((entry) => entry.market === 'JP');
+        const thresholdsSource = (statusRes?.thresholds ?? analysisRes?.thresholds) as Partial<QuadrantThresholds> | undefined;
+        const thresholds = normalizeQuadrantThresholds(thresholdsSource);
+        const market = view === 'Q1_JP' ? 'JP' : 'US';
+        const snapshotItems = q1WatchlistToSnapshot(analysisRes?.watchlist ?? [], market, thresholds);
+        setItems(snapshotItems);
+        setTrails(null);
+        setMeta(null);
+        if (!snapshotItems.length) {
+          setErr(view === 'Q1_JP' ? '日本のQ1ウォッチリストはまだ空です。' : '米国のQ1ウォッチリストはまだ空です。');
         } else {
-          source = statusRes?.currentQ1US ?? allCurrent.filter((entry) => entry.market === 'US');
-        }
-        const itemsFromApi = q1EntriesToSnapshot(source, quadrantThresholds).filter((item) => item.quadrant === 'Q1');
-        setItems(itemsFromApi);
-        if (!itemsFromApi.length) {
-          setErr(view === 'Q1_JP' ? 'No current Q1 constituents for Japan (strict thresholds).' : 'No current Q1 constituents for the US (strict thresholds).');
+          setErr(null);
         }
       } catch (error) {
         if (cancelled) return;
@@ -390,9 +403,16 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
       <div className="space-y-4">
         <LegendQuadrant />
         {/* Scatter (F x V) */}
-        <Scatter items={items} trails={trails || {}} xDomain={domain.v} yDomain={domain.f} />
+        <Scatter
+          items={items}
+          trails={trails || {}}
+          xDomain={domain.v}
+          yDomain={domain.f}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+        />
         {/* Heatmap (F/V/A) */}
-        <Heatmap items={items} />
+        <Heatmap items={items} selectedId={selectedId} onSelect={setSelectedId} />
       </div>
     );
   }
@@ -468,14 +488,25 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
               <div className="font-semibold mb-2">F vs V Scatter (x=V, y=F)</div>
               <LegendQuadrant />
             </div>
-            <Scatter items={items} trails={trails || {}} xDomain={domain.v} yDomain={domain.f} />
-            <QList items={items} />
+            <Scatter
+              items={items}
+              trails={trails || {}}
+              xDomain={domain.v}
+              yDomain={domain.f}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+            />
+            <QList
+              items={items}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+            />
             <HelpBox kind="scatter" />
           </div>
 
           <div className="card">
             <div className="font-semibold mb-2">Heatmap (percentile)</div>
-            <Heatmap items={items} />
+            <Heatmap items={items} selectedId={selectedId} onSelect={setSelectedId} />
             <HelpBox kind="heat" />
           </div>
           {meta && (
@@ -493,10 +524,10 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
               </ul>
             </div>
           )}
-          {(view === 'Q1_JP' || view === 'Q1_US') && q1Data?.history?.length ? (
+          {(view === 'Q1_JP' || view === 'Q1_US') && q1Data?.watchlist?.length ? (
             <div className="card">
               <div className="font-semibold mb-2">Q1 Watchlist ({view === 'Q1_JP' ? 'JP' : 'US'})</div>
-              <Q1HistoryTable events={q1Data.history} market={view === 'Q1_JP' ? 'JP' : 'US'} />
+              <Q1WatchlistTable entries={q1Data?.watchlist ?? []} market={view === 'Q1_JP' ? 'JP' : 'US'} selectedId={selectedId} onSelect={setSelectedId} />
             </div>
           ) : null}
         </>
@@ -505,14 +536,19 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
   );
 }
 
-function Scatter({ items, trails, xDomain, yDomain }: { items: SnapshotItem[]; trails: Record<string, { t:number; F:number|null; V:number|null }[]>; xDomain: [number,number]; yDomain: [number,number]; }) {
+function Scatter({ items, trails, xDomain, yDomain, selectedId, onSelect }: { items: SnapshotItem[]; trails: Record<string, { t:number; F:number|null; V:number|null }[]>; xDomain: [number,number]; yDomain: [number,number]; selectedId?: string | null; onSelect?: (id: string | null) => void; }) {
   const w = 640, h = 400, pad = 30;
   const [xmin,xmax] = xDomain; const [ymin,ymax] = yDomain;
   const xscale = (v: number) => pad + (w-2*pad) * ((v - xmin) / Math.max(1e-9, (xmax - xmin)));
   const yscale = (v: number) => h - pad - (h-2*pad) * ((v - ymin) / Math.max(1e-9, (ymax - ymin)));
+  const handleBackgroundClick = (event: MouseEvent<SVGSVGElement>) => {
+    if (event.target === event.currentTarget) {
+      onSelect?.(null);
+    }
+  };
   return (
     <div className="relative w-full">
-      <svg width={w} height={h} className="bg-gray-900 rounded border border-gray-700">
+      <svg width={w} height={h} className="bg-gray-900 rounded border border-gray-700" onClick={handleBackgroundClick}>
         <line x1={xscale(0)} y1={pad} x2={xscale(0)} y2={h-pad} stroke="#6b7280" strokeWidth="1" />
         <line x1={pad} y1={yscale(0)} x2={w-pad} y2={yscale(0)} stroke="#6b7280" strokeWidth="1" />
         <text x={w/2} y={h-6} fill="#9ca3af" fontSize="11" textAnchor="middle">V axis</text>
@@ -521,9 +557,38 @@ function Scatter({ items, trails, xDomain, yDomain }: { items: SnapshotItem[]; t
           const x = it.V ?? NaN; const y = it.F ?? NaN;
           if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
           const cx = xscale(x), cy = yscale(y);
+          const isSelected = selectedId === it.id;
+          const fillColor = colorForQuad(it.quadrant);
           return (
-            <g key={it.id}>
-              <circle cx={cx} cy={cy} r={6} fill={colorForQuad(it.quadrant)} opacity={0.9} />
+            <g
+              key={it.id}
+              className="cursor-pointer transition-[opacity] duration-150"
+              onClick={(event) => {
+                event.stopPropagation();
+                onSelect?.(isSelected ? null : it.id);
+              }}
+            >
+              <circle
+                cx={cx}
+                cy={cy}
+                r={isSelected ? 9 : 6}
+                fill={fillColor}
+                opacity={isSelected ? 1 : 0.85}
+                stroke={isSelected ? '#facc15' : '#1f2937'}
+                strokeWidth={isSelected ? 2 : 0}
+              />
+              {isSelected && (
+                <text
+                  x={cx}
+                  y={cy - 12}
+                  fill="#facc15"
+                  fontSize="10"
+                  textAnchor="middle"
+                  style={{ pointerEvents: 'none' }}
+                >
+                  {it.name}
+                </text>
+              )}
               <title>{`${it.name} [${it.cls}]F=${it.F?.toFixed(2)} V=${it.V?.toFixed(2)} A=${it.A?.toFixed(2)} (${it.quadrant})`}</title>
             </g>
           );
@@ -532,11 +597,15 @@ function Scatter({ items, trails, xDomain, yDomain }: { items: SnapshotItem[]; t
           const pts = (trails[it.id]||[]).filter(p=>p.F!=null && p.V!=null);
           if (pts.length < 2) return null;
           const d = pts.map((p,i)=> (i===0? 'M':'L') + xscale(p.V as number) + ' ' + yscale(p.F as number)).join(' ');
-          const stroke = it.quadrant==='Q1'? '#22c55e' : '#ef4444';
+          const baseStroke = it.quadrant==='Q1'? '#22c55e' : '#ef4444';
+          const isSelected = selectedId === it.id;
+          const stroke = isSelected ? '#facc15' : baseStroke;
+          const strokeOpacity = isSelected ? 0.9 : 0.6;
+          const strokeWidth = isSelected ? 2.4 : 1.5;
           return (
-            <g key={'trail-'+it.id}>
-              <path d={d} stroke={stroke} strokeOpacity={0.6} strokeWidth={1.5} fill="none" />
-              {pts.map((p,i)=> <circle key={i} cx={xscale(p.V as number)} cy={yscale(p.F as number)} r={2} fill={stroke} fillOpacity={0.8} />)}
+            <g key={'trail-'+it.id} style={{ pointerEvents: 'none' }}>
+              <path d={d} stroke={stroke} strokeOpacity={strokeOpacity} strokeWidth={strokeWidth} fill="none" />
+              {pts.map((p,i)=> <circle key={i} cx={xscale(p.V as number)} cy={yscale(p.F as number)} r={isSelected ? 2.6 : 2} fill={stroke} fillOpacity={isSelected ? 0.9 : 0.8} />)}
             </g>
           );
         })}
@@ -545,7 +614,7 @@ function Scatter({ items, trails, xDomain, yDomain }: { items: SnapshotItem[]; t
   );
 }
 
-function Heatmap({ items }: { items: SnapshotItem[] }) {
+function Heatmap({ items, selectedId, onSelect }: { items: SnapshotItem[]; selectedId?: string | null; onSelect?: (id: string | null) => void; }) {
   const cols = ['F','V','A'] as const;
   const quadrantOrder: Record<string, number> = { Q1: 0, Q2: 1, Q3: 2, Q4: 3 };
   const sortedItems = [...items].sort((a, b) => {
@@ -561,27 +630,42 @@ function Heatmap({ items }: { items: SnapshotItem[] }) {
     if (v == null || !Number.isFinite(v)) return null;
     const sorted = [...aVals].sort((a,b)=>a-b);
     if (!sorted.length) return null;
-    let i = 0; while (i < sorted.length && sorted[i] < v) i++;
+    let i = 0;
+    while (i < sorted.length && sorted[i] < v) i++;
     return Math.round((i/(sorted.length-1)) * 100);
   };
   return (
     <div className="overflow-auto">
       <table className="w-full text-sm">
-        <thead className="text-gray-400"><tr className="text-left">
-          <th className="px-2 py-1">Asset</th>
-          {cols.map(c => <th key={c} className="px-2 py-1 text-center">{c}</th>)}
-          <th className="px-2 py-1 text-center">Quad</th>
-        </tr></thead>
+        <thead className="text-gray-400">
+          <tr className="text-left">
+            <th className="px-2 py-1">Asset</th>
+            {cols.map((c) => <th key={c} className="px-2 py-1 text-center">{c}</th>)}
+            <th className="px-2 py-1 text-center">Quad</th>
+          </tr>
+        </thead>
         <tbody>
-          {sortedItems.map(it => {
+          {sortedItems.map((it) => {
             const ap = aPctl(it.A ?? null);
+            const isSelected = selectedId === it.id;
+            const rowClass = `border-t border-gray-700 hover:bg-gray-800/50 transition-colors cursor-pointer${isSelected ? ' bg-gray-800/80' : ''}`;
             return (
-              <tr key={it.id} className="border-t border-gray-700">
-                <td className="px-2 py-1">{it.name}</td>
+              <tr
+                key={it.id}
+                className={rowClass}
+                style={isSelected ? { outline: '1px solid rgba(250,204,21,0.45)', outlineOffset: 0 } : undefined}
+                onClick={() => onSelect?.(isSelected ? null : it.id)}
+                aria-selected={isSelected}
+              >
+                <td className="px-2 py-1 text-sm text-gray-100">{it.name}</td>
                 <td className="px-2 py-1 text-center"><Cell val={it.F} pctl={it.f_pctl} /></td>
                 <td className="px-2 py-1 text-center"><Cell val={it.V} pctl={it.v_pctl} /></td>
                 <td className="px-2 py-1 text-center"><Cell val={it.A ?? null} pctl={ap} /></td>
-                <td className="px-2 py-1 text-center"><span className="px-2 py-0.5 rounded text-white" style={{ backgroundColor: colorForQuad(it.quadrant) }}>{it.quadrant}</span></td>
+                <td className="px-2 py-1 text-center">
+                  <span className="px-2 py-0.5 rounded text-white" style={{ backgroundColor: colorForQuad(it.quadrant) }}>
+                    {it.quadrant}
+                  </span>
+                </td>
               </tr>
             );
           })}
@@ -590,6 +674,7 @@ function Heatmap({ items }: { items: SnapshotItem[] }) {
     </div>
   );
 }
+
 
 function Cell({ val, pctl }: { val: number | null; pctl: number | null }) {
   const bg = heatColor(pctl);
@@ -662,21 +747,29 @@ function HelpBox({ kind }: { kind: 'scatter' | 'heat' }) {
 
 
 
-function QList({ items }: { items: SnapshotItem[] }) {
+function QList({ items, selectedId, onSelect }: { items: SnapshotItem[]; selectedId?: string | null; onSelect?: (id: string | null) => void }) {
   const q1 = items.filter(i=>i.quadrant==='Q1');
   const q4 = items.filter(i=>i.quadrant==='Q4');
-  const Chip = ({label}:{label:string}) => <span className="px-2 py-0.5 text-xs bg-gray-700 rounded mr-1 mb-1 inline-block">{label}</span>;
+  const renderChip = (item: SnapshotItem) => {
+    const active = selectedId === item.id;
+    return (
+      <button
+        key={item.id}
+        type="button"
+        onClick={() => onSelect?.(active ? null : item.id)}
+        className={`px-2 py-0.5 text-xs rounded mr-1 mb-1 transition-colors ${active ? 'bg-emerald-500 text-gray-900 font-semibold' : 'bg-gray-700 text-gray-200 hover:bg-gray-600'}`}
+      >
+        {item.name}
+      </button>
+    );
+  };
   return (
     <div className="mt-2 text-xs text-gray-300">
-      <div className="mb-1"><span className="text-green-400 font-semibold mr-2">Q1:</span>{q1.length? q1.map(i=> <Chip key={i.id} label={i.name} />): <span className="text-gray-500">none</span>}</div>
-      <div><span className="text-red-400 font-semibold mr-2">Q4:</span>{q4.length? q4.map(i=> <Chip key={i.id} label={i.name} />): <span className="text-gray-500">none</span>}</div>
+      <div className="mb-1"><span className="text-green-400 font-semibold mr-2">Q1:</span>{q1.length? q1.map(renderChip): <span className="text-gray-500">none</span>}</div>
+      <div><span className="text-red-400 font-semibold mr-2">Q4:</span>{q4.length? q4.map(renderChip): <span className="text-gray-500">none</span>}</div>
     </div>
   );
 }
-
-
-
-
 
 
 function q1EntriesToSnapshot(entries: Q1StatusEntry[], thresholds: QuadrantThresholds): SnapshotItem[] {
@@ -724,27 +817,111 @@ function q1EntriesToSnapshot(entries: Q1StatusEntry[], thresholds: QuadrantThres
   return items;
 }
 
-function formatEventTimestamp(ts: number | null | undefined): string {
-  if (!ts || !Number.isFinite(ts)) return 'n/a';
+function deriveQuadrantFromMetrics(flowPct: number | null, valuePct: number | null, thresholds: QuadrantThresholds, fallback: string | null | undefined): SnapshotItem['quadrant'] {
+  if (flowPct != null && valuePct != null) {
+    if (flowPct >= thresholds.fPctMin && valuePct >= thresholds.vPctMin) return 'Q1';
+    if (flowPct >= thresholds.fPctMin && valuePct < thresholds.vPctMin) return 'Q2';
+    if (flowPct < thresholds.fPctLow && valuePct >= thresholds.vPctMin) return 'Q3';
+    if (flowPct < thresholds.fPctLow && valuePct < thresholds.vPctLow) return 'Q4';
+    return 'NA';
+  }
+  const norm = typeof fallback === 'string' ? fallback.toUpperCase() : null;
+  if (norm && ['Q1', 'Q2', 'Q3', 'Q4'].includes(norm)) return norm as SnapshotItem['quadrant'];
+  return 'NA';
+}
+
+function q1WatchlistToSnapshot(entries: Q1WatchlistEntry[], market: 'JP' | 'US', thresholds: QuadrantThresholds): SnapshotItem[] {
+  const filtered = entries.filter((entry) => entry.market === market);
+  filtered.sort((a, b) => {
+    if (a.isBenchmark && !b.isBenchmark) return -1;
+    if (!a.isBenchmark && b.isBenchmark) return 1;
+    const aKey = a.firstEnterTradeDate || a.purchaseDate || '';
+    const bKey = b.firstEnterTradeDate || b.purchaseDate || '';
+    if (aKey === bKey) return a.symbol.localeCompare(b.symbol);
+    return aKey > bKey ? -1 : 1;
+  });
+  const baseCurrency = market === 'JP' ? 'JPY' : 'USD';
+  return filtered.map((entry) => {
+    const metrics = entry.metrics ?? null;
+    const flowPct = entry.flowPercentile ?? metrics?.flowPercentile ?? null;
+    const valuePct = entry.valuePercentile ?? metrics?.valuePercentile ?? null;
+    const F = entry.F ?? metrics?.F ?? null;
+    const V = entry.V ?? metrics?.V ?? null;
+    const A = entry.A ?? metrics?.A ?? null;
+    const quadrant = deriveQuadrantFromMetrics(flowPct, valuePct, thresholds, entry.quadrant ?? null);
+    const lastPrice = entry.lastPrice ?? metrics?.lastPrice ?? entry.currentPrice ?? entry.purchasePrice ?? null;
+    const rp = entry.rp ?? metrics?.rp ?? null;
+    const id = entry.id || `${entry.symbol}-${entry.purchaseDate || entry.firstEnterTradeDate || 'watch'}`;
+    const name = entry.name || entry.symbol;
+    const cls = entry.cls || 'EQ';
+    const currency = entry.currency || baseCurrency;
+    return {
+      id,
+      name,
+      cls,
+      currency,
+      last_price: lastPrice ?? null,
+      rp,
+      F,
+      V,
+      A,
+      f_pctl: flowPct ?? null,
+      v_pctl: valuePct ?? null,
+      a_rank: null,
+      quadrant,
+    };
+  });
+}
+
+
+
+
+function formatDate(value: string | null | undefined): string {
+  if (!value) return 'n/a';
   try {
-    return new Date(ts).toLocaleString('ja-JP', { hour12: false });
+    const dt = new Date(value);
+    if (Number.isNaN(dt.getTime())) return value;
+    return dt.toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' });
   } catch {
-    return new Date(ts).toISOString();
+    return value;
   }
 }
 
-function eventLabel(type: Q1Event['type']): string {
-  if (type === 'ENTER') return 'Entered Q1';
-  if (type === 'DROP') return 'Dropped from Q1';
-  return type;
+function formatDays(value: number | null | undefined): string {
+  if (value == null || Number.isNaN(value)) return 'n/a';
+  return String(Math.max(0, Math.floor(value)));
 }
 
-function Q1HistoryTable({ events, market }: { events: Q1Event[]; market: 'JP' | 'US' }) {
-  const filtered = events.filter((evt) => evt.market === market);
+function formatPrice(value: number | null | undefined, currency: string | null | undefined): string {
+  if (value == null || Number.isNaN(value)) return 'n/a';
+  const code = (currency || '').toUpperCase();
+  if (code === 'JPY') {
+    try {
+      return new Intl.NumberFormat('ja-JP', { style: 'currency', currency: 'JPY', maximumFractionDigits: 0 }).format(value);
+    } catch {
+      return `${Math.round(value).toLocaleString()} 円`;
+    }
+  }
+  const fallback = code && code.length === 3 ? code : 'USD';
+  try {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: fallback, maximumFractionDigits: 2 }).format(value);
+  } catch {
+    return `${value.toFixed(2)} ${fallback}`;
+  }
+}
+
+function formatGain(value: number | null | undefined): string {
+  if (value == null || Number.isNaN(value)) return 'n/a';
+  const sign = value > 0 ? '+' : '';
+  return sign + value.toFixed(2) + '%';
+}
+
+
+function Q1WatchlistTable({ entries, market, selectedId, onSelect }: { entries: Q1WatchlistEntry[]; market: 'JP' | 'US'; selectedId?: string | null; onSelect?: (id: string | null) => void; }) {
+  const filtered = entries.filter((entry) => entry.market === market);
   if (!filtered.length) {
-    return <div className="text-xs text-gray-400">No matching history.</div>;
+    return <div className="text-xs text-gray-400">No tracked entries.</div>;
   }
-  const rows = filtered.slice(0, 40);
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[420px] text-xs text-gray-200">
@@ -752,27 +929,57 @@ function Q1HistoryTable({ events, market }: { events: Q1Event[]; market: 'JP' | 
           <tr>
             <th className="py-2 pr-3 text-left">Event</th>
             <th className="py-2 pr-3 text-left">Symbol</th>
-            <th className="py-2 pr-3 text-left">Symbol</th>
-            <th className="py-2 pr-3 text-left">Flow / Value</th>
-            <th className="py-2 pr-3 text-left">?w?W</th>
+            <th className="py-2 pr-3 text-left">Days Elapsed</th>
+            <th className="py-2 pr-3 text-left">Purchase Price</th>
+            <th className="py-2 pr-3 text-left">Gain (%)</th>
           </tr>
         </thead>
         <tbody>
-          {rows.map((evt) => {
-            const metrics = (evt.metrics ?? {}) as Q1Metrics;
-            const key = `${evt.symbol}-${evt.ts}-${evt.type}`;
+          {filtered.map((row) => {
+            const rowKey = row.id || `${row.symbol}-${row.purchaseDate || row.firstEnterTradeDate || 'na'}`;
+            const purchaseMeta: string[] = [];
+            if (row.purchaseDate) purchaseMeta.push(formatDate(row.purchaseDate));
+            if (row.purchasePriceSource) purchaseMeta.push(row.purchasePriceSource);
+            const gainClass =
+              row.gainPct == null ? 'text-gray-300' : row.gainPct < 0 ? 'text-red-400' : 'text-emerald-400';
+            const effectiveCurrentPrice = row.currentPrice ?? row.lastPrice ?? null;
+            const isSelected = selectedId === rowKey;
+            const baseRowClass = 'border-b border-gray-800/60 transition-colors ';
+            const rowClass = baseRowClass + (isSelected ? 'bg-gray-800/80' : 'hover:bg-gray-800/40');
             return (
-              <tr key={key} className="border-b border-gray-800/60">
-                <td className="py-2 pr-3 text-gray-100">{eventLabel(evt.type)}</td>
+              <tr
+                key={rowKey}
+                className={rowClass}
+                style={isSelected ? { outline: '1px solid rgba(250,204,21,0.45)', outlineOffset: 0 } : undefined}
+                onClick={() => onSelect?.(isSelected ? null : rowKey)}
+                aria-selected={isSelected}
+              >
+                <td className="py-2 pr-3 text-gray-100">
+                  <div>{row.eventLabel}</div>
+                  {row.lastEventTradeDate && (
+                    <div className="text-[11px] text-gray-500">{formatDate(row.lastEventTradeDate)}</div>
+                  )}
+                </td>
                 <td className="py-2 pr-3">
-                  <div className="font-semibold text-white">{evt.symbol}</div>
-                  <div className="text-[11px] text-gray-400">{evt.name}</div>
+                  <div className="font-semibold text-white">
+                    {row.symbol}
+                    {row.isBenchmark && (
+                      <span className="ml-1 rounded bg-gray-700 px-1 py-[1px] text-[10px] text-gray-200">Benchmark</span>
+                    )}
+                  </div>
+                  <div className="text-[11px] text-gray-400">{row.name}</div>
+                  {purchaseMeta.length > 0 && (
+                    <div className="text-[11px] text-gray-500">Purchased {purchaseMeta.join(' • ')}</div>
+                  )}
+                  {effectiveCurrentPrice != null && (
+                    <div className="text-[11px] text-gray-500">
+                      Current {formatPrice(effectiveCurrentPrice, row.currency)}
+                    </div>
+                  )}
                 </td>
-                <td className="py-2 pr-3 text-gray-300">{formatEventTimestamp(evt.ts)}</td>
-                <td className="py-2 pr-3 text-gray-300">
-                  F: {metrics.F != null ? metrics.F.toFixed(2) : 'n/a'} / V: {metrics.V != null ? metrics.V.toFixed(2) : 'n/a'}
-                </td>
-                <td className="py-2 pr-3 text-gray-400">Flow% {metrics.flowPercentile ?? "n/a"} / Value% {metrics.valuePercentile ?? "n/a"}</td>
+                <td className="py-2 pr-3 text-gray-200">{formatDays(row.daysElapsed)}</td>
+                <td className="py-2 pr-3 text-gray-200">{formatPrice(row.purchasePrice, row.currency)}</td>
+                <td className={`py-2 pr-3 ${gainClass}`}>{formatGain(row.gainPct)}</td>
               </tr>
             );
           })}
@@ -781,6 +988,5 @@ function Q1HistoryTable({ events, market }: { events: Q1Event[]; market: 'JP' | 
     </div>
   );
 }
-
 
 
