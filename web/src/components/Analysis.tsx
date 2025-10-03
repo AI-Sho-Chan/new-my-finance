@@ -1,6 +1,6 @@
 ﻿import { fetchTopix33History, buildTopix33Overrides, type Topix33Overrides } from '../lib/topix33';
 import { fetchUSIndustriesHistory, buildUSIndustryOverrides, type USIndustryOverrides } from '../lib/usIndustries';
-import { fetchQ1Analysis, fetchQ1Status, type Q1Analysis, type Q1Metrics, type Q1ScanSummaryEntry, type Q1Status, type Q1StatusEntry, type Q1WatchlistEntry } from '../lib/q1';
+import { fetchQ1Analysis, fetchQ1Status, type Q1Analysis, type Q1Metrics, type Q1ScanSummaryEntry, type Q1Status, type Q1StatusEntry, type Q1WatchlistEntry, buildQ1WatchlistMembers } from '../lib/q1';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { MouseEvent } from 'react';
 import { computeSnapshotWithTrails, DEFAULT_PARAMS, type SnapshotItem, type SnapshotTrails, type SnapshotMeta, UNIVERSE, type AssetDef, normalizeQuadrantThresholds, type QuadrantThresholds } from '../lib/analysis';
@@ -99,19 +99,24 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
   const mergedWatch = storeWatch.length ? storeWatch : nmyWatch;
   const watchKey = useMemo(() => mergedWatch.map((w) => w.symbol).join(','), [mergedWatch]);
 
-  const applyStatusToSystemGroups = useCallback((status: Q1Status | null | undefined) => {
-    if (!status) return;
-    const buildMembers = (entries: Q1StatusEntry[] | undefined) =>
+  const applyQ1DataToSystemGroups = useCallback((status: Q1Status | null | undefined, analysis: Q1Analysis | null | undefined) => {
+    if (!status && !analysis) return;
+    const watchEntries = analysis?.watchlist ?? [];
+    const jpWatchMembers = buildQ1WatchlistMembers(watchEntries, 'JP');
+    const usWatchMembers = buildQ1WatchlistMembers(watchEntries, 'US');
+    const buildMembersFromStatus = (entries: Q1StatusEntry[] | undefined) =>
       (entries ?? []).map((entry) => ({
         symbol: entry.symbol,
         name: entry.name,
         type: (entry.symbol?.startsWith('^') ? 'index' : 'stock') as WatchItemType,
       }));
-    const allCurrent = status.currentQ1 ?? [];
-    const currentJPStatus = status.currentQ1JP ?? allCurrent.filter((entry) => entry.market === 'JP');
-    const currentUSStatus = status.currentQ1US ?? allCurrent.filter((entry) => entry.market === 'US');
-    syncSystemGroupMembers({ key: 'q1_jp', members: buildMembers(currentJPStatus) });
-    syncSystemGroupMembers({ key: 'q1_us', members: buildMembers(currentUSStatus) });
+    const allCurrent = status?.currentQ1 ?? [];
+    const currentJPStatus = status?.currentQ1JP ?? allCurrent.filter((entry) => entry.market === 'JP');
+    const currentUSStatus = status?.currentQ1US ?? allCurrent.filter((entry) => entry.market === 'US');
+    const jpMembers = jpWatchMembers.length ? jpWatchMembers : buildMembersFromStatus(currentJPStatus);
+    const usMembers = usWatchMembers.length ? usWatchMembers : buildMembersFromStatus(currentUSStatus);
+    syncSystemGroupMembers({ key: 'q1_jp', members: jpMembers });
+    syncSystemGroupMembers({ key: 'q1_us', members: usMembers });
   }, [syncSystemGroupMembers]);
 
   useEffect(() => {
@@ -140,10 +145,8 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
         const [analysisRes, statusRes] = await Promise.all([fetchQ1Analysis(), fetchQ1Status()]);
         if (cancelled) return;
         setQ1Data(analysisRes);
-        if (statusRes) {
-          setQ1Status(statusRes);
-          applyStatusToSystemGroups(statusRes);
-        }
+        setQ1Status(statusRes ?? null);
+        applyQ1DataToSystemGroups(statusRes ?? null, analysisRes ?? null);
         const thresholdsSource = (statusRes?.thresholds ?? analysisRes?.thresholds) as Partial<QuadrantThresholds> | undefined;
         const thresholds = normalizeQuadrantThresholds(thresholdsSource);
         const market = view === 'Q1_JP' ? 'JP' : 'US';
@@ -171,7 +174,7 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
     return () => {
       cancelled = true;
     };
-  }, [view, applyStatusToSystemGroups]);
+  }, [view, applyQ1DataToSystemGroups]);
 
   useEffect(() => {
     let cancelled = false;
@@ -180,7 +183,7 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
         const status = await fetchQ1Status();
         if (cancelled) return;
         setQ1Status(status);
-        applyStatusToSystemGroups(status);
+        applyQ1DataToSystemGroups(status, q1Data);
       } catch {
         // swallow network errors; status polling will retry
       }
@@ -191,7 +194,7 @@ export default function Analysis({ bare = false }: { bare?: boolean }) {
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [applyStatusToSystemGroups]);
+  }, [applyQ1DataToSystemGroups, q1Data]);
 
   useEffect(() => {
     const onMsg = (ev: MessageEvent) => {

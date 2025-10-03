@@ -221,42 +221,16 @@ app.get('/api/q1/status', (req, res) => {
 
 
 
-app.get('/api/q1/analysis', (req, res) => {
-
-
-
+app.get('/api/q1/analysis', async (req, res) => {
   if (!q1Monitor) {
-
-
-
     return res.json({ enabled: false, reason: 'disabled' });
-
-
-
   }
-
-
-
   try {
-
-
-
+    await q1Monitor.refreshWatchlistSpotPrices();
     res.json(q1Monitor.getAnalysis());
-
-
-
   } catch (error) {
-
-
-
     res.status(500).json({ enabled: false, error: String(error?.message || error) });
-
-
-
   }
-
-
-
 });
 
 

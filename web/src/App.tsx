@@ -7,7 +7,7 @@ import UsdJpyDashboard from './components/UsdJpyDashboard';
 import TopixDashboard from './components/TopixDashboard';
 import NavBar from './components/NavBar';
 import Q1AlertBanner from './components/Q1AlertBanner';
-import { fetchQ1Status, type Q1Event, type Q1Status } from './lib/q1';
+import { fetchQ1Analysis, fetchQ1Status, type Q1Analysis, type Q1Event, type Q1Status, type Q1StatusEntry, buildQ1WatchlistMembers } from './lib/q1';
 import type { WatchItemType } from './types';
 import { NavigationContext, TabKey } from './lib/navigation';
 import { migrateLegacyAssetsIfAny } from './lib/legacy';
@@ -97,18 +97,25 @@ export default function App() {
     let cancelled = false;
     let timer: number | undefined;
 
-    const applySystemGroups = (status: Q1Status) => {
-      const buildMembers = (entries: Q1StatusEntry[] | undefined) =>
+    const applySystemGroups = (status: Q1Status | null, analysis: Q1Analysis | null) => {
+      const watchEntries = analysis?.watchlist ?? [];
+      const jpWatchMembers = buildQ1WatchlistMembers(watchEntries, 'JP');
+      const usWatchMembers = buildQ1WatchlistMembers(watchEntries, 'US');
+      const buildMembersFromStatus = (entries: Q1StatusEntry[] | undefined) =>
         (entries ?? []).map((entry) => ({
           symbol: entry.symbol,
           name: entry.name,
           type: (entry.symbol.startsWith('^') ? 'index' : 'stock') as WatchItemType,
         }));
-      const allCurrent = status?.currentQ1 || [];
+      const allCurrent = status?.currentQ1 ?? [];
       const currentJP = status?.currentQ1JP ?? allCurrent.filter((entry) => entry.market === 'JP');
       const currentUS = status?.currentQ1US ?? allCurrent.filter((entry) => entry.market === 'US');
-      syncSystemGroupMembers({ key: 'q1_jp', members: buildMembers(currentJP) });
-      syncSystemGroupMembers({ key: 'q1_us', members: buildMembers(currentUS) });
+      const jpMembers = jpWatchMembers.length ? jpWatchMembers : buildMembersFromStatus(currentJP);
+      const usMembers = usWatchMembers.length ? usWatchMembers : buildMembersFromStatus(currentUS);
+      if (analysis || status) {
+        syncSystemGroupMembers({ key: 'q1_jp', members: jpMembers });
+        syncSystemGroupMembers({ key: 'q1_us', members: usMembers });
+      }
     };
 
     const evaluateBanner = (status: Q1Status) => {
@@ -122,10 +129,13 @@ export default function App() {
 
     const poll = async () => {
       try {
-        const status = await fetchQ1Status();
+        const [status, analysis] = await Promise.all([
+          fetchQ1Status().catch(() => null),
+          fetchQ1Analysis().catch(() => null),
+        ]);
         if (cancelled) return;
-        applySystemGroups(status);
-        evaluateBanner(status);
+        applySystemGroups(status, analysis);
+        if (status) evaluateBanner(status);
       } catch (error) {
         console.warn('Failed to fetch Q1 status', error);
       }

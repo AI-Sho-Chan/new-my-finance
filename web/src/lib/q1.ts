@@ -1,4 +1,5 @@
 import { normalizeQuadrantThresholds, type QuadrantThresholds } from './analysis';
+import type { WatchItemType } from '../types';
 
 export type Q1Metrics = {
   F: number | null;
@@ -325,6 +326,22 @@ export interface Q1TrackerEntry {
 export interface Q1TrackersResponse {
   version: number;
   entries: Q1TrackerEntry[];
+}
+
+
+export function buildQ1WatchlistMembers(entries: Q1WatchlistEntry[], market?: 'JP' | 'US'): { symbol: string; name: string; type: WatchItemType }[] {
+  const filtered = market ? entries.filter((entry) => entry.market === market) : entries;
+  const map = new Map<string, { symbol: string; name: string; type: WatchItemType }>();
+  filtered.forEach((entry) => {
+    const symbol = (entry.symbol || '').trim();
+    if (!symbol) return;
+    const name = entry.name?.trim() || symbol;
+    const type: WatchItemType = entry.isBenchmark || symbol.startsWith('^') ? 'index' : 'stock';
+    if (!map.has(symbol)) {
+      map.set(symbol, { symbol, name, type });
+    }
+  });
+  return Array.from(map.values());
 }
 
 export async function fetchQ1Trackers(): Promise<Q1TrackersResponse> {

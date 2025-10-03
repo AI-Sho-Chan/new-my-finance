@@ -323,6 +323,11 @@ function isoDateSafe(dt) {
   }
 }
 
+function sanitizePrice(value) {
+  const num = Number(value);
+  return Number.isFinite(num) && num > 0 ? num : null;
+}
+
 function monthsBetween(start, end) {
   if (!start || !end) return null;
   const a = DateTime.fromISO(String(start));
@@ -734,6 +739,23 @@ function extractLastClose(candles) {
   return null;
 }
 
+
+async function fetchLatestValidDailyPrice(symbol) {
+  try {
+    const candles = await fetchYahooChart(symbol, '1d', '5d').catch(() => []);
+    if (!Array.isArray(candles) || !candles.length) return null;
+    for (let i = candles.length - 1; i >= 0; i -= 1) {
+      const candle = candles[i];
+      const close = sanitizePrice(candle?.close);
+      if (close != null) return close;
+      const open = sanitizePrice(candle?.open);
+      if (open != null) return open;
+    }
+  } catch (error) {
+    console.warn('[Q1Monitor] latest price fetch failed:', symbol, error?.message || error);
+  }
+  return null;
+}
 
 class Q1Monitor {
   constructor({ dataDir }) {
@@ -1526,25 +1548,30 @@ class Q1Monitor {
       }
       const zone = market === 'JP' ? 'Asia/Tokyo' : 'America/New_York';
       const target = String(purchaseDate);
-      let chosen = null;
+      const resolvedAt = Date.now();
+      let price = null;
+      let source = null;
       for (const candle of candles) {
         const iso = isoDateFromUnix(candle.time, zone) || isoDateFromUnix(candle.time, 'UTC');
         if (!iso) continue;
-        if (iso === target) {
-          chosen = candle;
+        if (iso < target) continue;
+        const open = Number.isFinite(candle?.open) ? Number(candle.open) : null;
+        const close = Number.isFinite(candle?.close) ? Number(candle.close) : null;
+        if (open != null && open > 0) {
+          price = open;
+          source = 'yahoo:open';
           break;
         }
-        if (!chosen && iso > target) {
-          chosen = candle;
+        if (close != null && close > 0) {
+          price = close;
+          source = 'yahoo:close';
+          break;
         }
       }
-      if (!chosen) {
-        chosen = candles[candles.length - 1];
+      if (price == null) {
+        return { price: null, source: null, resolvedAt };
       }
-      const open = Number.isFinite(chosen?.open) ? Number(chosen.open) : null;
-      const close = Number.isFinite(chosen?.close) ? Number(chosen.close) : null;
-      const price = open != null ? open : close;
-      return { price, source: 'yahoo', resolvedAt: Date.now() };
+      return { price, source, resolvedAt };
     } catch (error) {
       console.warn('[Q1Monitor] purchase price lookup failed:', symbol, error?.message || error);
       return { price: null, source: null, resolvedAt: Date.now() };
@@ -1557,14 +1584,18 @@ class Q1Monitor {
     const purchaseDt = DateTime.fromISO(String(entry.purchaseDate));
     if (!purchaseDt.isValid) return;
     if (purchaseDt > DateTime.now()) return;
+    if (Number.isFinite(entry.purchasePrice) && entry.purchasePrice <= 0) {
+      entry.purchasePrice = null;
+      entry.purchasePriceSource = null;
+    }
     if (!force) {
-      if (Number.isFinite(entry.purchasePrice)) return;
+      if (Number.isFinite(entry.purchasePrice) && entry.purchasePrice > 0) return;
       if (entry.purchasePriceCheckedAt && (now - entry.purchasePriceCheckedAt) < PURCHASE_PRICE_RETRY_MS) return;
     }
     const result = await this.resolvePurchasePrice(entry.symbol, entry.market, entry.purchaseDate);
     entry.purchasePriceCheckedAt = result.resolvedAt;
     entry.purchasePriceResolvedAt = result.resolvedAt;
-    if (Number.isFinite(result.price)) {
+    if (Number.isFinite(result.price) && result.price > 0) {
       entry.purchasePrice = result.price;
       entry.purchasePriceSource = result.source ?? entry.purchasePriceSource ?? null;
       entry.updatedAt = now;
@@ -1636,7 +1667,7 @@ class Q1Monitor {
         lastEventType: 'ENTER',
         lastEventAt: evt.ts || now,
         lastEventTradeDate: tradeDateIso,
-        lastKnownPrice: this.state.symbols?.[evt.symbol]?.lastKnownPrice ?? evt.metrics?.lastPrice ?? null,
+        lastKnownPrice: sanitizePrice(this.state.symbols?.[evt.symbol]?.lastKnownPrice ?? evt.metrics?.lastPrice),
         lastKnownPriceAt: this.state.symbols?.[evt.symbol]?.lastKnownPriceAt ?? null,
         metricsAtEnter: evt.metrics ?? null,
         reopenedCount: entries.length,
@@ -1655,8 +1686,9 @@ class Q1Monitor {
       if (!targetEntry.firstEnterAt) targetEntry.firstEnterAt = evt.ts || now;
       if (!targetEntry.firstEnterTradeDate) targetEntry.firstEnterTradeDate = tradeDateIso;
       if (!targetEntry.purchaseDate) targetEntry.purchaseDate = purchaseDate;
-      if (evt.metrics?.lastPrice != null && Number.isFinite(evt.metrics.lastPrice)) {
-        targetEntry.lastKnownPrice = evt.metrics.lastPrice;
+      const updatedLastPrice = sanitizePrice(evt.metrics?.lastPrice);
+      if (updatedLastPrice != null) {
+        targetEntry.lastKnownPrice = updatedLastPrice;
         targetEntry.lastKnownPriceAt = evt.ts || now;
       }
       targetEntry.metricsAtEnter = evt.metrics ?? targetEntry.metricsAtEnter ?? null;
@@ -1709,9 +1741,10 @@ class Q1Monitor {
     if (!list.length) return;
     const map = new Map();
     snapshot.items.forEach((item) => {
-      if (Number.isFinite(item?.lastPrice)) {
+      const price = sanitizePrice(item?.lastPrice);
+      if (price != null) {
         map.set(this.normalizeWatchlistSymbol(item.symbol), {
-          price: Number(item.lastPrice),
+          price,
           currency: item.currency || null,
         });
       }
@@ -1721,7 +1754,8 @@ class Q1Monitor {
       if (!entry || entry.benchmarkId) return;
       const info = map.get(this.normalizeWatchlistSymbol(entry.symbol));
       if (!info) return;
-      entry.lastKnownPrice = info.price;
+      entry.lastKnownPrice = sanitizePrice(info.price);
+      if (entry.lastKnownPrice == null) return;
       entry.lastKnownPriceAt = updatedAt;
       if (!entry.currency && info.currency) entry.currency = info.currency;
       entry.updatedAt = updatedAt;
@@ -1748,7 +1782,7 @@ class Q1Monitor {
         const candles = await fetchYahooChart(entry.symbol, '1d', '1mo').catch(() => []);
         if (!Array.isArray(candles) || !candles.length) continue;
         const latest = candles[candles.length - 1];
-        const close = Number.isFinite(latest?.close) ? Number(latest.close) : null;
+        const close = sanitizePrice(latest?.close);
         if (close != null) {
           entry.lastKnownPrice = close;
           entry.lastKnownPriceAt = now;
@@ -1759,6 +1793,31 @@ class Q1Monitor {
         }
       } catch (error) {
         console.warn('[Q1Monitor] benchmark price refresh failed:', entry.symbol, error?.message || error);
+      }
+    }
+  }
+
+  async refreshWatchlistSpotPrices(force = false) {
+    if (!this.state) return;
+    this.ensureWatchlistArray();
+    const now = Date.now();
+    for (const entry of this.state.watchlist) {
+      if (!entry || entry.benchmarkId) continue;
+      const existing = sanitizePrice(entry.lastKnownPrice);
+      if (!force && existing != null && entry.lastKnownPriceAt && (now - entry.lastKnownPriceAt) < WATCHLIST_PRICE_STALE_MS) continue;
+      try {
+        const price = await fetchLatestValidDailyPrice(entry.symbol);
+        if (price != null) {
+          entry.lastKnownPrice = price;
+          entry.lastKnownPriceAt = now;
+          entry.updatedAt = now;
+        }
+      } catch (error) {
+        console.warn('[Q1Monitor] watchlist price refresh failed:', entry?.symbol, error?.message || error);
+      }
+      if (REQUEST_DELAY_MS > 0) {
+        // eslint-disable-next-line no-await-in-loop
+        await wait(REQUEST_DELAY_MS);
       }
     }
   }
@@ -1816,13 +1875,24 @@ class Q1Monitor {
       else eventLabel = 'Benchmark';
       const firstDate = entry.firstEnterTradeDate || entry.purchaseDate || null;
       const daysElapsed = daysSince(firstDate);
-      const purchasePrice = Number.isFinite(entry.purchasePrice) && entry.purchasePrice > 0 ? Number(entry.purchasePrice) : null;
-      const currentPrice = Number.isFinite(entry.lastKnownPrice) ? Number(entry.lastKnownPrice) : null;
+      const toPrice = (value) => {
+        const num = Number(value);
+        return Number.isFinite(num) && num > 0 ? num : null;
+      };
+      const purchasePrice = toPrice(entry.purchasePrice);
+      let currentPrice = toPrice(entry.lastKnownPrice);
+      if (currentPrice == null) {
+        currentPrice = toPrice(symbolState?.lastKnownPrice)
+          ?? toPrice(symbolState?.lastPrice)
+          ?? toPrice(entry.lastPrice)
+          ?? toPrice(metrics?.lastPrice)
+          ?? toPrice(entry.currentPrice);
+      }
       let gainPct = null;
-      if (purchasePrice != null && purchasePrice > 0 && currentPrice != null) {
+      if (purchasePrice != null && currentPrice != null) {
         gainPct = ((currentPrice - purchasePrice) / purchasePrice) * 100;
       }
-      const lastPrice = metrics?.lastPrice ?? currentPrice ?? purchasePrice ?? null;
+      const lastPrice = toPrice(metrics?.lastPrice) ?? currentPrice ?? purchasePrice ?? null;
       return {
         id: entry.id,
         symbol: entry.symbol,
