@@ -12,8 +12,9 @@
     startCommand: |
       cd backend
       uvicorn main:app --host 0.0.0.0 --port 
-  - type: static_site
+  - type: web
     name: myfinance-frontend
+    env: node
     plan: free
     region: oregon
     branch: restore/prod-stable
@@ -22,8 +23,14 @@
       cd web
       npm ci --include=dev
       npm run build
-    staticPublishPath: web/dist
+    startCommand: |
+      cd web
+      node server/index.mjs
     envVars:
+      - key: NODE_VERSION
+        value: '18'
+      - key: PORT
+        value: '8080'
       - key: VITE_BACKEND_URL
         value: https://REPLACE_WITH_BACKEND_URL
 
