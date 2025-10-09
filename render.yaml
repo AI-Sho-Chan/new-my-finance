@@ -6,7 +6,6 @@
     region: oregon
     branch: restore/prod-stable
     autoDeploy: true
-    pythonVersion: 3.11
     buildCommand: |
       pip install --upgrade pip
       pip install -r backend/requirements.txt
