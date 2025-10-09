@@ -98,6 +98,8 @@ const cache = new Map(); // key -> { ts: number, data: any, ttl: number }
 const Q1_MONITOR_DISABLED = process.env.Q1_MONITOR_DISABLED === '1';
 
 const Q1_MONITOR_DATA_DIR = path.resolve(PROJECT_ROOT, 'data/q1-monitor');
+const Q1_TRACKERS_PATH = path.resolve(Q1_MONITOR_DATA_DIR, 'trackers.json');
+const Q1_TRACKERS_FALLBACK = { version: 1, entries: [] };
 
 let q1Monitor = null;
 
@@ -198,6 +200,23 @@ async function fetchJsonTry(urls, init) {
 }
 
 
+
+function loadQ1Trackers() {
+  try {
+    const raw = fs.readFileSync(Q1_TRACKERS_PATH, 'utf-8');
+    const json = JSON.parse(raw);
+    const version = typeof json?.version === 'number' ? json.version : Number(json?.version ?? 1) || 1;
+    const entries = Array.isArray(json?.entries) ? json.entries : [];
+    return { version, entries };
+  } catch (error) {
+    console.warn('q1 trackers load failed:', error?.message || error);
+    return { ...Q1_TRACKERS_FALLBACK, entries: [...Q1_TRACKERS_FALLBACK.entries] };
+  }
+}
+
+app.get('/api/q1/trackers', (_req, res) => {
+  res.json(loadQ1Trackers());
+});
 
 app.get('/api/q1/status', (req, res) => {
 
