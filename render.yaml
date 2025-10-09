@@ -29,8 +29,5 @@
     envVars:
       - key: NODE_VERSION
         value: '18'
-      - key: PORT
-        value: '8080'
       - key: VITE_BACKEND_URL
         value: https://REPLACE_WITH_BACKEND_URL
-
