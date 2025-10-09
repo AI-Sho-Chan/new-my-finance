@@ -21,14 +21,12 @@
     autoDeploy: true
     buildCommand: |
       cd web
-      npm ci
+      npm ci --include=dev
       npm run build
     startCommand: |
       cd web
-      node server/index.mjs
+      NODE_ENV=production node server/index.mjs
     envVars:
-      - key: NODE_ENV
-        value: production
       - key: NODE_VERSION
         value: '18'
       - key: VITE_BACKEND_URL
