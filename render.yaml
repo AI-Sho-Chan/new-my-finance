@@ -19,7 +19,6 @@
     region: oregon
     branch: restore/prod-stable
     autoDeploy: true
-    nodeVersion: 18
     buildCommand: |
       npm ci --prefix web
       npm run build --prefix web
@@ -29,5 +28,7 @@
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NODE_VERSION
+        value: '18'
       - key: VITE_BACKEND_URL
         value: https://REPLACE_WITH_BACKEND_URL
