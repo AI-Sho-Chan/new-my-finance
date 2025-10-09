@@ -20,8 +20,9 @@
     branch: restore/prod-stable
     autoDeploy: true
     buildCommand: |
-      npm ci --prefix web
-      npm run build --prefix web
+      cd web
+      npm ci
+      npm run build
     startCommand: |
       cd web
       node server/index.mjs
