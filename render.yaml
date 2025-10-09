@@ -1,0 +1,36 @@
+﻿services:
+  - type: web
+    name: myfinance-backend
+    env: python
+    plan: free
+    region: oregon
+    branch: restore/prod-stable
+    autoDeploy: true
+    pythonVersion: 3.11
+    buildCommand: |
+      pip install --upgrade pip
+      pip install -r backend/requirements.txt
+    startCommand: |
+      cd backend
+      uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}
+  - type: web
+    name: myfinance-frontend
+    env: node
+    plan: free
+    region: oregon
+    branch: restore/prod-stable
+    autoDeploy: true
+    buildCommand: |
+      npm ci --prefix web
+      npm run build --prefix web
+    startCommand: |
+      cd web
+      node server/index.mjs
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: VITE_BACKEND_URL
+        fromService:
+          type: web
+          name: myfinance-backend
+          property: url
