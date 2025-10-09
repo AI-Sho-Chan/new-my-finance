@@ -12,20 +12,20 @@
 
 1. https://render.com にログインし、左メニューの **Blueprints** を開きます。
 2. **New Blueprint Instance** をクリックし、この GitHub リポジトリを選択します。
-3. プランは Free、リージョンは US のまま **Deploy** を押します。これで次の 2 つの Web サービスが作成されます。
+3. プランは Free、リージョンは US (Oregon) のまま **Deploy** を押します。これで次の 2 つの Web サービスが作成されます。
    - myfinance-backend (Python / FastAPI)
    - myfinance-frontend (Node / Express)
 
 デプロイ後は、デフォルトブランチへの push ごとに自動で再デプロイされます。
 
-## 3. バックエンド URL の連携
+## 3. バックエンド URL の設定
 
-render.yaml の `VITE_BACKEND_URL` には `https://myfinance-backend.onrender.com` を設定しています。Render のデフォルトドメインはサービス名に依存するため、もしカスタムドメインや別名を使う場合はフロントエンドサービスの Environment から `VITE_BACKEND_URL` を編集してください。
+render.yaml の初期値では `VITE_BACKEND_URL` を `https://REPLACE_WITH_BACKEND_URL` としています。デプロイ完了後、Render のフロントエンドサービス画面から Environment を開いて、実際に割り当てられたバックエンドの URL（例: `https://myfinance-backend-xxxx.onrender.com`）を入力してください。保存後に **Deploy changes** を実行すると新しい値が反映されます。
 
 ## 4. 動作確認
 
-- フロントエンドの URL (例: https://myfinance-frontend.onrender.com) にアクセスし、画面が表示されることを確認します。
-- /api/yf/quote?symbols=USDJPY%3DX などのエンドポイントへアクセスして、バックエンドが応答するか確認します。
+- フロントエンドの URL (例: https://myfinance-frontend-xxxx.onrender.com) にアクセスし、画面が表示されることを確認します。
+- `/api/yf/quote?symbols=USDJPY%3DX` などのエンドポイントへアクセスして、バックエンドが応答するか確認します。
 
 ## 補足
 
