@@ -11,7 +11,7 @@
       pip install -r backend/requirements.txt
     startCommand: |
       cd backend
-      uvicorn main:app --host 0.0.0.0 --port 
+      uvicorn main:app --host 0.0.0.0 --port $PORT
   - type: web
     name: myfinance-frontend
     env: node
