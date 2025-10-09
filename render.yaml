@@ -29,7 +29,4 @@
       - key: NODE_ENV
         value: production
       - key: VITE_BACKEND_URL
-        fromService:
-          type: web
-          name: myfinance-backend
-          property: url
+        value: https://myfinance-backend.onrender.com

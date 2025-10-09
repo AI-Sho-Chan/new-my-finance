@@ -20,7 +20,7 @@
 
 ## 3. バックエンド URL の連携
 
-render.yaml では、フロントエンドの環境変数 VITE_BACKEND_URL にバックエンドの公開 URL を自動で注入するよう設定済みです。追加の環境設定は不要です。
+render.yaml の `VITE_BACKEND_URL` には `https://myfinance-backend.onrender.com` を設定しています。Render のデフォルトドメインはサービス名に依存するため、もしカスタムドメインや別名を使う場合はフロントエンドサービスの Environment から `VITE_BACKEND_URL` を編集してください。
 
 ## 4. 動作確認
 
