@@ -11,10 +11,9 @@
       pip install -r backend/requirements.txt
     startCommand: |
       cd backend
-      uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}
-  - type: web
+      uvicorn main:app --host 0.0.0.0 --port 
+  - type: static_site
     name: myfinance-frontend
-    env: node
     plan: free
     region: oregon
     branch: restore/prod-stable
@@ -23,11 +22,8 @@
       cd web
       npm ci --include=dev
       npm run build
-    startCommand: |
-      cd web
-      NODE_ENV=production node server/index.mjs
+    staticPublishPath: web/dist
     envVars:
-      - key: NODE_VERSION
-        value: '18'
       - key: VITE_BACKEND_URL
         value: https://REPLACE_WITH_BACKEND_URL
+
