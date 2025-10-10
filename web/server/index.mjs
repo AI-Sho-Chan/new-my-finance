@@ -210,12 +210,18 @@ function loadQ1Trackers() {
     return { version, entries };
   } catch (error) {
     console.warn('q1 trackers load failed:', error?.message || error);
-    return { ...Q1_TRACKERS_FALLBACK, entries: [...Q1_TRACKERS_FALLBACK.entries] };
+    return { ...Q1_TRACKERS_FALLBACK, entries: [...Q1_TRACKERS_FALLBACK.entries], updatedAt: null };
   }
 }
 
 app.get('/api/q1/trackers', (_req, res) => {
-  res.json(loadQ1Trackers());
+  try {
+    const payload = loadQ1Trackers();
+    res.json({ ...payload, updatedAt: payload?.updatedAt ?? null });
+  } catch (error) {
+    console.error('failed to load q1 trackers:', error?.message || error);
+    res.json({ ...Q1_TRACKERS_FALLBACK, updatedAt: null });
+  }
 });
 
 app.get('/api/q1/status', (req, res) => {
