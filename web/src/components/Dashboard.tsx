@@ -64,12 +64,12 @@ export default function Dashboard() {
   const [selectorTarget, setSelectorTarget] = useState<SelectorTarget>('search');
 
   const sortOptions: { value: WatchSortMode; label: string }[] = [
-    { value: 'none', label: '手動順' },
-    { value: 'changeDesc', label: '上昇率(降順)' },
-    { value: 'changeAsc', label: '上昇率(昇順)' },
-    { value: 'gainLossDesc', label: '損益率(降順)' },
-    { value: 'trendUpFirst', label: '上昇トレンド優先' },
-    { value: 'trendDownFirst', label: '下降トレンド優先' },
+    { value: 'none', label: 'Manual Order' },
+    { value: 'changeDesc', label: 'Change (Desc)' },
+    { value: 'changeAsc', label: 'Change (Asc)' },
+    { value: 'gainLossDesc', label: 'P/L (Desc)' },
+    { value: 'trendUpFirst', label: 'Trend Up First' },
+    { value: 'trendDownFirst', label: 'Trend Down First' },
   ];
 
   const activeSymbols = useMemo(() => {
