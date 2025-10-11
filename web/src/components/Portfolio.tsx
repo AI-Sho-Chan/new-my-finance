@@ -60,8 +60,9 @@ const startOfDay = (ts: number): number => {
 const formatDelta = (value: number | null | undefined): string => {
   if (value == null || !Number.isFinite(value)) return '--';
   const rounded = Math.round(value);
+  if (rounded === 0) return '±0 JPY';
   const sign = rounded > 0 ? '+' : '';
-  return `${sign}${rounded.toLocaleString('ja-JP')} �~`;
+  return `${sign}${rounded.toLocaleString('ja-JP')} JPY`;
 };
 
 const deltaClassName = (value: number | null | undefined): string => {
@@ -367,17 +368,17 @@ export default function Portfolio() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="card">
           <div className="text-sm text-gray-400">総資産</div>
-          <div className="text-2xl font-bold">{formatJPY(totals.total)} 円</div>
+          <div className="text-2xl font-bold">{formatJPY(totals.total)} JPY</div>
           <div className={`text-xs ${deltaClassName(totalsDiff?.total)}`}>前日比 {formatDelta(totalsDiff?.total)}</div>
         </div>
         <div className="card">
           <div className="text-sm text-gray-400">現金資産</div>
-          <div className="text-2xl font-bold">{formatJPY(totals.cash)} 円</div>
+          <div className="text-2xl font-bold">{formatJPY(totals.cash)} JPY</div>
           <div className={`text-xs ${deltaClassName(totalsDiff?.cash)}`}>前日比 {formatDelta(totalsDiff?.cash)}</div>
         </div>
         <div className="card">
           <div className="text-sm text-gray-400">投資資産</div>
-          <div className="text-2xl font-bold">{formatJPY(totals.invest)} 円</div>
+          <div className="text-2xl font-bold">{formatJPY(totals.invest)} JPY</div>
           <div className={`text-xs ${deltaClassName(totalsDiff?.invest)}`}>前日比 {formatDelta(totalsDiff?.invest)}</div>
         </div>
       </div>
