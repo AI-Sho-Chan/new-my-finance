@@ -19,7 +19,6 @@ import StockChartModal from './StockChartModal';
 import SymbolSearch from './SymbolSearch';
 import MarketOverview from './MarketOverview';
 import FGIWidget from './FGIWidget';
-import Q1TrackerCard from './Q1TrackerCard';
 
 type EditorState = { open: boolean; mode: 'create' | 'edit'; groupId?: string };
 type SelectorTarget = 'search' | 'bulk';
@@ -276,7 +275,6 @@ export default function Dashboard() {
         <MarketOverview />
       </div>
 
-      <Q1TrackerCard />
 
       <div className="bg-gray-900/60 border border-gray-800 rounded-lg p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
