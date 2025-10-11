@@ -519,7 +519,8 @@ export const useStore = create<State & Actions>()(
       setPortfolioComputed: (metrics, totals) => set((state) => {
         const sameTotals = totalsEqual(state.portfolioTotals, totals);
         const sameMetrics = metricsEqual(state.portfolioMetrics, metrics);
-        const history = syncSnapshotTotals(state.portfolioHistory, totals);
+        let history = ensureDailySnapshot(state.portfolioHistory, state.portfolio, totals);
+        history = syncSnapshotTotals(history, totals);
         const nextState: Partial<State> = {};
         if (!sameMetrics) nextState.portfolioMetrics = metrics;
         if (!sameTotals) nextState.portfolioTotals = totals;
@@ -960,6 +961,24 @@ function pushSnapshot(
     if (totals) entry.totals = totals;
     const next = [...history, entry];
     return next.length > MAX ? next.slice(next.length - MAX) : next;
+  } catch {
+    return history;
+  }
+}
+
+function ensureDailySnapshot(
+  history: PortfolioHistoryItem[],
+  portfolio: AssetItem[],
+  totals: PortfolioTotals
+): PortfolioHistoryItem[] {
+  try {
+    const today = startOfDay(Date.now());
+    const list = Array.isArray(history) ? history : [];
+    const last = list[list.length - 1];
+    if (!last || startOfDay(last.ts) !== today) {
+      return pushSnapshot(list, portfolio, { note: 'auto', totals });
+    }
+    return list;
   } catch {
     return history;
   }
