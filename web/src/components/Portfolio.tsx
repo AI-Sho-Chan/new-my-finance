@@ -60,7 +60,7 @@ const startOfDay = (ts: number): number => {
 const formatDelta = (value: number | null | undefined): string => {
   if (value == null || !Number.isFinite(value)) return '--';
   const rounded = Math.round(value);
-  if (rounded === 0) return '±0 JPY';
+  if (rounded === 0) return '0 JPY';
   const sign = rounded > 0 ? '+' : '';
   return `${sign}${rounded.toLocaleString('ja-JP')} JPY`;
 };
@@ -407,7 +407,7 @@ export default function Portfolio() {
               <th>詳細</th>
               <th className="text-right">
                 <SortButton
-                  label="評価額(円)"
+                  label="Value (JPY)"
                   active={sort.key === 'valueJPY'}
                   direction={sort.direction}
                   onClick={() => handleSort('valueJPY')}
