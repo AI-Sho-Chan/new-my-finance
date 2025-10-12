@@ -1,17 +1,36 @@
 ﻿import { useMemo, useState } from 'react';
-import { useReportsStore, type StockReport, type ReportSourceType } from '../lib/reports-store';
 import { v4 as uuidv4 } from 'uuid';
+import {
+  useReportsStore,
+  type StockReport,
+  type ReportLink,
+  type ReportSourceType,
+} from '../lib/reports-store';
 
 type ModalState = {
   open: boolean;
+  draft?: Partial<StockReport>;
 };
 
-const SOURCE_OPTIONS: { value: ReportSourceType; label: string }[] = [
-  { value: 'url', label: 'Web URL' },
-  { value: 'google-doc', label: 'Google Docs' },
-  { value: 'file', label: 'File Link' },
-  { value: 'note', label: 'Internal Note' },
-];
+type LinkDraft = {
+  id: string;
+  type: ReportSourceType;
+  url: string;
+  title: string;
+};
+
+const SOURCE_LABEL: Record<ReportSourceType, string> = {
+  url: 'Web URL',
+  'google-doc': 'Google Docs',
+  file: 'File Link',
+  note: 'Internal Note',
+};
+
+const normalizeCommaSeparated = (value: string, uppercase = false) =>
+  value
+    .split(',')
+    .map((part) => (uppercase ? part.trim().toUpperCase() : part.trim()))
+    .filter(Boolean);
 
 export default function Reports() {
   const reports = useReportsStore((s) => s.reports);
@@ -30,8 +49,16 @@ export default function Reports() {
     return reports.filter((report) => {
       if (tag && !report.tags.some((t) => t.toLowerCase().includes(tag))) return false;
       if (query) {
-        const body = `${report.title} ${report.summary} ${report.notes ?? ''} ${report.tickers.join(' ')} ${report.tags.join(' ')}`.toLowerCase();
-        if (!body.includes(query)) return false;
+        const bucket = [
+          report.title,
+          report.summary,
+          report.notes ?? '',
+          report.tickers.join(' '),
+          report.tags.join(' '),
+        ]
+          .join(' ')
+          .toLowerCase();
+        if (!bucket.includes(query)) return false;
       }
       return true;
     });
@@ -39,9 +66,8 @@ export default function Reports() {
 
   const selected = useMemo(() => {
     if (!filtered.length) return null;
-    const fallback = filtered[0];
-    const pick = filtered.find((report) => report.id === lastSelectedId);
-    return pick || fallback;
+    const byId = filtered.find((report) => report.id === lastSelectedId);
+    return byId ?? filtered[0];
   }, [filtered, lastSelectedId]);
 
   return (
@@ -49,7 +75,9 @@ export default function Reports() {
       <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-100">Stock Reports</h1>
-          <p className="text-sm text-gray-400">AI 生成や外部レポートを安全に保管し、ワンクリックでアクセス。</p>
+          <p className="text-sm text-gray-400">
+            生成AIや外部サービスで作成したレポートを保存し、ワンクリックでアクセス。
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <input
@@ -75,9 +103,9 @@ export default function Reports() {
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
-        <section className="space-y-3">
+        <aside className="space-y-3">
           <h2 className="text-sm font-semibold text-gray-400">レポート一覧 ({filtered.length})</h2>
-          <div className="space-y-2 overflow-y-auto rounded-lg border border-gray-700 bg-gray-900/70 p-2 max-h-[540px]">
+          <div className="max-h-[520px] space-y-2 overflow-y-auto rounded-lg border border-gray-700 bg-gray-900/70 p-2">
             {filtered.length === 0 && (
               <p className="rounded-md border border-dashed border-gray-700 bg-gray-900/60 p-4 text-sm text-gray-400">
                 条件に一致するレポートがありません。
@@ -91,13 +119,17 @@ export default function Reports() {
                   type="button"
                   onClick={() => setLastSelected(report.id)}
                   className={`w-full rounded-md border px-3 py-3 text-left transition ${
-                    isActive ? 'border-indigo-400 bg-indigo-500/20 text-indigo-100' : 'border-gray-700 bg-gray-900/80 text-gray-200 hover:border-gray-500'
+                    isActive
+                      ? 'border-indigo-400 bg-indigo-500/20 text-indigo-100'
+                      : 'border-gray-700 bg-gray-900/80 text-gray-200 hover:border-gray-500'
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <h3 className="text-sm font-semibold line-clamp-2">{report.title}</h3>
-                      <p className="mt-1 text-xs text-gray-400">{new Date(report.createdAt).toLocaleString('ja-JP')}</p>
+                      <p className="mt-1 text-xs text-gray-400">
+                        {new Date(report.createdAt).toLocaleString('ja-JP')}
+                      </p>
                     </div>
                     {report.isFavorite && <span className="text-xs text-amber-300">★</span>}
                   </div>
@@ -114,7 +146,7 @@ export default function Reports() {
               );
             })}
           </div>
-        </section>
+        </aside>
 
         <section className="space-y-4">
           <h2 className="text-sm font-semibold text-gray-400">レポート詳細</h2>
@@ -123,13 +155,20 @@ export default function Reports() {
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <h3 className="text-xl font-semibold text-gray-100">{selected.title}</h3>
-                  <p className="text-xs text-gray-400">作成日 {new Date(selected.createdAt).toLocaleString('ja-JP')}</p>
+                  <p className="text-xs text-gray-400">
+                    作成日 {new Date(selected.createdAt).toLocaleString('ja-JP')}
+                    {selected.updatedAt ? ` / 更新日 ${new Date(selected.updatedAt).toLocaleString('ja-JP')}` : ''}
+                  </p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => toggleFavorite(selected.id)}
-                    className={`rounded-md px-3 py-1 text-xs font-semibold ${selected.isFavorite ? 'bg-amber-400/20 text-amber-300 border border-amber-400/40' : 'bg-gray-800 text-gray-300 border border-gray-600 hover:bg-gray-700'}`}
+                    className={`rounded-md px-3 py-1 text-xs font-semibold ${
+                      selected.isFavorite
+                        ? 'border border-amber-400/40 bg-amber-400/20 text-amber-300'
+                        : 'border border-gray-600 bg-gray-800 text-gray-300 hover:bg-gray-700'
+                    }`}
                   >
                     {selected.isFavorite ? 'お気に入り解除' : 'お気に入り'}
                   </button>
@@ -143,37 +182,38 @@ export default function Reports() {
                 </div>
               </div>
 
-              <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-200">{selected.summary || '概要未入力'}</p>
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-200">
+                {selected.summary || '概要未入力'}
+              </p>
 
-              <div className="grid gap-2 text-sm text-gray-300 sm:grid-cols-2">
-                <div>
-                  <span className="text-xs uppercase tracking-wide text-gray-500">関連銘柄</span>
-                  <p>{selected.tickers.length ? selected.tickers.join(', ') : '未設定'}</p>
-                </div>
-                <div>
-                  <span className="text-xs uppercase tracking-wide text-gray-500">タグ</span>
-                  <p>{selected.tags.length ? selected.tags.join(', ') : '未設定'}</p>
-                </div>
+              <div className="grid gap-3 text-sm text-gray-300 sm:grid-cols-2">
+                <InfoBlock label="関連銘柄" value={selected.tickers.length ? selected.tickers.join(', ') : '未設定'} />
+                <InfoBlock label="タグ" value={selected.tags.length ? selected.tags.join(', ') : '未設定'} />
               </div>
 
               {selected.links.length > 0 && (
-                <div className="space-y-2">
+                <div className="space-y-2 text-sm text-gray-200">
                   <span className="text-xs uppercase tracking-wide text-gray-500">リンク</span>
-                  <ul className="space-y-1 text-sm">
+                  <ul className="space-y-1">
                     {selected.links.map((link) => (
-                      <li key={link.id} className="flex items-center justify-between gap-2 rounded-md bg-gray-800/60 px-3 py-2">
+                      <li
+                        key={link.id}
+                        className="flex items-start justify-between gap-2 rounded-md border border-gray-700 bg-gray-800/70 px-3 py-2"
+                      >
                         <div>
-                          <p className="font-semibold text-gray-200">{link.title || link.url}</p>
-                          <p className="text-xs text-gray-500">{link.type}</p>
+                          <p className="font-semibold text-gray-100">{link.title || link.url}</p>
+                          <p className="text-xs text-gray-500">{SOURCE_LABEL[link.type]}</p>
                         </div>
-                        <a
-                          href={link.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs font-semibold text-indigo-300 hover:text-indigo-100"
-                        >
-                          開く →
-                        </a>
+                        <div className="flex items-center gap-2">
+                          <a
+                            href={link.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs font-semibold text-indigo-300 hover:text-indigo-100"
+                          >
+                            開く →
+                          </a>
+                        </div>
                       </li>
                     ))}
                   </ul>
@@ -188,8 +228,8 @@ export default function Reports() {
               )}
             </article>
           ) : (
-            <div className="rounded-lg border border-dashed border-gray-700 bg-gray-900/60 p-8 text-center text-sm text-gray-400">
-              レポートを選択してください。
+            <div className="rounded-lg border border-dashed border-gray-700 bg-gray-900/60 p-12 text-center text-sm text-gray-400">
+              レポートを選択すると詳細が表示されます。
             </div>
           )}
         </section>
@@ -200,55 +240,77 @@ export default function Reports() {
   );
 }
 
+type InfoBlockProps = {
+  label: string;
+  value: string;
+};
+
+function InfoBlock({ label, value }: InfoBlockProps) {
+  return (
+    <div>
+      <span className="text-xs uppercase tracking-wide text-gray-500">{label}</span>
+      <p>{value}</p>
+    </div>
+  );
+}
+
 function AddReportModal({ onClose }: { onClose: () => void }) {
   const addReport = useReportsStore((s) => s.addReport);
   const [title, setTitle] = useState('');
   const [summary, setSummary] = useState('');
   const [tickers, setTickers] = useState('');
   const [tags, setTags] = useState('');
-  const [linkUrl, setLinkUrl] = useState('');
-  const [linkTitle, setLinkTitle] = useState('');
-  const [linkType, setLinkType] = useState<ReportSourceType>('url');
+  const [links, setLinks] = useState<LinkDraft[]>([createEmptyLinkDraft()]);
   const [notes, setNotes] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!title.trim()) return;
-    const normalizedTickers = tickers
-      .split(',')
-      .map((value) => value.trim().toUpperCase())
-      .filter(Boolean);
-    const normalizedTags = tags
-      .split(',')
-      .map((value) => value.trim())
-      .filter(Boolean);
-    const links = linkUrl.trim()
-      ? [
-          {
-            id: uuidv4(),
-            type: linkType,
-            url: linkUrl.trim(),
-            title: linkTitle.trim() || undefined,
-          } as const,
-        ]
-      : [];
+    if (!title.trim()) {
+      setError('タイトルを入力してください。');
+      return;
+    }
+    const cleanedLinks: ReportLink[] = links
+      .filter((link) => link.url.trim())
+      .map((link) => ({
+        id: link.id,
+        type: link.type,
+        url: link.url.trim(),
+        title: link.title.trim() || undefined,
+      }));
+    if (!cleanedLinks.length) {
+      setError('最低1つのリンクを入力してください。');
+      return;
+    }
     addReport({
       title: title.trim(),
       summary: summary.trim(),
-      tickers: normalizedTickers,
-      tags: normalizedTags,
-      links,
+      tickers: normalizeCommaSeparated(tickers, true),
+      tags: normalizeCommaSeparated(tags, false),
+      links: cleanedLinks,
       notes: notes.trim() || undefined,
       isFavorite: false,
     });
     onClose();
   };
 
+  const updateLink = (id: string, patch: Partial<LinkDraft>) => {
+    setLinks((prev) => prev.map((link) => (link.id === id ? { ...link, ...patch } : link)));
+  };
+
+  const removeLink = (id: string) => {
+    setLinks((prev) => (prev.length <= 1 ? prev : prev.filter((link) => link.id !== id)));
+  };
+
+  const addLinkRow = () => {
+    setLinks((prev) => [...prev, createEmptyLinkDraft()]);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-2xl space-y-4 rounded-lg border border-gray-700 bg-gray-900 p-6 shadow-xl"
+        className="w-full max-w-3xl space-y-5 rounded-lg border border-gray-700 bg-gray-900 p-6 shadow-xl"
       >
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-100">レポートを追加</h2>
@@ -256,6 +318,11 @@ function AddReportModal({ onClose }: { onClose: () => void }) {
             ✕
           </button>
         </div>
+        {error && (
+          <div className="rounded-md border border-red-500/60 bg-red-500/10 px-4 py-2 text-sm text-red-200">
+            {error}
+          </div>
+        )}
 
         <label className="block space-y-1 text-sm">
           <span className="text-gray-400">タイトル</span>
@@ -263,7 +330,7 @@ function AddReportModal({ onClose }: { onClose: () => void }) {
             value={title}
             onChange={(event) => setTitle(event.target.value)}
             className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-gray-100 focus:border-indigo-500 focus:outline-none"
-            placeholder="例: AI業界 2025年展望"
+            placeholder="例: 生成AI関連の市場レポート"
             required
           />
         </label>
@@ -281,7 +348,7 @@ function AddReportModal({ onClose }: { onClose: () => void }) {
 
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block space-y-1 text-sm">
-            <span className="text-gray-400">銘柄コード</span>
+            <span className="text-gray-400">銘柄コード (カンマ区切り)</span>
             <input
               value={tickers}
               onChange={(event) => setTickers(event.target.value)}
@@ -290,7 +357,7 @@ function AddReportModal({ onClose }: { onClose: () => void }) {
             />
           </label>
           <label className="block space-y-1 text-sm">
-            <span className="text-gray-400">タグ</span>
+            <span className="text-gray-400">タグ (カンマ区切り)</span>
             <input
               value={tags}
               onChange={(event) => setTags(event.target.value)}
@@ -300,41 +367,57 @@ function AddReportModal({ onClose }: { onClose: () => void }) {
           </label>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-[160px_1fr]">
-          <label className="block space-y-1 text-sm">
-            <span className="text-gray-400">リンク種別</span>
-            <select
-              value={linkType}
-              onChange={(event) => setLinkType(event.target.value as ReportSourceType)}
-              className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-gray-100 focus:border-indigo-500 focus:outline-none"
-            >
-              {SOURCE_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="grid gap-2">
-            <label className="space-y-1 text-sm">
-              <span className="text-gray-400">リンク URL</span>
+        <div className="space-y-3">
+          <span className="block text-sm font-semibold text-gray-300">リンク</span>
+          {links.map((link, index) => (
+            <div key={link.id} className="grid gap-3 rounded-md border border-gray-700 bg-gray-800/60 p-3 sm:grid-cols-[160px_1fr_120px]">
+              <select
+                value={link.type}
+                onChange={(event) => updateLink(link.id, { type: event.target.value as ReportSourceType })}
+                className="rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100 focus:border-indigo-500 focus:outline-none"
+              >
+                {Object.entries(SOURCE_LABEL).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
               <input
-                value={linkUrl}
-                onChange={(event) => setLinkUrl(event.target.value)}
-                className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-gray-100 focus:border-indigo-500 focus:outline-none"
+                value={link.url}
+                onChange={(event) => updateLink(link.id, { url: event.target.value })}
                 placeholder="https://"
+                className="rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100 focus:border-indigo-500 focus:outline-none"
+                required
               />
-            </label>
-            <label className="space-y-1 text-sm">
-              <span className="text-gray-400">リンクタイトル</span>
-              <input
-                value={linkTitle}
-                onChange={(event) => setLinkTitle(event.target.value)}
-                className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-gray-100 focus:border-indigo-500 focus:outline-none"
-                placeholder="例: Google Docs"
-              />
-            </label>
-          </div>
+              <div className="flex gap-2">
+                <input
+                  value={link.title}
+                  onChange={(event) => updateLink(link.id, { title: event.target.value })}
+                  placeholder="リンクタイトル"
+                  className="w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100 focus:border-indigo-500 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeLink(link.id)}
+                  className="rounded-md border border-red-500/50 px-3 py-2 text-xs text-red-300 hover:bg-red-500/10"
+                  disabled={links.length <= 1}
+                >
+                  削除
+                </button>
+              </div>
+              {index === links.length - 1 && (
+                <div className="sm:col-span-3">
+                  <button
+                    type="button"
+                    onClick={addLinkRow}
+                    className="rounded-md border border-gray-600 px-3 py-1 text-xs text-gray-300 hover:bg-gray-700"
+                  >
+                    さらにリンクを追加
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
         </div>
 
         <label className="block space-y-1 text-sm">
@@ -359,4 +442,13 @@ function AddReportModal({ onClose }: { onClose: () => void }) {
       </form>
     </div>
   );
+}
+
+function createEmptyLinkDraft(): LinkDraft {
+  return {
+    id: uuidv4(),
+    type: 'url',
+    url: '',
+    title: '',
+  };
 }
