@@ -10,6 +10,8 @@ import fs from 'node:fs';
 
 import dotenv from 'dotenv';
 
+import { randomUUID } from 'node:crypto';
+
 import { spawn } from 'node:child_process';
 
 import { Q1Monitor } from './q1-monitor.mjs';
@@ -73,6 +75,205 @@ const US_INDUSTRY_PYTHON_CANDIDATES = [
 
 ];
 
+const REPORTS_DATA_PATH = path.resolve(PROJECT_ROOT, 'data/reports.json');
+
+const REPORT_ALLOWED_SOURCE_TYPES = new Set(['url', 'google-doc', 'file', 'note']);
+
+function generateSeedReports() {
+  const nowIso = new Date().toISOString();
+  return [
+    {
+      id: randomUUID(),
+      title: 'Sample Market Outlook (2025-10-10)',
+      summary: 'Starter report generated for new installations. Replace with your own content.',
+      createdAt: nowIso,
+      updatedAt: nowIso,
+      tickers: ['AAPL', 'MSFT', 'GOOGL'],
+      tags: ['sample', 'technology'],
+      links: [
+        {
+          id: randomUUID(),
+          type: 'url',
+          url: 'https://example.com/reports/sample-market-outlook-2025-10-10',
+          title: 'Sample reference',
+        },
+      ],
+      notes: 'This is a placeholder record created on first run.',
+      isFavorite: true,
+    },
+  ];
+}
+
+function normalizeStringArray(value, opts = {}) {
+  const uppercase = Boolean(opts.uppercase);
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => (typeof item === 'string' ? item.trim() : ''))
+      .filter(Boolean)
+      .map((item) => (uppercase ? item.toUpperCase() : item));
+  }
+  if (typeof value === 'string') {
+    return value
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .map((item) => (uppercase ? item.toUpperCase() : item));
+  }
+  return [];
+}
+
+function normalizeLinks(rawLinks) {
+  const list = Array.isArray(rawLinks) ? rawLinks : [];
+  const out = [];
+  for (const entry of list) {
+    if (!entry || typeof entry !== 'object') continue;
+    const url = typeof entry.url === 'string' ? entry.url.trim() : '';
+    if (!url) continue;
+    const type = REPORT_ALLOWED_SOURCE_TYPES.has(entry.type) ? entry.type : 'url';
+    const id = typeof entry.id === 'string' && entry.id.trim() ? entry.id.trim() : randomUUID();
+    const title = typeof entry.title === 'string' ? entry.title.trim() : '';
+    const description = typeof entry.description === 'string' ? entry.description.trim() : '';
+    const link = { id, type, url };
+    if (title) link.title = title;
+    if (description) link.description = description;
+    out.push(link);
+  }
+  return out;
+}
+
+function normalizeStoredReport(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const id = typeof raw.id === 'string' && raw.id.trim() ? raw.id.trim() : randomUUID();
+  const title = typeof raw.title === 'string' && raw.title.trim() ? raw.title.trim() : 'Untitled report';
+  const summary = typeof raw.summary === 'string' ? raw.summary.trim() : '';
+  const createdAt = typeof raw.createdAt === 'string' && raw.createdAt ? raw.createdAt : new Date().toISOString();
+  const updatedAt = typeof raw.updatedAt === 'string' && raw.updatedAt ? raw.updatedAt : createdAt;
+  const tickers = normalizeStringArray(raw.tickers, { uppercase: true });
+  const tags = normalizeStringArray(raw.tags);
+  const links = normalizeLinks(raw.links);
+  const notes = typeof raw.notes === 'string' ? raw.notes.trim() : '';
+  const isFavorite = Boolean(raw.isFavorite);
+  return {
+    id,
+    title,
+    summary,
+    createdAt,
+    updatedAt,
+    tickers,
+    tags,
+    links,
+    notes: notes || undefined,
+    isFavorite,
+  };
+}
+
+function cloneReport(report) {
+  return {
+    id: report.id,
+    title: report.title,
+    summary: report.summary ?? '',
+    createdAt: report.createdAt,
+    updatedAt: report.updatedAt ?? report.createdAt,
+    tickers: Array.isArray(report.tickers) ? report.tickers.slice() : [],
+    tags: Array.isArray(report.tags) ? report.tags.slice() : [],
+    links: Array.isArray(report.links)
+      ? report.links.map((link) => ({ ...link }))
+      : [],
+    notes: report.notes ?? undefined,
+    isFavorite: Boolean(report.isFavorite),
+  };
+}
+
+class ReportValidationError extends Error {
+  constructor(message, code = 'invalid_input') {
+    super(message);
+    this.name = 'ReportValidationError';
+    this.code = code;
+    this.status = 400;
+  }
+}
+
+async function loadReports() {
+  try {
+    const raw = await fsp.readFile(REPORTS_DATA_PATH, 'utf8');
+    const json = JSON.parse(raw || 'null');
+    const arr = Array.isArray(json?.reports) ? json.reports : [];
+    const normalized = arr.map(normalizeStoredReport).filter(Boolean);
+    return normalized;
+  } catch (error) {
+    if (error && error.code === 'ENOENT') {
+      const seeds = generateSeedReports();
+      await saveReports(seeds);
+      return seeds;
+    }
+    console.warn('Failed to read reports data:', error);
+    const seeds = generateSeedReports();
+    await saveReports(seeds);
+    return seeds;
+  }
+}
+
+async function saveReports(reports) {
+  const dir = path.dirname(REPORTS_DATA_PATH);
+  try {
+    await fsp.mkdir(dir, { recursive: true });
+  } catch {}
+  const payload = {
+    version: 1,
+    updatedAt: new Date().toISOString(),
+    reports: reports.map(cloneReport),
+  };
+  await fsp.writeFile(REPORTS_DATA_PATH, JSON.stringify(payload, null, 2), 'utf8');
+}
+
+function sanitizeNewReportPayload(payload) {
+  const title = typeof payload?.title === 'string' ? payload.title.trim() : '';
+  if (!title) throw new ReportValidationError('Title is required', 'title_required');
+  const summary = typeof payload?.summary === 'string' ? payload.summary.trim() : '';
+  const tickers = normalizeStringArray(payload?.tickers, { uppercase: true });
+  const tags = normalizeStringArray(payload?.tags);
+  const links = normalizeLinks(payload?.links);
+  if (!links.length) throw new ReportValidationError('At least one link is required', 'link_required');
+  const notes = typeof payload?.notes === 'string' ? payload.notes.trim() : '';
+  const isFavorite = Boolean(payload?.isFavorite);
+  return { title, summary, tickers, tags, links, notes: notes || undefined, isFavorite };
+}
+
+function applyReportPatch(report, patch) {
+  const next = cloneReport(report);
+  if (typeof patch?.title === 'string') {
+    const title = patch.title.trim();
+    if (!title) throw new ReportValidationError('Title is required', 'title_required');
+    next.title = title;
+  }
+  if (typeof patch?.summary === 'string') {
+    next.summary = patch.summary.trim();
+  }
+  if (Object.prototype.hasOwnProperty.call(patch, 'tickers')) {
+    next.tickers = normalizeStringArray(patch.tickers, { uppercase: true });
+  }
+  if (Object.prototype.hasOwnProperty.call(patch, 'tags')) {
+    next.tags = normalizeStringArray(patch.tags);
+  }
+  if (Object.prototype.hasOwnProperty.call(patch, 'links')) {
+    const links = normalizeLinks(patch.links);
+    if (!links.length) throw new ReportValidationError('At least one link is required', 'link_required');
+    next.links = links;
+  }
+  if (Object.prototype.hasOwnProperty.call(patch, 'notes')) {
+    if (typeof patch.notes === 'string') {
+      const notes = patch.notes.trim();
+      next.notes = notes || undefined;
+    } else {
+      next.notes = undefined;
+    }
+  }
+  if (Object.prototype.hasOwnProperty.call(patch, 'isFavorite')) {
+    next.isFavorite = Boolean(patch.isFavorite);
+  }
+  next.updatedAt = new Date().toISOString();
+  return next;
+}
 let usIndustryLastPayload = null;
 
 let usIndustryLastGeneratedAt = 0;
@@ -2281,6 +2482,91 @@ app.get('/api/fgi', async (_req, res) => {
 
 
 
+// Reports management API
+
+app.get('/api/reports', async (_req, res) => {
+  try {
+    const reports = await loadReports();
+    res.json({ reports: reports.map(cloneReport) });
+  } catch (error) {
+    console.error('Failed to load reports:', error);
+    res.status(500).json({ error: 'failed_to_load_reports' });
+  }
+});
+
+app.post('/api/reports', async (req, res) => {
+  try {
+    const payload = sanitizeNewReportPayload(req.body || {});
+    const timestamp = new Date().toISOString();
+    const report = {
+      id: randomUUID(),
+      ...payload,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    const existing = await loadReports();
+    const next = [report, ...existing];
+    await saveReports(next);
+    res.status(201).json({ report: cloneReport(report) });
+  } catch (error) {
+    if (error instanceof ReportValidationError) {
+      res.status(error.status || 400).json({ error: error.code || 'invalid_input', message: error.message });
+      return;
+    }
+    console.error('Failed to create report:', error);
+    res.status(500).json({ error: 'failed_to_create_report' });
+  }
+});
+
+app.patch('/api/reports/:id', async (req, res) => {
+  const reportId = (req.params?.id || '').trim();
+  if (!reportId) {
+    res.status(400).json({ error: 'invalid_report_id' });
+    return;
+  }
+  try {
+    const existing = await loadReports();
+    const index = existing.findIndex((item) => item.id === reportId);
+    if (index === -1) {
+      res.status(404).json({ error: 'report_not_found' });
+      return;
+    }
+    const updated = applyReportPatch(existing[index], req.body || {});
+    const next = existing.slice();
+    next[index] = updated;
+    await saveReports(next);
+    res.json({ report: cloneReport(updated) });
+  } catch (error) {
+    if (error instanceof ReportValidationError) {
+      res.status(error.status || 400).json({ error: error.code || 'invalid_input', message: error.message });
+      return;
+    }
+    console.error(`Failed to update report ${reportId}:`, error);
+    res.status(500).json({ error: 'failed_to_update_report' });
+  }
+});
+
+app.delete('/api/reports/:id', async (req, res) => {
+  const reportId = (req.params?.id || '').trim();
+  if (!reportId) {
+    res.status(400).json({ error: 'invalid_report_id' });
+    return;
+  }
+  try {
+    const existing = await loadReports();
+    const next = existing.filter((item) => item.id !== reportId);
+    if (next.length === existing.length) {
+      res.status(404).json({ error: 'report_not_found' });
+      return;
+    }
+    await saveReports(next);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error(`Failed to delete report ${reportId}:`, error);
+    res.status(500).json({ error: 'failed_to_delete_report' });
+  }
+});
+
 // Signals stub
 
 app.get('/api/signals', async (_req, res) => { res.json({}); });
@@ -2499,6 +2785,9 @@ app.listen(PORT, () => {
   scheduleTopixRefresh();
 
 });
+
+
+
 
 
 

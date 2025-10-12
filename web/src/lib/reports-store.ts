@@ -1,6 +1,5 @@
 ﻿import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import { v4 as uuidv4 } from 'uuid';
+import { createJSONStorage, persist } from 'zustand/middleware';
 
 export type ReportSourceType = 'url' | 'google-doc' | 'file' | 'note';
 
@@ -25,101 +24,210 @@ export type StockReport = {
   isFavorite?: boolean;
 };
 
+type CreateReportInput = {
+  title: string;
+  summary: string;
+  tickers: string[];
+  tags: string[];
+  links: ReportLink[];
+  notes?: string;
+  isFavorite?: boolean;
+};
+
 type ReportsState = {
   reports: StockReport[];
   lastSelectedId: string | null;
+  isLoading: boolean;
+  hasHydrated: boolean;
+  error: string | null;
 };
 
 type ReportsActions = {
-  addReport: (input: Omit<StockReport, 'id' | 'createdAt' | 'updatedAt'>) => StockReport;
-  updateReport: (id: string, updater: (report: StockReport) => StockReport) => void;
-  removeReport: (id: string) => void;
-  toggleFavorite: (id: string) => void;
+  loadReports: () => Promise<void>;
+  addReport: (input: CreateReportInput) => Promise<StockReport>;
+  removeReport: (id: string) => Promise<void>;
+  toggleFavorite: (id: string) => Promise<void>;
   setLastSelected: (id: string | null) => void;
+  clearError: () => void;
 };
 
-const SEED_REPORTS: StockReport[] = [
-  {
-    id: uuidv4(),
-    title: '生成AIマーケット概況 (2025-10-10)',
-    summary:
-      '生成AIで作成した最新の米国大型株レポート。AAPL、MSFT、GOOGL など主要テック銘柄の評価と、生成AI関連サプライチェーンの収益見通しをまとめています。',
-    createdAt: new Date().toISOString(),
-    tickers: ['AAPL', 'MSFT', 'GOOGL'],
-    tags: ['生成AI', '米国株', '決算レビュー'],
-    links: [
-      {
-        id: uuidv4(),
-        type: 'url',
-        url: 'https://example.com/reports/ai-overview-2025-10-10',
-        title: 'AI Overview 2025-10-10',
-      },
-    ],
-    notes: 'ChatGPT-4o、Claude を併用して生成。',
-    isFavorite: true,
-  },
-  {
-    id: uuidv4(),
-    title: 'トヨタ決算サマリー (FY2025 Q2)',
-    summary:
-      '生成AIで作成したトヨタ自動車の決算要約。国内需要とEV戦略、為替感応度、2026年までのEPS見通しを整理。',
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 7).toISOString(),
-    tickers: ['7203.T'],
-    tags: ['日本株', '決算サマリー'],
-    links: [
-      {
-        id: uuidv4(),
-        type: 'google-doc',
-        url: 'https://docs.google.com/document/d/placeholder',
-        title: 'Toyota FY2025 Q2 Summary',
-      },
-    ],
-    notes: 'Google Docs 共有リンク。アクセス権限に注意。',
-  },
-];
+const DEFAULT_BACKEND_URL =
+  typeof window !== 'undefined' && window?.location?.origin
+    ? window.location.origin
+    : 'http://127.0.0.1:8000';
 
-const ensureId = (report: StockReport): StockReport => ({
-  ...report,
-  id: report.id || uuidv4(),
-});
+const rawBackendUrl =
+  (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_BACKEND_URL) || DEFAULT_BACKEND_URL;
+
+const API_BASE = String(rawBackendUrl).replace(/\/+$/, '');
+
+type ApiReportResponse = { report: StockReport };
+type ApiReportsResponse = { reports: StockReport[] };
+
+async function fetchJson<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const url = new URL(path, API_BASE);
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    ...(init.headers as Record<string, string> | undefined),
+  };
+  if (init.body && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json';
+  }
+  const response = await fetch(url.toString(), { ...init, headers });
+  let data: any = null;
+  try {
+    data = await response.json();
+  } catch {
+    data = null;
+  }
+  if (!response.ok) {
+    const message =
+      typeof data?.message === 'string'
+        ? data.message
+        : typeof data?.error === 'string'
+        ? data.error
+        : `Request failed (${response.status})`;
+    const error = new Error(message);
+    (error as any).status = response.status;
+    (error as any).details = data;
+    throw error;
+  }
+  return data as T;
+}
+
+function serializeLinks(links: ReportLink[]): ReportLink[] {
+  return links
+    .filter((link) => link && typeof link.url === 'string' && link.url.trim())
+    .map((link) => {
+      const url = link.url.trim();
+      const title = link.title?.trim();
+      const description = link.description?.trim();
+      const out: ReportLink = {
+        id: link.id,
+        type: link.type,
+        url,
+      };
+      if (title) out.title = title;
+      if (description) out.description = description;
+      return out;
+    });
+}
 
 export const useReportsStore = create<ReportsState & ReportsActions>()(
   persist(
     (set, get) => ({
-      reports: SEED_REPORTS.map(ensureId),
-      lastSelectedId: SEED_REPORTS[0]?.id ?? null,
-      addReport: (input) => {
-        const now = new Date().toISOString();
-        const report: StockReport = {
-          ...input,
-          id: uuidv4(),
-          createdAt: now,
-          updatedAt: now,
+      reports: [],
+      lastSelectedId: null,
+      isLoading: false,
+      hasHydrated: false,
+      error: null,
+      async loadReports() {
+        set({ isLoading: true, error: null });
+        try {
+          const data = await fetchJson<ApiReportsResponse>('/api/reports');
+          const reports = Array.isArray(data?.reports) ? data.reports : [];
+          set((state) => {
+            const current = state.lastSelectedId;
+            const selected = reports.find((report) => report.id === current)
+              ? current
+              : reports[0]?.id ?? null;
+            return {
+              reports,
+              lastSelectedId: selected,
+              isLoading: false,
+              hasHydrated: true,
+              error: null,
+            };
+          });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Failed to load reports';
+          set({ isLoading: false, hasHydrated: true, error: message });
+        }
+      },
+      async addReport(input) {
+        set({ error: null });
+        const payload = {
+          title: input.title,
+          summary: input.summary,
+          tickers: input.tickers,
+          tags: input.tags,
+          links: serializeLinks(input.links),
+          notes: typeof input.notes === 'string' && input.notes.trim() ? input.notes.trim() : undefined,
+          isFavorite: Boolean(input.isFavorite),
         };
-        set((state) => ({ reports: [report, ...state.reports], lastSelectedId: report.id }));
-        return report;
+        try {
+          const data = await fetchJson<ApiReportResponse>('/api/reports', {
+            method: 'POST',
+            body: JSON.stringify(payload),
+          });
+          const report = data?.report;
+          if (!report) {
+            throw new Error('Invalid response from server');
+          }
+          set((state) => {
+            const deduped = state.reports.filter((item) => item.id !== report.id);
+            return {
+              reports: [report, ...deduped],
+              lastSelectedId: report.id,
+            };
+          });
+          return report;
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Failed to add report';
+          set({ error: message });
+          throw error instanceof Error ? error : new Error(message);
+        }
       },
-      updateReport: (id, updater) => {
+      async removeReport(id) {
+        if (!id) return;
+        try {
+          await fetchJson(`/api/reports/${encodeURIComponent(id)}`, { method: 'DELETE' });
+          set((state) => {
+            const next = state.reports.filter((report) => report.id !== id);
+            const nextSelected =
+              state.lastSelectedId === id ? next[0]?.id ?? null : state.lastSelectedId;
+            return { reports: next, lastSelectedId: nextSelected };
+          });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Failed to delete report';
+          set({ error: message });
+        }
+      },
+      async toggleFavorite(id) {
+        if (!id) return;
+        const current = get().reports.find((report) => report.id === id);
+        if (!current) return;
+        const nextFlag = !current.isFavorite;
         set((state) => ({
           reports: state.reports.map((report) =>
-            report.id === id ? { ...updater(report), updatedAt: new Date().toISOString() } : report
+            report.id === id ? { ...report, isFavorite: nextFlag } : report
           ),
         }));
+        try {
+          const data = await fetchJson<ApiReportResponse>(`/api/reports/${encodeURIComponent(id)}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ isFavorite: nextFlag }),
+          });
+          const report = data?.report;
+          if (report) {
+            set((state) => ({
+              reports: state.reports.map((item) => (item.id === id ? report : item)),
+            }));
+          }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Failed to update favorite flag';
+          set((state) => ({
+            reports: state.reports.map((item) => (item.id === id ? current : item)),
+            error: message,
+          }));
+        }
       },
-      removeReport: (id) => {
-        set((state) => ({
-          reports: state.reports.filter((r) => r.id !== id),
-          lastSelectedId: state.lastSelectedId === id ? state.reports.find((r) => r.id !== id)?.id ?? null : state.lastSelectedId,
-        }));
+      setLastSelected(id) {
+        set({ lastSelectedId: id });
       },
-      toggleFavorite: (id) => {
-        set((state) => ({
-          reports: state.reports.map((report) =>
-            report.id === id ? { ...report, isFavorite: !report.isFavorite } : report
-          ),
-        }));
+      clearError() {
+        set({ error: null });
       },
-      setLastSelected: (id) => set({ lastSelectedId: id }),
     }),
     {
       name: 'reports-store',
