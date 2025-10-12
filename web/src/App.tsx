@@ -22,7 +22,7 @@ export default function App() {
         const viaHash = h?.toLowerCase();
         const viaQuery = (q.get('tab') || '').toLowerCase();
         const pick = (s: string | null | undefined) =>
-          s === 'dashboard' || s === 'portfolio' || s === 'analysis' || s === 'usdjpy' || s === 'topix' || s === 'settings'
+          s === 'dashboard' || s === 'portfolio' || s === 'analysis' || s === 'usdjpy' || s === 'topix' || s === 'reports' || s === 'settings'
             ? (s as TabKey)
             : null;
         return pick(viaHash) || pick(viaQuery) || 'dashboard';
@@ -40,7 +40,7 @@ export default function App() {
     const handle = () => {
       try {
         const hash = (window.location.hash || '').replace('#', '').toLowerCase();
-        if (hash === 'dashboard' || hash === 'portfolio' || hash === 'analysis' || hash === 'usdjpy' || hash === 'topix' || hash === 'settings') {
+        if (hash === 'dashboard' || hash === 'portfolio' || hash === 'analysis' || hash === 'usdjpy' || hash === 'topix' || hash === 'reports' || hash === 'settings') {
           setTab((prev) => (prev === hash ? prev : (hash as TabKey)));
         }
       } catch {}
@@ -88,7 +88,7 @@ export default function App() {
       const h = (window.location.hash || '').replace('#', '').toLowerCase();
       const q = new URLSearchParams(window.location.search);
       const via = (h || q.get('tab') || '').toLowerCase();
-      if (via === 'analysis' || via === 'dashboard' || via === 'portfolio' || via === 'usdjpy' || via === 'topix' || via === 'settings') {
+      if (via === 'analysis' || via === 'dashboard' || via === 'portfolio' || via === 'usdjpy' || via === 'topix' || via === 'reports' || via === 'settings') {
         setTab(via as TabKey);
       }
     } catch {}
