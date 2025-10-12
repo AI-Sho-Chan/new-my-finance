@@ -8,6 +8,7 @@ export default function NavBar({ activeTab, setActiveTab }: { activeTab: TabKey;
     { id: 'usdjpy', label: 'ドル円', icon: <PieChartIcon /> },
     { id: 'topix', label: 'TOPIX', icon: <PieChartIcon /> },
     { id: 'analysis', label: '分析', icon: <PieChartIcon /> },
+    { id: 'reports', label: 'レポート', icon: <PieChartIcon /> },
     { id: 'settings', label: '設定', icon: <SettingsIcon /> },
   ];
   return (
