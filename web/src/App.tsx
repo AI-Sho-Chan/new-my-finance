@@ -2,7 +2,8 @@
 import Dashboard from './components/Dashboard';
 import Portfolio from './components/Portfolio';
 import Analysis from './components/Analysis';
-import Settings from './components/Settings';
+import Settings from './components/Settings';
+
 import Reports from './components/Reports';
 import UsdJpyDashboard from './components/UsdJpyDashboard';
 import TopixDashboard from './components/TopixDashboard';
@@ -209,6 +210,7 @@ export default function App() {
             {tab === 'usdjpy' && <UsdJpyDashboard />}
             {tab === 'topix' && <TopixDashboard />}
             {tab === 'analysis' && <Analysis />}
+            {tab === 'reports' && <Reports />}
             {tab === 'settings' && <Settings />}
           </main>
         </div>
