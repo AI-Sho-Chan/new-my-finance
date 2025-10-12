@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "updatedAt": "2025-10-12T19:48:29.032Z",
+  "reports": [
+    {
+      "id": "6ececa3a-2d93-4238-bd11-83bf7d03a781",
+      "title": "【買い】アクセンチュア　投資レポート｜生成AIコンサルと広告プラットフォーム+人員削減",
+      "summary": "",
+      "createdAt": "2025-10-12T19:48:29.031Z",
+      "updatedAt": "2025-10-12T19:48:29.031Z",
+      "tickers": [],
+      "tags": [],
+      "links": [
+        {
+          "id": "ca28d556-3cdf-45c7-b54e-329f9e399abf",
+          "type": "url",
+          "url": "https://g.co/gemini/share/bb70aa11423e"
+        }
+      ],
+      "isFavorite": false
+    },
+    {
+      "id": "dd71f9fc-3cda-4bd4-8f2e-4e2d00b5a7d5",
+      "title": "米国企業30％成長銘柄",
+      "summary": "",
+      "createdAt": "2025-10-12T13:17:01.668Z",
+      "updatedAt": "2025-10-12T13:17:01.668Z",
+      "tickers": [],
+      "tags": [],
+      "links": [
+        {
+          "id": "cc94c887-4c05-41f7-a826-3e37a4f9ff48",
+          "type": "url",
+          "url": "https://g.co/gemini/share/2b9ac0241905"
+        }
+      ],
+      "isFavorite": false
+    },
+    {
+      "id": "0d968abc-13c3-4e4e-8143-6b75f0c872e3",
+      "title": "京都フュージョニアリング　核融合銘柄",
+      "summary": "",
+      "createdAt": "2025-10-12T12:36:27.418Z",
+      "updatedAt": "2025-10-12T12:36:27.418Z",
+      "tickers": [],
+      "tags": [],
+      "links": [
+        {
+          "id": "da18c15b-b704-42a1-9843-6af89dae4077",
+          "type": "google-doc",
+          "url": "https://docs.google.com/document/d/1bXF0WHEGOyENIPAX5v64TbvtXaSQkeWGIGA-yTLtC_0/edit?tab=t.0"
+        }
+      ],
+      "isFavorite": false
+    },
+    {
+      "id": "125a8b08-4c8f-4de2-abb0-795fb01e8199",
+      "title": "Sample Market Outlook (2025-10-10)",
+      "summary": "Starter report generated for new installations. Replace with your own content.",
+      "createdAt": "2025-10-12T12:32:56.224Z",
+      "updatedAt": "2025-10-12T12:32:56.224Z",
+      "tickers": [
+        "AAPL",
+        "MSFT",
+        "GOOGL"
+      ],
+      "tags": [
+        "sample",
+        "technology"
+      ],
+      "links": [
+        {
+          "id": "04ec5f21-f3ee-4881-8b01-f74a4e3f0096",
+          "type": "url",
+          "url": "https://example.com/reports/sample-market-outlook-2025-10-10",
+          "title": "Sample reference"
+        }
+      ],
+      "notes": "This is a placeholder record created on first run.",
+      "isFavorite": true
+    }
+  ]
+}
